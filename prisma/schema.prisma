@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../prisma/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  FACULTY
+  HOD
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum RequestType {
+  COMPLAINT
+  GRIEVANCE
+  SERVICE_REQUEST
+  INQUIRY
+  SUGGESTION
+  APPEAL
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  ASSIGNED
+  UNDER_REVIEW
+  WAITING_FOR_STUDENT
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+  CLOSED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id String @id @default(cuid())
+
+  fullName     String
+  email        String  @unique
+  rollNumber   String? @unique
+  mobileNumber String? @unique
+
+  passwordHash String
+
+  resetPasswordToken       String?
+  resetPasswordTokenExpiry DateTime?
+
+  dateOfBirth DateTime?
+  gender      Gender?
+
+  role        Role       @default(STUDENT)
+  status      UserStatus @default(PENDING)
+  designation String?
+
+  rights String[] @default([])
+
+  departmentId String?
+  department   Department? @relation("DepartmentUsers", fields: [departmentId], references: [id])
+
+  courseId String?
+  course   Course? @relation(fields: [courseId], references: [id])
+
+  emailVerified Boolean @default(false)
+  phoneVerified Boolean @default(false)
+
+  profileImage String?
+
+  requests Request[] @relation("CreatedRequests")
+
+  requestActivities  RequestActivity[]
+  requestComments    RequestComment[]
+  requestAttachments RequestAttachment[]
+
+  assignments        RequestAssignment[] @relation("AssignedUser")
+  createdAssignments RequestAssignment[] @relation("AssignmentCreator")
+  watchedRequests    RequestWatcher[]    @relation("WatchedUser")
+  createdWatchers    RequestWatcher[]    @relation("WatcherCreator")
+
+  /// If this user is an HOD
+  managedDepartment Department? @relation("DepartmentHOD")
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  routingRules RoutingRule[]
+}
+
+model Department {
+  id String @id @default(cuid())
+
+  code String @unique
+  name String
+
+  /// Current HOD
+  hodId String? @unique
+  hod   User?   @relation("DepartmentHOD", fields: [hodId], references: [id])
+
+  /// All users in this department
+  users User[] @relation("DepartmentUsers")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  requests  Request[]
+}
+
+model Course {
+  id String @id @default(cuid())
+
+  code String @unique
+  name String
+
+  duration Int?
+
+  students User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id String @id @default(cuid())
+
+  name        String  @unique
+  description String?
+
+  requests Request[]
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  routingRules RoutingRule[]
+}
+
+model Request {
+  id String @id @default(cuid())
+
+  ticketId String @unique
+
+  subject     String
+  description String
+
+  type     RequestType
+  priority Priority
+  status   RequestStatus
+
+  createdById String
+  createdBy   User   @relation("CreatedRequests", fields: [createdById], references: [id])
+
+  isAnonymous Boolean @default(false)
+
+  activities  RequestActivity[]
+  comments    RequestComment[]
+  attachments RequestAttachment[]
+
+  assignments RequestAssignment[]
+  watchers    RequestWatcher[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+}
+
+enum ActivityType {
+  CREATED
+  ASSIGNED
+  FORWARDED
+  STATUS_CHANGED
+  COMMENTED
+  ATTACHMENT_ADDED
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+model RequestActivity {
+  id String @id @default(cuid())
+
+  requestId String
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id])
+
+  type ActivityType
+
+  oldValue String?
+  newValue String?
+
+  message String?
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId, createdAt])
+}
+
+model RequestComment {
+  id String @id @default(cuid())
+
+  requestId String
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  message String
+
+  internal Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId, createdAt])
+}
+
+model RequestAttachment {
+  id String @id @default(cuid())
+
+  requestId String
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  fileName String
+  fileUrl  String
+
+  mimeType String
+  fileSize Int
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId])
+}
+
+model RoutingRule {
+  id String @id @default(cuid())
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([categoryId, userId])
+  @@index([categoryId])
+  @@index([userId])
+}
+
+enum AssignmentRole {
+  PRIMARY
+  SECONDARY
+}
+
+enum AssignmentStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  DECLINED
+}
+
+model RequestAssignment {
+  id String @id @default(cuid())
+
+  requestId String
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("AssignedUser", fields: [userId], references: [id])
+
+  assignedById String?
+  assignedBy   User?   @relation("AssignmentCreator", fields: [assignedById], references: [id])
+
+  role   AssignmentRole   @default(PRIMARY)
+  status AssignmentStatus @default(PENDING)
+
+  assignedAt DateTime @default(now())
+
+  @@unique([requestId, userId])
+  @@index([requestId])
+  @@index([userId])
+}
+
+model RequestWatcher {
+  requestId String
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("WatchedUser", fields: [userId], references: [id])
+
+  addedById String?
+  addedBy   User?   @relation("WatcherCreator", fields: [addedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@id([requestId, userId])
+  @@index([userId])
+}
