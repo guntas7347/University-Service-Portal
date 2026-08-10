@@ -13,6 +13,8 @@
 
 .*
 
+!.dockerignore
+
 # testing
 /coverage
 
