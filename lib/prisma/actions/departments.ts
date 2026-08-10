@@ -9,43 +9,36 @@ export async function getDepartments() {
   try {
     let depts = await prisma.department.findMany({
       include: {
-        hod: true
+        hod: true,
       },
-      orderBy: { name: "asc" }
+      orderBy: { name: "asc" },
     });
 
     // Auto-seed default departments if table is empty
     if (depts.length === 0) {
-      const defaultDepts = [
-        { code: "CSE", name: "Computer Science & Engineering" },
-        { code: "ECE", name: "Electronics & Communication Engineering" },
-        { code: "IT", name: "Information Technology" },
-        { code: "ME", name: "Mechanical Engineering" },
-        { code: "AS", name: "Applied Sciences" },
-        { code: "AD", name: "Administration" }
-      ];
+      const defaultDepts = [{ code: "ADMIN", name: "Administration" }];
 
       await prisma.department.createMany({
-        data: defaultDepts
+        data: defaultDepts,
       });
 
       depts = await prisma.department.findMany({
         include: {
-          hod: true
+          hod: true,
         },
-        orderBy: { name: "asc" }
+        orderBy: { name: "asc" },
       });
     }
 
     return {
       success: true,
-      departments: depts.map(d => ({
+      departments: depts.map((d) => ({
         id: d.id,
         code: d.code,
         name: d.name,
         hodId: d.hodId || "",
-        hodName: d.hod?.fullName || ""
-      }))
+        hodName: d.hod?.fullName || "",
+      })),
     };
   } catch (error: any) {
     console.error("Error fetching departments:", error);
@@ -59,23 +52,29 @@ export async function getDepartments() {
 export async function createDepartment(data: { code: string; name: string }) {
   try {
     if (!data.code.trim() || !data.name.trim()) {
-      return { success: false, message: "Department code and name are required fields." };
+      return {
+        success: false,
+        message: "Department code and name are required fields.",
+      };
     }
 
     const upperCode = data.code.trim().toUpperCase();
     const existing = await prisma.department.findUnique({
-      where: { code: upperCode }
+      where: { code: upperCode },
     });
 
     if (existing) {
-      return { success: false, message: "A department with this code already exists." };
+      return {
+        success: false,
+        message: "A department with this code already exists.",
+      };
     }
 
     await prisma.department.create({
       data: {
         code: upperCode,
-        name: data.name.trim()
-      }
+        name: data.name.trim(),
+      },
     });
 
     return { success: true, message: "Department created successfully!" };
@@ -88,30 +87,39 @@ export async function createDepartment(data: { code: string; name: string }) {
 /**
  * Update an existing department
  */
-export async function updateDepartment(id: string, data: { code: string; name: string }) {
+export async function updateDepartment(
+  id: string,
+  data: { code: string; name: string },
+) {
   try {
     if (!id) {
       return { success: false, message: "Department ID is required." };
     }
     if (!data.code.trim() || !data.name.trim()) {
-      return { success: false, message: "Department code and name are required fields." };
+      return {
+        success: false,
+        message: "Department code and name are required fields.",
+      };
     }
 
     const upperCode = data.code.trim().toUpperCase();
     const existing = await prisma.department.findUnique({
-      where: { code: upperCode }
+      where: { code: upperCode },
     });
 
     if (existing && existing.id !== id) {
-      return { success: false, message: "A department with this code already exists." };
+      return {
+        success: false,
+        message: "A department with this code already exists.",
+      };
     }
 
     await prisma.department.update({
       where: { id },
       data: {
         code: upperCode,
-        name: data.name.trim()
-      }
+        name: data.name.trim(),
+      },
     });
 
     return { success: true, message: "Department updated successfully!" };
@@ -132,18 +140,18 @@ export async function deleteDepartment(id: string) {
 
     // Safety: check if there are users in this department
     const usersCount = await prisma.user.count({
-      where: { departmentId: id }
+      where: { departmentId: id },
     });
 
     if (usersCount > 0) {
-      return { 
-        success: false, 
-        message: `Cannot delete department: ${usersCount} users are currently assigned to it. Re-assign or remove users first.` 
+      return {
+        success: false,
+        message: `Cannot delete department: ${usersCount} users are currently assigned to it. Re-assign or remove users first.`,
       };
     }
 
     await prisma.department.delete({
-      where: { id }
+      where: { id },
     });
 
     return { success: true, message: "Department deleted successfully!" };
