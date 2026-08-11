@@ -306,39 +306,76 @@ export async function getAllRequests() {
       return { success: false, message: "User session not found." };
     }
 
-    let requests;
+    let whereClause: any = {};
+
     if (user.role === Role.STUDENT) {
       // Students can only see their own requests
-      requests = await prisma.request.findMany({
-        where: { createdById: user.id },
-        include: {
-          category: true,
-          department: true,
-          createdBy: { select: { fullName: true } },
-          assignments: {
-            include: {
-              user: { select: { fullName: true } }
+      whereClause = { createdById: user.id };
+    } else if (user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN) {
+      // Admins see all requests
+      whereClause = {};
+    } else if (user.role === Role.HOD) {
+      // HODs see requests related to their department, requests made by students of their department,
+      // or requests where they are explicitly assigned, watching, or created.
+      const departmentId = user.departmentId;
+      
+      const hodOrConditions: any[] = [
+        { assignments: { some: { userId: user.id } } },
+        { watchers: { some: { userId: user.id } } },
+        { createdById: user.id }
+      ];
+
+      if (departmentId) {
+        hodOrConditions.push(
+          { departmentId: departmentId },
+          { department: { hodId: user.id } },
+          {
+            createdBy: {
+              role: Role.STUDENT,
+              departmentId: departmentId
             }
           }
-        },
-        orderBy: { createdAt: "desc" },
-      });
+        );
+      } else {
+        hodOrConditions.push(
+          { department: { hodId: user.id } },
+          {
+            createdBy: {
+              role: Role.STUDENT,
+              department: { hodId: user.id }
+            }
+          }
+        );
+      }
+
+      whereClause = {
+        OR: hodOrConditions
+      };
     } else {
-      // Staff see all requests
-      requests = await prisma.request.findMany({
-        include: {
-          category: true,
-          department: true,
-          createdBy: { select: { fullName: true } },
-          assignments: {
-            include: {
-              user: { select: { fullName: true } }
-            }
-          }
-        },
-        orderBy: { createdAt: "desc" },
-      });
+      // Other staff (FACULTY, etc.) see only requests where they are assigned, watching, or created
+      whereClause = {
+        OR: [
+          { assignments: { some: { userId: user.id } } },
+          { watchers: { some: { userId: user.id } } },
+          { createdById: user.id }
+        ]
+      };
     }
+
+    const requests = await prisma.request.findMany({
+      where: whereClause,
+      include: {
+        category: true,
+        department: true,
+        createdBy: { select: { fullName: true } },
+        assignments: {
+          include: {
+            user: { select: { fullName: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
     return {
       success: true,
@@ -407,6 +444,7 @@ export async function getRequestDetails(requestId: string) {
             mobileNumber: true,
             role: true,
             course: { select: { name: true } },
+            departmentId: true,
           },
         },
         assignments: {
@@ -456,15 +494,37 @@ export async function getRequestDetails(requestId: string) {
       return { success: false, message: "Request ticket not found." };
     }
 
-    // Security Gate: Students can only open their own requests
-    if (
-      activeUser.role === Role.STUDENT &&
-      reqDetails.createdById !== activeUser.id
-    ) {
+    // Security Gate check based on roles
+    let hasAccess = false;
+    if (activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN) {
+      hasAccess = true;
+    } else if (activeUser.role === Role.STUDENT) {
+      hasAccess = reqDetails.createdById === activeUser.id;
+    } else if (activeUser.role === Role.HOD) {
+      const isCreator = reqDetails.createdById === activeUser.id;
+      const isAssigned = reqDetails.assignments.some(a => a.user.id === activeUser.id);
+      const isWatcher = reqDetails.watchers.some(w => w.user.id === activeUser.id);
+      
+      const isRelatedDept = reqDetails.departmentId === activeUser.departmentId ||
+                            reqDetails.department?.hodId === activeUser.id;
+
+      const isStudentOfDept = reqDetails.createdBy.role === Role.STUDENT &&
+                              reqDetails.createdBy.departmentId === activeUser.departmentId;
+
+      hasAccess = isCreator || isAssigned || isWatcher || isRelatedDept || isStudentOfDept;
+    } else {
+      // FACULTY and other roles
+      const isCreator = reqDetails.createdById === activeUser.id;
+      const isAssigned = reqDetails.assignments.some(a => a.user.id === activeUser.id);
+      const isWatcher = reqDetails.watchers.some(w => w.user.id === activeUser.id);
+
+      hasAccess = isCreator || isAssigned || isWatcher;
+    }
+
+    if (!hasAccess) {
       return {
         success: false,
-        message:
-          "Access Denied. You do not have permissions to view this ticket.",
+        message: "Access Denied. You do not have permissions to view this ticket.",
       };
     }
 
@@ -504,6 +564,7 @@ export async function getRequestDetails(requestId: string) {
             ? "N/A"
             : reqDetails.createdBy.mobileNumber || "N/A",
         courseName: reqDetails.createdBy.course?.name || "N/A",
+        departmentId: reqDetails.createdBy.departmentId || "",
       },
       assignments: reqDetails.assignments.map(a => ({
         id: a.id,
@@ -557,7 +618,8 @@ export async function getRequestDetails(requestId: string) {
       request: mappedDetails, 
       userRole: activeUser.role,
       userRights: activeUser.rights,
-      userId: activeUser.id
+      userId: activeUser.id,
+      userDeptId: activeUser.departmentId || ""
     };
   } catch (error: any) {
     console.error("Error retrieving request details:", error);
@@ -640,7 +702,7 @@ export async function assignRequest(
 
     const request = await prisma.request.findUnique({
       where: { id: requestId },
-      include: { assignments: true }
+      include: { assignments: true, createdBy: true }
     });
     if (!request) return { success: false, message: "Request not found." };
 
@@ -657,12 +719,22 @@ export async function assignRequest(
     const hasRoutingRight = rights.includes("MANAGE_ROUTING");
 
     let isHodOfDept = false;
-    if (role === Role.HOD && request.departmentId) {
-      const dept = await prisma.department.findUnique({
-        where: { id: request.departmentId },
-        select: { hodId: true }
-      });
-      if (dept?.hodId === activeUser.id) {
+    if (role === Role.HOD) {
+      const isRequestDeptHod = request.departmentId === activeUser.departmentId;
+      const isStudentDeptHod = request.createdBy.role === Role.STUDENT && request.createdBy.departmentId === activeUser.departmentId;
+      
+      let isExplicitHod = false;
+      if (request.departmentId) {
+        const dept = await prisma.department.findUnique({
+          where: { id: request.departmentId },
+          select: { hodId: true }
+        });
+        if (dept?.hodId === activeUser.id) {
+          isExplicitHod = true;
+        }
+      }
+
+      if (isRequestDeptHod || isStudentDeptHod || isExplicitHod) {
         isHodOfDept = true;
       }
     }
@@ -895,7 +967,7 @@ export async function unassignRequest(requestId: string, userId: string) {
     // Authorization checks
     const request = await prisma.request.findUnique({
       where: { id: requestId },
-      select: { departmentId: true }
+      include: { createdBy: true }
     });
     if (!request) return { success: false, message: "Request not found." };
 
@@ -905,12 +977,22 @@ export async function unassignRequest(requestId: string, userId: string) {
     const hasRoutingRight = rights.includes("MANAGE_ROUTING");
 
     let isHodOfDept = false;
-    if (role === Role.HOD && request.departmentId) {
-      const dept = await prisma.department.findUnique({
-        where: { id: request.departmentId },
-        select: { hodId: true }
-      });
-      if (dept?.hodId === activeUser.id) {
+    if (role === Role.HOD) {
+      const isRequestDeptHod = request.departmentId === activeUser.departmentId;
+      const isStudentDeptHod = request.createdBy.role === Role.STUDENT && request.createdBy.departmentId === activeUser.departmentId;
+      
+      let isExplicitHod = false;
+      if (request.departmentId) {
+        const dept = await prisma.department.findUnique({
+          where: { id: request.departmentId },
+          select: { hodId: true }
+        });
+        if (dept?.hodId === activeUser.id) {
+          isExplicitHod = true;
+        }
+      }
+
+      if (isRequestDeptHod || isStudentDeptHod || isExplicitHod) {
         isHodOfDept = true;
       }
     }
@@ -1150,6 +1232,126 @@ export async function updateRequestTarget(
   } catch (error: any) {
     console.error("Error updating request target:", error);
     return { success: false, message: "Failed to update request target." };
+  }
+}
+
+/**
+ * Forward request from currently assigned faculty member to another staff member
+ */
+export async function forwardRequest(
+  requestId: string,
+  targetUserId: string,
+  message?: string
+) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+    if (!token) return { success: false, message: "Not authenticated." };
+
+    const payload = verifyToken(token);
+    if (!payload || !payload.userId)
+      return { success: false, message: "Invalid session." };
+
+    const activeUserId = payload.userId;
+
+    const request = await prisma.request.findUnique({
+      where: { id: requestId },
+      include: {
+        assignments: true,
+        watchers: true,
+      }
+    });
+
+    if (!request) return { success: false, message: "Request not found." };
+
+    // Verify active user is assigned
+    const activeUserAssignment = request.assignments.find(a => a.userId === activeUserId);
+    if (!activeUserAssignment) {
+      return {
+        success: false,
+        message: "Access Denied. Only assigned handlers can forward this request.",
+      };
+    }
+
+    // Verify target user is staff
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
+    if (!targetUser || targetUser.role === Role.STUDENT) {
+      return {
+        success: false,
+        message: "Cannot forward: Target user is not a valid staff member.",
+      };
+    }
+
+    // Verify duplicate assignment
+    const existing = request.assignments.find(a => a.userId === targetUserId);
+    if (existing) {
+      return {
+        success: false,
+        message: `${targetUser.fullName} is already assigned to this request.`,
+      };
+    }
+
+    const activeUser = await prisma.user.findUnique({
+      where: { id: activeUserId },
+    });
+    if (!activeUser) return { success: false, message: "Active user session not found." };
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Remove active user from assignees
+      await tx.requestAssignment.delete({
+        where: {
+          requestId_userId: {
+            requestId,
+            userId: activeUserId,
+          }
+        }
+      });
+
+      // 2. Add active user as watcher (if not already watching)
+      const isAlreadyWatcher = request.watchers.some(w => w.userId === activeUserId);
+      if (!isAlreadyWatcher) {
+        await tx.requestWatcher.create({
+          data: {
+            requestId,
+            userId: activeUserId,
+            addedById: activeUserId
+          }
+        });
+      }
+
+      // 3. Add target user as assignee
+      await tx.requestAssignment.create({
+        data: {
+          requestId,
+          userId: targetUserId,
+          assignedById: activeUserId,
+          role: "PRIMARY",
+          status: "PENDING"
+        }
+      });
+    });
+
+    // 4. Log Forward Activity
+    await prisma.requestActivity.create({
+      data: {
+        requestId,
+        actorId: activeUserId,
+        type: ActivityType.FORWARDED,
+        oldValue: activeUser.fullName,
+        newValue: targetUser.fullName,
+        message: message || `Request forwarded from ${activeUser.fullName} to ${targetUser.fullName}.`,
+      },
+    });
+
+    return {
+      success: true,
+      message: `Request forwarded to ${targetUser.fullName} successfully!`,
+    };
+  } catch (error: any) {
+    console.error("Error forwarding request:", error);
+    return { success: false, message: "Database error during forward." };
   }
 }
 

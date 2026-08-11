@@ -60,8 +60,12 @@ export default function DashboardLayout({
       return role === "ADMIN" || role === "SUPER_ADMIN" || role === "HOD" || rights.includes("MANAGE_USERS");
     }
 
+    if (pathname === "/dashboard/students") {
+      return role === "ADMIN" || role === "SUPER_ADMIN" || role === "HOD" || rights.includes("MANAGE_USERS");
+    }
+
     if (pathname === "/dashboard/courses") {
-      return role === "ADMIN" || role === "SUPER_ADMIN" || rights.includes("MANAGE_COURSES");
+      return role === "ADMIN" || role === "SUPER_ADMIN" || role === "HOD" || rights.includes("MANAGE_COURSES");
     }
 
     if (pathname === "/dashboard/category") {
@@ -212,7 +216,7 @@ export default function DashboardLayout({
             label="Edit Profile"
             onClick={() => setIsSidebarOpen(false)}
           />
-          {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.rights?.includes("MANAGE_COURSES")) && (
+          {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.role === "HOD" || user.rights?.includes("MANAGE_COURSES")) && (
             <SidebarLink
               href="/dashboard/courses"
               icon={<BookOpen className="h-4 w-4" />}
@@ -257,6 +261,14 @@ export default function DashboardLayout({
               href="/dashboard/users"
               icon={<Users className="h-4 w-4" />}
               label="Manage Users"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+          {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.role === "HOD" || user.rights?.includes("MANAGE_USERS")) && (
+            <SidebarLink
+              href="/dashboard/students"
+              icon={<GraduationCap className="h-4 w-4" />}
+              label="Manage Students"
               onClick={() => setIsSidebarOpen(false)}
             />
           )}

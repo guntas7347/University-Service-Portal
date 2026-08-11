@@ -1286,6 +1286,7 @@ export const UserScalarFieldEnum = {
   email: 'email',
   rollNumber: 'rollNumber',
   mobileNumber: 'mobileNumber',
+  batch: 'batch',
   passwordHash: 'passwordHash',
   resetPasswordToken: 'resetPasswordToken',
   resetPasswordTokenExpiry: 'resetPasswordTokenExpiry',
@@ -1324,6 +1325,7 @@ export const CourseScalarFieldEnum = {
   code: 'code',
   name: 'name',
   duration: 'duration',
+  departmentId: 'departmentId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1481,6 +1483,20 @@ export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMod
 
 
 /**
+ * Reference to a field of type 'Int'
+ */
+export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
+    
+
+
+/**
+ * Reference to a field of type 'Int[]'
+ */
+export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
  * Reference to a field of type 'DateTime'
  */
 export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>
@@ -1540,20 +1556,6 @@ export type ListEnumUserStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$P
  * Reference to a field of type 'Boolean'
  */
 export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
-    
-
-
-/**
- * Reference to a field of type 'Int'
- */
-export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
-    
-
-
-/**
- * Reference to a field of type 'Int[]'
- */
-export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
     
 
 

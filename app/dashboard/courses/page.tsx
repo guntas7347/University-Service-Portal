@@ -12,7 +12,8 @@ import {
   Hash,
   FileText,
   Clock,
-  X
+  X,
+  Landmark
 } from "lucide-react";
 import { useForm } from "@/hooks/useForm";
 import { 
@@ -21,17 +22,26 @@ import {
   updateCourse, 
   deleteCourse 
 } from "@/lib/prisma/actions/courses";
+import { getDepartments } from "@/lib/prisma/actions/departments";
 
 interface CourseType {
   id: string;
   code: string;
   name: string;
   duration: number | null;
+  departmentId?: string | null;
+  department?: {
+    id: string;
+    name: string;
+  } | null;
   createdAt: Date;
 }
 
 export default function CoursesPage() {
   const [courses, setCourses] = useState<CourseType[]>([]);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [userRole, setUserRole] = useState("STUDENT");
+  const [userDeptId, setUserDeptId] = useState("");
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -44,17 +54,38 @@ export default function CoursesPage() {
   const { form, handleChange, setFields, resetFormFields } = useForm({
     code: "",
     name: "",
-    duration: ""
+    duration: "",
+    departmentId: ""
   });
 
   // Fetch courses on page load
   const loadCourses = async () => {
     setIsPageLoading(true);
-    const response = await getCourses();
-    if (response.success && response.courses) {
-      // Cast response to CourseType array
-      setCourses(response.courses as any);
+    const [coursesRes, deptRes] = await Promise.all([
+      getCourses(),
+      getDepartments()
+    ]);
+
+    let role = "STUDENT";
+    let deptId = "";
+
+    if (coursesRes.success && coursesRes.courses) {
+      setCourses(coursesRes.courses as any);
+      role = coursesRes.userRole || "STUDENT";
+      deptId = coursesRes.userDeptId || "";
+      setUserRole(role);
+      setUserDeptId(deptId);
     }
+
+    if (deptRes.success && deptRes.departments) {
+      setDepartments(deptRes.departments as any[]);
+    }
+
+    // Auto-set HOD department and preselect it
+    if (role === "HOD" && deptId) {
+      setFields({ departmentId: deptId });
+    }
+
     setIsPageLoading(false);
   };
 
@@ -73,8 +104,15 @@ export default function CoursesPage() {
       return;
     }
 
+    const isHod = userRole === "HOD";
+    if (!isHod && !form.departmentId) {
+      setErrorMsg("Department is required.");
+      return;
+    }
+
     setIsSubmitting(true);
     const durationNum = form.duration ? Number(form.duration) : undefined;
+    const departmentIdVal = isHod ? userDeptId : form.departmentId;
 
     try {
       let response;
@@ -83,20 +121,25 @@ export default function CoursesPage() {
         response = await updateCourse(editingId, {
           code: form.code,
           name: form.name,
-          duration: durationNum
+          duration: durationNum,
+          departmentId: departmentIdVal
         });
       } else {
         // Create new record
         response = await createCourse({
           code: form.code,
           name: form.name,
-          duration: durationNum
+          duration: durationNum,
+          departmentId: departmentIdVal
         });
       }
 
       if (response.success) {
         setSuccessMsg(response.message);
         resetFormFields();
+        if (isHod && userDeptId) {
+          setFields({ departmentId: userDeptId });
+        }
         setEditingId(null);
         await loadCourses(); // Reload table
       } else {
@@ -117,7 +160,8 @@ export default function CoursesPage() {
     setFields({
       code: course.code,
       name: course.name,
-      duration: course.duration ? String(course.duration) : ""
+      duration: course.duration ? String(course.duration) : "",
+      departmentId: course.departmentId || ""
     });
   };
 
@@ -125,6 +169,9 @@ export default function CoursesPage() {
   const handleCancelEdit = () => {
     setEditingId(null);
     resetFormFields();
+    if (userRole === "HOD" && userDeptId) {
+      setFields({ departmentId: userDeptId });
+    }
     setSuccessMsg(null);
     setErrorMsg(null);
   };
@@ -248,6 +295,34 @@ export default function CoursesPage() {
               </div>
             </div>
 
+            {/* Department selection */}
+            <div>
+              <label htmlFor="departmentId" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                Department
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Landmark className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                </div>
+                <select
+                  id="departmentId"
+                  name="departmentId"
+                  required
+                  disabled={isSubmitting || userRole === "HOD"}
+                  value={userRole === "HOD" ? userDeptId : form.departmentId}
+                  onChange={handleChange}
+                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
+                >
+                  <option value="">Select Department</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* Course Duration */}
             <div>
               <label htmlFor="duration" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
@@ -337,44 +412,56 @@ export default function CoursesPage() {
                   <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase">
                     <th className="py-3.5 px-6">Code</th>
                     <th className="py-3.5 px-6">Course Name</th>
+                    <th className="py-3.5 px-6">Department</th>
                     <th className="py-3.5 px-6">Duration</th>
                     <th className="py-3.5 px-6 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-150 dark:divide-slate-800">
-                  {courses.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm">
-                      <td className="py-4 px-6 font-bold text-slate-900 dark:text-slate-100">
-                        {item.code}
-                      </td>
-                      <td className="py-4 px-6 font-medium text-slate-600 dark:text-slate-350">
-                        {item.name}
-                      </td>
-                      <td className="py-4 px-6 text-slate-500 dark:text-slate-450 font-medium">
-                        {item.duration ? `${item.duration} Months` : "Flexible"}
-                      </td>
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleEditClick(item)}
-                            className="p-1.5 text-slate-550 dark:text-slate-400 hover:text-primary dark:hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
-                            title="Edit Program"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteClick(item.id)}
-                            className="p-1.5 text-slate-550 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors"
-                            title="Delete Program"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-slate-155 dark:divide-slate-850">
+                  {courses.map((item) => {
+                    const canManage = userRole === "ADMIN" || userRole === "SUPER_ADMIN" || (userRole === "HOD" && item.departmentId === userDeptId);
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm">
+                        <td className="py-4 px-6 font-bold text-slate-900 dark:text-slate-100">
+                          {item.code}
+                        </td>
+                        <td className="py-4 px-6 font-medium text-slate-600 dark:text-slate-350">
+                          {item.name}
+                        </td>
+                        <td className="py-4 px-6 text-slate-655 dark:text-slate-350 font-medium">
+                          {item.department?.name || "Unassigned"}
+                        </td>
+                        <td className="py-4 px-6 text-slate-500 dark:text-slate-450 font-medium">
+                          {item.duration ? `${item.duration} Months` : "Flexible"}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          {canManage ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditClick(item)}
+                                className="p-1.5 text-slate-550 dark:text-slate-400 hover:text-primary dark:hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
+                                title="Edit Program"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteClick(item.id)}
+                                className="p-1.5 text-slate-550 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-955/20 rounded-lg cursor-pointer transition-colors"
+                                title="Delete Program"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic font-medium pr-2">No Access</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -386,3 +473,4 @@ export default function CoursesPage() {
     </div>
   );
 }
+

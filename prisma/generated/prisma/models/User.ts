@@ -20,8 +20,18 @@ export type UserModel = runtime.Types.Result.DefaultSelection<Prisma.$UserPayloa
 
 export type AggregateUser = {
   _count: UserCountAggregateOutputType | null
+  _avg: UserAvgAggregateOutputType | null
+  _sum: UserSumAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
   _max: UserMaxAggregateOutputType | null
+}
+
+export type UserAvgAggregateOutputType = {
+  batch: number | null
+}
+
+export type UserSumAggregateOutputType = {
+  batch: number | null
 }
 
 export type UserMinAggregateOutputType = {
@@ -30,6 +40,7 @@ export type UserMinAggregateOutputType = {
   email: string | null
   rollNumber: string | null
   mobileNumber: string | null
+  batch: number | null
   passwordHash: string | null
   resetPasswordToken: string | null
   resetPasswordTokenExpiry: Date | null
@@ -53,6 +64,7 @@ export type UserMaxAggregateOutputType = {
   email: string | null
   rollNumber: string | null
   mobileNumber: string | null
+  batch: number | null
   passwordHash: string | null
   resetPasswordToken: string | null
   resetPasswordTokenExpiry: Date | null
@@ -76,6 +88,7 @@ export type UserCountAggregateOutputType = {
   email: number
   rollNumber: number
   mobileNumber: number
+  batch: number
   passwordHash: number
   resetPasswordToken: number
   resetPasswordTokenExpiry: number
@@ -96,12 +109,21 @@ export type UserCountAggregateOutputType = {
 }
 
 
+export type UserAvgAggregateInputType = {
+  batch?: true
+}
+
+export type UserSumAggregateInputType = {
+  batch?: true
+}
+
 export type UserMinAggregateInputType = {
   id?: true
   fullName?: true
   email?: true
   rollNumber?: true
   mobileNumber?: true
+  batch?: true
   passwordHash?: true
   resetPasswordToken?: true
   resetPasswordTokenExpiry?: true
@@ -125,6 +147,7 @@ export type UserMaxAggregateInputType = {
   email?: true
   rollNumber?: true
   mobileNumber?: true
+  batch?: true
   passwordHash?: true
   resetPasswordToken?: true
   resetPasswordTokenExpiry?: true
@@ -148,6 +171,7 @@ export type UserCountAggregateInputType = {
   email?: true
   rollNumber?: true
   mobileNumber?: true
+  batch?: true
   passwordHash?: true
   resetPasswordToken?: true
   resetPasswordTokenExpiry?: true
@@ -205,6 +229,18 @@ export type UserAggregateArgs<ExtArgs extends runtime.Types.Extensions.InternalA
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: UserAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: UserSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: UserMinAggregateInputType
@@ -235,6 +271,8 @@ export type UserGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
   take?: number
   skip?: number
   _count?: UserCountAggregateInputType | true
+  _avg?: UserAvgAggregateInputType
+  _sum?: UserSumAggregateInputType
   _min?: UserMinAggregateInputType
   _max?: UserMaxAggregateInputType
 }
@@ -245,6 +283,7 @@ export type UserGroupByOutputType = {
   email: string
   rollNumber: string | null
   mobileNumber: string | null
+  batch: number | null
   passwordHash: string
   resetPasswordToken: string | null
   resetPasswordTokenExpiry: Date | null
@@ -262,6 +301,8 @@ export type UserGroupByOutputType = {
   createdAt: Date
   updatedAt: Date
   _count: UserCountAggregateOutputType | null
+  _avg: UserAvgAggregateOutputType | null
+  _sum: UserSumAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
   _max: UserMaxAggregateOutputType | null
 }
@@ -290,6 +331,7 @@ export type UserWhereInput = {
   email?: Prisma.StringFilter<"User"> | string
   rollNumber?: Prisma.StringNullableFilter<"User"> | string | null
   mobileNumber?: Prisma.StringNullableFilter<"User"> | string | null
+  batch?: Prisma.IntNullableFilter<"User"> | number | null
   passwordHash?: Prisma.StringFilter<"User"> | string
   resetPasswordToken?: Prisma.StringNullableFilter<"User"> | string | null
   resetPasswordTokenExpiry?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
@@ -326,6 +368,7 @@ export type UserOrderByWithRelationInput = {
   email?: Prisma.SortOrder
   rollNumber?: Prisma.SortOrderInput | Prisma.SortOrder
   mobileNumber?: Prisma.SortOrderInput | Prisma.SortOrder
+  batch?: Prisma.SortOrderInput | Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   resetPasswordToken?: Prisma.SortOrderInput | Prisma.SortOrder
   resetPasswordTokenExpiry?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -365,6 +408,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   fullName?: Prisma.StringFilter<"User"> | string
+  batch?: Prisma.IntNullableFilter<"User"> | number | null
   passwordHash?: Prisma.StringFilter<"User"> | string
   resetPasswordToken?: Prisma.StringNullableFilter<"User"> | string | null
   resetPasswordTokenExpiry?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
@@ -401,6 +445,7 @@ export type UserOrderByWithAggregationInput = {
   email?: Prisma.SortOrder
   rollNumber?: Prisma.SortOrderInput | Prisma.SortOrder
   mobileNumber?: Prisma.SortOrderInput | Prisma.SortOrder
+  batch?: Prisma.SortOrderInput | Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   resetPasswordToken?: Prisma.SortOrderInput | Prisma.SortOrder
   resetPasswordTokenExpiry?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -418,8 +463,10 @@ export type UserOrderByWithAggregationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
+  _avg?: Prisma.UserAvgOrderByAggregateInput
   _max?: Prisma.UserMaxOrderByAggregateInput
   _min?: Prisma.UserMinOrderByAggregateInput
+  _sum?: Prisma.UserSumOrderByAggregateInput
 }
 
 export type UserScalarWhereWithAggregatesInput = {
@@ -431,6 +478,7 @@ export type UserScalarWhereWithAggregatesInput = {
   email?: Prisma.StringWithAggregatesFilter<"User"> | string
   rollNumber?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   mobileNumber?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  batch?: Prisma.IntNullableWithAggregatesFilter<"User"> | number | null
   passwordHash?: Prisma.StringWithAggregatesFilter<"User"> | string
   resetPasswordToken?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   resetPasswordTokenExpiry?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
@@ -455,6 +503,7 @@ export type UserCreateInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -489,6 +538,7 @@ export type UserUncheckedCreateInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -523,6 +573,7 @@ export type UserUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -557,6 +608,7 @@ export type UserUncheckedUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -591,6 +643,7 @@ export type UserCreateManyInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -615,6 +668,7 @@ export type UserUpdateManyMutationInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -637,6 +691,7 @@ export type UserUncheckedUpdateManyInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -669,6 +724,7 @@ export type UserCountOrderByAggregateInput = {
   email?: Prisma.SortOrder
   rollNumber?: Prisma.SortOrder
   mobileNumber?: Prisma.SortOrder
+  batch?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   resetPasswordToken?: Prisma.SortOrder
   resetPasswordTokenExpiry?: Prisma.SortOrder
@@ -687,12 +743,17 @@ export type UserCountOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
 }
 
+export type UserAvgOrderByAggregateInput = {
+  batch?: Prisma.SortOrder
+}
+
 export type UserMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   fullName?: Prisma.SortOrder
   email?: Prisma.SortOrder
   rollNumber?: Prisma.SortOrder
   mobileNumber?: Prisma.SortOrder
+  batch?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   resetPasswordToken?: Prisma.SortOrder
   resetPasswordTokenExpiry?: Prisma.SortOrder
@@ -716,6 +777,7 @@ export type UserMinOrderByAggregateInput = {
   email?: Prisma.SortOrder
   rollNumber?: Prisma.SortOrder
   mobileNumber?: Prisma.SortOrder
+  batch?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   resetPasswordToken?: Prisma.SortOrder
   resetPasswordTokenExpiry?: Prisma.SortOrder
@@ -731,6 +793,10 @@ export type UserMinOrderByAggregateInput = {
   profileImage?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type UserSumOrderByAggregateInput = {
+  batch?: Prisma.SortOrder
 }
 
 export type UserNullableScalarRelationFilter = {
@@ -763,6 +829,14 @@ export type StringFieldUpdateOperationsInput = {
 
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
+}
+
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
 }
 
 export type NullableDateTimeFieldUpdateOperationsInput = {
@@ -1032,6 +1106,7 @@ export type UserCreateWithoutManagedDepartmentInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1065,6 +1140,7 @@ export type UserUncheckedCreateWithoutManagedDepartmentInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1103,6 +1179,7 @@ export type UserCreateWithoutDepartmentInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1136,6 +1213,7 @@ export type UserUncheckedCreateWithoutDepartmentInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1190,6 +1268,7 @@ export type UserUpdateWithoutManagedDepartmentInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1223,6 +1302,7 @@ export type UserUncheckedUpdateWithoutManagedDepartmentInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1275,6 +1355,7 @@ export type UserScalarWhereInput = {
   email?: Prisma.StringFilter<"User"> | string
   rollNumber?: Prisma.StringNullableFilter<"User"> | string | null
   mobileNumber?: Prisma.StringNullableFilter<"User"> | string | null
+  batch?: Prisma.IntNullableFilter<"User"> | number | null
   passwordHash?: Prisma.StringFilter<"User"> | string
   resetPasswordToken?: Prisma.StringNullableFilter<"User"> | string | null
   resetPasswordTokenExpiry?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
@@ -1299,6 +1380,7 @@ export type UserCreateWithoutCourseInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1332,6 +1414,7 @@ export type UserUncheckedCreateWithoutCourseInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1391,6 +1474,7 @@ export type UserCreateWithoutRequestsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1424,6 +1508,7 @@ export type UserUncheckedCreateWithoutRequestsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1473,6 +1558,7 @@ export type UserUpdateWithoutRequestsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1506,6 +1592,7 @@ export type UserUncheckedUpdateWithoutRequestsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1539,6 +1626,7 @@ export type UserCreateWithoutRequestActivitiesInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1572,6 +1660,7 @@ export type UserUncheckedCreateWithoutRequestActivitiesInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1621,6 +1710,7 @@ export type UserUpdateWithoutRequestActivitiesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1654,6 +1744,7 @@ export type UserUncheckedUpdateWithoutRequestActivitiesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1687,6 +1778,7 @@ export type UserCreateWithoutRequestCommentsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1720,6 +1812,7 @@ export type UserUncheckedCreateWithoutRequestCommentsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1769,6 +1862,7 @@ export type UserUpdateWithoutRequestCommentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1802,6 +1896,7 @@ export type UserUncheckedUpdateWithoutRequestCommentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1835,6 +1930,7 @@ export type UserCreateWithoutRequestAttachmentsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1868,6 +1964,7 @@ export type UserUncheckedCreateWithoutRequestAttachmentsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -1917,6 +2014,7 @@ export type UserUpdateWithoutRequestAttachmentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1950,6 +2048,7 @@ export type UserUncheckedUpdateWithoutRequestAttachmentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1983,6 +2082,7 @@ export type UserCreateWithoutRoutingRulesInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2016,6 +2116,7 @@ export type UserUncheckedCreateWithoutRoutingRulesInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2065,6 +2166,7 @@ export type UserUpdateWithoutRoutingRulesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2098,6 +2200,7 @@ export type UserUncheckedUpdateWithoutRoutingRulesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2131,6 +2234,7 @@ export type UserCreateWithoutAssignmentsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2164,6 +2268,7 @@ export type UserUncheckedCreateWithoutAssignmentsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2202,6 +2307,7 @@ export type UserCreateWithoutCreatedAssignmentsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2235,6 +2341,7 @@ export type UserUncheckedCreateWithoutCreatedAssignmentsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2284,6 +2391,7 @@ export type UserUpdateWithoutAssignmentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2317,6 +2425,7 @@ export type UserUncheckedUpdateWithoutAssignmentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2361,6 +2470,7 @@ export type UserUpdateWithoutCreatedAssignmentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2394,6 +2504,7 @@ export type UserUncheckedUpdateWithoutCreatedAssignmentsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2427,6 +2538,7 @@ export type UserCreateWithoutWatchedRequestsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2460,6 +2572,7 @@ export type UserUncheckedCreateWithoutWatchedRequestsInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2498,6 +2611,7 @@ export type UserCreateWithoutCreatedWatchersInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2531,6 +2645,7 @@ export type UserUncheckedCreateWithoutCreatedWatchersInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2580,6 +2695,7 @@ export type UserUpdateWithoutWatchedRequestsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2613,6 +2729,7 @@ export type UserUncheckedUpdateWithoutWatchedRequestsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2657,6 +2774,7 @@ export type UserUpdateWithoutCreatedWatchersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2690,6 +2808,7 @@ export type UserUncheckedUpdateWithoutCreatedWatchersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2723,6 +2842,7 @@ export type UserCreateManyDepartmentInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2746,6 +2866,7 @@ export type UserUpdateWithoutDepartmentInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2779,6 +2900,7 @@ export type UserUncheckedUpdateWithoutDepartmentInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2812,6 +2934,7 @@ export type UserUncheckedUpdateManyWithoutDepartmentInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2835,6 +2958,7 @@ export type UserCreateManyCourseInput = {
   email: string
   rollNumber?: string | null
   mobileNumber?: string | null
+  batch?: number | null
   passwordHash: string
   resetPasswordToken?: string | null
   resetPasswordTokenExpiry?: Date | string | null
@@ -2858,6 +2982,7 @@ export type UserUpdateWithoutCourseInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2891,6 +3016,7 @@ export type UserUncheckedUpdateWithoutCourseInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2924,6 +3050,7 @@ export type UserUncheckedUpdateManyWithoutCourseInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   rollNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   mobileNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   resetPasswordToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resetPasswordTokenExpiry?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3050,6 +3177,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   email?: boolean
   rollNumber?: boolean
   mobileNumber?: boolean
+  batch?: boolean
   passwordHash?: boolean
   resetPasswordToken?: boolean
   resetPasswordTokenExpiry?: boolean
@@ -3087,6 +3215,7 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   email?: boolean
   rollNumber?: boolean
   mobileNumber?: boolean
+  batch?: boolean
   passwordHash?: boolean
   resetPasswordToken?: boolean
   resetPasswordTokenExpiry?: boolean
@@ -3113,6 +3242,7 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   email?: boolean
   rollNumber?: boolean
   mobileNumber?: boolean
+  batch?: boolean
   passwordHash?: boolean
   resetPasswordToken?: boolean
   resetPasswordTokenExpiry?: boolean
@@ -3139,6 +3269,7 @@ export type UserSelectScalar = {
   email?: boolean
   rollNumber?: boolean
   mobileNumber?: boolean
+  batch?: boolean
   passwordHash?: boolean
   resetPasswordToken?: boolean
   resetPasswordTokenExpiry?: boolean
@@ -3157,7 +3288,7 @@ export type UserSelectScalar = {
   updatedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "fullName" | "email" | "rollNumber" | "mobileNumber" | "passwordHash" | "resetPasswordToken" | "resetPasswordTokenExpiry" | "dateOfBirth" | "gender" | "role" | "status" | "designation" | "rights" | "departmentId" | "courseId" | "emailVerified" | "phoneVerified" | "profileImage" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "fullName" | "email" | "rollNumber" | "mobileNumber" | "batch" | "passwordHash" | "resetPasswordToken" | "resetPasswordTokenExpiry" | "dateOfBirth" | "gender" | "role" | "status" | "designation" | "rights" | "departmentId" | "courseId" | "emailVerified" | "phoneVerified" | "profileImage" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   department?: boolean | Prisma.User$departmentArgs<ExtArgs>
   course?: boolean | Prisma.User$courseArgs<ExtArgs>
@@ -3207,6 +3338,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     email: string
     rollNumber: string | null
     mobileNumber: string | null
+    batch: number | null
     passwordHash: string
     resetPasswordToken: string | null
     resetPasswordTokenExpiry: Date | null
@@ -3663,6 +3795,7 @@ export interface UserFieldRefs {
   readonly email: Prisma.FieldRef<"User", 'String'>
   readonly rollNumber: Prisma.FieldRef<"User", 'String'>
   readonly mobileNumber: Prisma.FieldRef<"User", 'String'>
+  readonly batch: Prisma.FieldRef<"User", 'Int'>
   readonly passwordHash: Prisma.FieldRef<"User", 'String'>
   readonly resetPasswordToken: Prisma.FieldRef<"User", 'String'>
   readonly resetPasswordTokenExpiry: Prisma.FieldRef<"User", 'DateTime'>

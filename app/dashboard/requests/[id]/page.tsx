@@ -3,9 +3,9 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { 
+import {
   ArrowLeft,
-  Loader2, 
+  Loader2,
   AlertTriangle,
   Clock,
   CheckCircle,
@@ -21,21 +21,23 @@ import {
   Sparkles,
   Calendar,
   AlertCircle,
-  Trash2
+  Trash2,
 } from "lucide-react";
-import { 
-  getRequestDetails, 
-  updateRequestStatus, 
-  assignRequest, 
+import {
+  getRequestDetails,
+  updateRequestStatus,
+  assignRequest,
   unassignRequest,
   addRequestWatcher,
   removeRequestWatcher,
   addRequestComment,
-  updateRequestTarget
+  updateRequestTarget,
+  forwardRequest,
 } from "@/lib/prisma/actions/requests";
 import { getStaffUsers } from "@/lib/prisma/actions/staff";
 import { getCategories } from "@/lib/prisma/actions/categories";
 import { getDepartments } from "@/lib/prisma/actions/departments";
+import TimeLine from "@/components/requests/timeline";
 
 interface StaffOption {
   id: string;
@@ -68,8 +70,13 @@ export default function RequestDetailsPage() {
 
   // Target change editing state
   const [isEditingTarget, setIsEditingTarget] = useState(false);
-  const [newTargetMode, setNewTargetMode] = useState<"CATEGORY" | "DEPARTMENT">("CATEGORY");
+  const [newTargetMode, setNewTargetMode] = useState<"CATEGORY" | "DEPARTMENT">(
+    "CATEGORY",
+  );
   const [newTargetId, setNewTargetId] = useState("");
+
+  const [userDeptId, setUserDeptId] = useState("");
+  const [forwardStaffId, setForwardStaffId] = useState("");
 
   // Success messages for form actions
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -83,12 +90,18 @@ export default function RequestDetailsPage() {
       setUserRole(response.userRole || "STUDENT");
       setUserRights(response.userRights || []);
       setUserId(response.userId || "");
+      setUserDeptId(response.userDeptId || "");
       setNewStatus(response.request.status);
       setAssignedStaffId("");
       setWatcherSelectId("");
+      setForwardStaffId("");
 
-      setNewTargetMode(response.request.departmentId ? "DEPARTMENT" : "CATEGORY");
-      setNewTargetId(response.request.departmentId || response.request.categoryId || "");
+      setNewTargetMode(
+        response.request.departmentId ? "DEPARTMENT" : "CATEGORY",
+      );
+      setNewTargetId(
+        response.request.departmentId || response.request.categoryId || "",
+      );
     } else {
       setErrorMsg(response.message || "Failed to load request details.");
     }
@@ -101,12 +114,13 @@ export default function RequestDetailsPage() {
       }
 
       // Load categories & departments if admin or HOD
-      const isAdmin = response.userRole === "ADMIN" || response.userRole === "SUPER_ADMIN";
+      const isAdmin =
+        response.userRole === "ADMIN" || response.userRole === "SUPER_ADMIN";
       const isHod = response.userRole === "HOD";
       if (isAdmin || isHod) {
         const [catRes, deptRes] = await Promise.all([
           getCategories(),
-          getDepartments()
+          getDepartments(),
         ]);
         if (catRes.success && catRes.categories) {
           setCategories(catRes.categories);
@@ -166,6 +180,29 @@ export default function RequestDetailsPage() {
       }
     } catch (err) {
       setActionError("Failed to assign staff.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForwardSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setActionSuccess(null);
+    setActionError(null);
+    if (!forwardStaffId) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await forwardRequest(id, forwardStaffId);
+      if (response.success) {
+        setActionSuccess(response.message || "Request forwarded successfully.");
+        setForwardStaffId("");
+        await loadDetails();
+      } else {
+        setActionError(response.message);
+      }
+    } catch (err) {
+      setActionError("Failed to forward request.");
     } finally {
       setIsSubmitting(false);
     }
@@ -238,7 +275,11 @@ export default function RequestDetailsPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await updateRequestTarget(id, newTargetMode, newTargetId);
+      const response = await updateRequestTarget(
+        id,
+        newTargetMode,
+        newTargetId,
+      );
       if (response.success) {
         setActionSuccess(response.message);
         setIsEditingTarget(false);
@@ -264,7 +305,11 @@ export default function RequestDetailsPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await addRequestComment(id, commentText, isInternalComment);
+      const response = await addRequestComment(
+        id,
+        commentText,
+        isInternalComment,
+      );
       if (response.success) {
         setActionSuccess("Comment added successfully!");
         setCommentText("");
@@ -291,7 +336,11 @@ export default function RequestDetailsPage() {
         </span>
       );
     }
-    if (s === "UNDER_REVIEW" || s === "IN_PROGRESS" || s === "WAITING_FOR_STUDENT") {
+    if (
+      s === "UNDER_REVIEW" ||
+      s === "IN_PROGRESS" ||
+      s === "WAITING_FOR_STUDENT"
+    ) {
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-955/35 text-blue-800 dark:text-blue-300 border border-blue-250 dark:border-blue-900/30">
           <Info className="h-3.5 w-3.5" />
@@ -317,9 +366,12 @@ export default function RequestDetailsPage() {
 
   const getPriorityColor = (priority: string) => {
     const p = priority.toUpperCase();
-    if (p === "URGENT") return "text-red-650 bg-red-50 dark:bg-red-950/20 border-red-200/50";
-    if (p === "HIGH") return "text-orange-655 bg-orange-50 dark:bg-orange-950/20 border-orange-200/50";
-    if (p === "MEDIUM") return "text-blue-655 bg-blue-50 dark:bg-blue-950/20 border-blue-200/50";
+    if (p === "URGENT")
+      return "text-red-650 bg-red-50 dark:bg-red-950/20 border-red-200/50";
+    if (p === "HIGH")
+      return "text-orange-655 bg-orange-50 dark:bg-orange-950/20 border-orange-200/50";
+    if (p === "MEDIUM")
+      return "text-blue-655 bg-blue-50 dark:bg-blue-950/20 border-blue-200/50";
     return "text-slate-600 bg-slate-50 dark:bg-slate-800 border-slate-200/50";
   };
 
@@ -331,7 +383,7 @@ export default function RequestDetailsPage() {
         day: "2-digit",
         year: "numeric",
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
       });
     } catch {
       return "";
@@ -342,7 +394,9 @@ export default function RequestDetailsPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="h-8 w-8 text-primary animate-spin" />
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Retrieving ticket details...</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+          Retrieving ticket details...
+        </p>
       </div>
     );
   }
@@ -352,8 +406,12 @@ export default function RequestDetailsPage() {
       <div className="max-w-md mx-auto py-20 text-center space-y-4">
         <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
         <div className="space-y-1">
-          <h2 className="text-lg font-bold text-slate-850 dark:text-slate-200">Retrieval Error</h2>
-          <p className="text-xs text-slate-455">{errorMsg || "Request details not found."}</p>
+          <h2 className="text-lg font-bold text-slate-850 dark:text-slate-200">
+            Retrieval Error
+          </h2>
+          <p className="text-xs text-slate-455">
+            {errorMsg || "Request details not found."}
+          </p>
         </div>
         <Link
           href="/dashboard/requests"
@@ -376,7 +434,7 @@ export default function RequestDetailsPage() {
       oldValue: a.oldValue,
       newValue: a.newValue,
       message: a.message,
-      createdAt: a.createdAt
+      createdAt: a.createdAt,
     })),
     ...request.comments.map((c: any) => ({
       id: c.id,
@@ -385,20 +443,27 @@ export default function RequestDetailsPage() {
       authorRole: c.authorRole,
       message: c.message,
       internal: c.internal,
-      createdAt: c.createdAt
-    }))
-  ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      createdAt: c.createdAt,
+    })),
+  ].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 
   const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
   const hasRoutingRight = userRights.includes("MANAGE_ROUTING");
-  const isDepartmentHod = userRole === "HOD" && request?.departmentId && request?.departmentHodId === userId;
+  const isDepartmentHod =
+    userRole === "HOD" && (
+      (request?.departmentId && request?.departmentHodId === userId) ||
+      (request?.departmentId && userDeptId === request.departmentId) ||
+      (request?.creator?.departmentId && userDeptId === request.creator.departmentId)
+    );
   const canAssign = isAdmin || hasRoutingRight || isDepartmentHod;
   const canChangeTarget = isAdmin || userRole === "HOD";
   const isStudent = userRole === "STUDENT";
+  const isAssignedToMe = request?.assignments?.some((a: any) => a.user.id === userId);
 
   return (
     <div className="space-y-6">
-      
       {/* Back Button Header */}
       <div className="flex items-center justify-between">
         <Link
@@ -415,18 +480,19 @@ export default function RequestDetailsPage() {
 
       {/* Main Grid: Management details card on left, Timeline on right */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-login-gap">
-        
         {/* Left Column: Details and Actions (3/5 Width) */}
         <div className="lg:col-span-3 space-y-login-gap">
-          
           {/* Card 1: Ticket Description Details */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
             {isEditingTarget ? (
-              <form onSubmit={handleTargetSubmit} className="bg-slate-50 dark:bg-slate-955/40 p-4 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
+              <form
+                onSubmit={handleTargetSubmit}
+                className="bg-slate-50 dark:bg-slate-955/40 p-4 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3"
+              >
                 <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
                   Update Request Classification Target
                 </h4>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
@@ -435,7 +501,9 @@ export default function RequestDetailsPage() {
                     <select
                       value={newTargetMode}
                       onChange={(e) => {
-                        setNewTargetMode(e.target.value as "CATEGORY" | "DEPARTMENT");
+                        setNewTargetMode(
+                          e.target.value as "CATEGORY" | "DEPARTMENT",
+                        );
                         setNewTargetId("");
                       }}
                       className="w-full h-9 px-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
@@ -457,8 +525,10 @@ export default function RequestDetailsPage() {
                         className="w-full h-9 px-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
                       >
                         <option value="">Select Category</option>
-                        {categories.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
                         ))}
                       </select>
                     ) : (
@@ -469,8 +539,10 @@ export default function RequestDetailsPage() {
                         className="w-full h-9 px-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
                       >
                         <option value="">Select Department</option>
-                        {departments.map(d => (
-                          <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name} ({d.code})
+                          </option>
                         ))}
                       </select>
                     )}
@@ -508,8 +580,12 @@ export default function RequestDetailsPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setNewTargetMode(request.departmentId ? "DEPARTMENT" : "CATEGORY");
-                          setNewTargetId(request.departmentId || request.categoryId || "");
+                          setNewTargetMode(
+                            request.departmentId ? "DEPARTMENT" : "CATEGORY",
+                          );
+                          setNewTargetId(
+                            request.departmentId || request.categoryId || "",
+                          );
                           setIsEditingTarget(true);
                         }}
                         className="text-[10px] text-slate-400 hover:text-primary font-semibold flex items-center gap-0.5 cursor-pointer"
@@ -524,7 +600,9 @@ export default function RequestDetailsPage() {
                 </div>
                 <div className="flex gap-2">
                   {getStatusBadge(request.status)}
-                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(request.priority)}`}>
+                  <span
+                    className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(request.priority)}`}
+                  >
                     {request.priority}
                   </span>
                 </div>
@@ -548,7 +626,9 @@ export default function RequestDetailsPage() {
               {request.isAnonymous && (
                 <>
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                  <span className="text-amber-600 dark:text-amber-450 font-semibold">Anonymous Submission</span>
+                  <span className="text-amber-600 dark:text-amber-450 font-semibold">
+                    Anonymous Submission
+                  </span>
                 </>
               )}
             </div>
@@ -559,32 +639,51 @@ export default function RequestDetailsPage() {
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
               Filer Details
             </h3>
-            
+
             {request.isAnonymous && isStudent ? (
               <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-800/30 p-3.5 rounded-xl text-amber-800 dark:text-amber-300 text-xs">
                 <AlertCircle className="h-4.5 w-4.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                 <div className="space-y-1">
                   <span className="font-bold">Identity Masked</span>
-                  <p className="leading-relaxed">This ticket was filed anonymously. Administrative staff will not see your Name, Roll Number, or contact information.</p>
+                  <p className="leading-relaxed">
+                    This ticket was filed anonymously. Administrative staff will
+                    not see your Name, Roll Number, or contact information.
+                  </p>
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-xs text-slate-450 block mb-1">Student Name</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{request.creator.name}</span>
+                  <span className="text-xs text-slate-450 block mb-1">
+                    Student Name
+                  </span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {request.creator.name}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-xs text-slate-455 block mb-1">Email Address</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{request.creator.email}</span>
+                  <span className="text-xs text-slate-455 block mb-1">
+                    Email Address
+                  </span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {request.creator.email}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-xs text-slate-455 block mb-1">Mobile Contact</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{request.creator.mobileNumber}</span>
+                  <span className="text-xs text-slate-455 block mb-1">
+                    Mobile Contact
+                  </span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {request.creator.mobileNumber}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-xs text-slate-455 block mb-1">Enrolled Course</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">{request.creator.courseName}</span>
+                  <span className="text-xs text-slate-455 block mb-1">
+                    Enrolled Course
+                  </span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">
+                    {request.creator.courseName}
+                  </span>
                 </div>
               </div>
             )}
@@ -595,21 +694,32 @@ export default function RequestDetailsPage() {
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
               Assigned Resolution Officers ({request.assignments?.length || 0})
             </h3>
-            
+
             {request.assignments && request.assignments.length > 0 ? (
               <div className="space-y-3">
                 {request.assignments.map((assignment: any) => (
-                  <div key={assignment.id} className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl">
+                  <div
+                    key={assignment.id}
+                    className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                        {assignment.user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0,2)}
+                        {assignment.user.name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
                       </div>
                       <div className="space-y-0.5">
                         <h4 className="font-bold text-slate-850 dark:text-slate-100 text-xs">
                           {assignment.user.name}
                         </h4>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                          {assignment.user.role.replace("_", " ")} {assignment.user.designation ? `• ${assignment.user.designation}` : ""}
+                          {assignment.user.role.replace("_", " ")}{" "}
+                          {assignment.user.designation
+                            ? `• ${assignment.user.designation}`
+                            : ""}
                         </p>
                       </div>
                     </div>
@@ -629,7 +739,10 @@ export default function RequestDetailsPage() {
             ) : (
               <div className="flex items-center gap-2.5 p-3.5 bg-slate-50 dark:bg-slate-955/20 border border-slate-150 dark:border-slate-800/50 rounded-xl text-slate-500 dark:text-slate-400 text-xs">
                 <User className="h-4.5 w-4.5 text-slate-400" />
-                <span>This grievance has not been assigned to a resolution officer yet.</span>
+                <span>
+                  This grievance has not been assigned to a resolution officer
+                  yet.
+                </span>
               </div>
             )}
           </div>
@@ -639,14 +752,22 @@ export default function RequestDetailsPage() {
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
               Request Watchers ({request.watchers?.length || 0})
             </h3>
-            
+
             {request.watchers && request.watchers.length > 0 ? (
               <div className="space-y-3">
                 {request.watchers.map((watcher: any) => (
-                  <div key={watcher.user.id} className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl">
+                  <div
+                    key={watcher.user.id}
+                    className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-550 dark:text-slate-350 flex items-center justify-center font-bold text-xs shrink-0">
-                        {watcher.user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0,2)}
+                        {watcher.user.name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
                       </div>
                       <div className="space-y-0.5">
                         <h4 className="font-bold text-slate-805 dark:text-slate-100 text-xs">
@@ -675,7 +796,7 @@ export default function RequestDetailsPage() {
                 No watchers added to this request yet.
               </div>
             )}
-            
+
             {/* Add Watcher */}
             {!isStudent && (
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex gap-2">
@@ -730,7 +851,10 @@ export default function RequestDetailsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* 1. Status Update Form */}
                 <form onSubmit={handleStatusSubmit} className="space-y-3">
-                  <label htmlFor="updateStatusSelect" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <label
+                    htmlFor="updateStatusSelect"
+                    className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
+                  >
                     Transition Ticket Status
                   </label>
                   <div className="flex gap-2">
@@ -745,12 +869,14 @@ export default function RequestDetailsPage() {
                       <option value="ASSIGNED">Assigned</option>
                       <option value="UNDER_REVIEW">Under Review</option>
                       <option value="IN_PROGRESS">In Progress</option>
-                      <option value="WAITING_FOR_STUDENT">Waiting for Student</option>
+                      <option value="WAITING_FOR_STUDENT">
+                        Waiting for Student
+                      </option>
                       <option value="RESOLVED">Resolved</option>
                       <option value="REJECTED">Rejected</option>
                       <option value="CLOSED">Closed</option>
                     </select>
-                    
+
                     <button
                       type="submit"
                       disabled={isSubmitting || newStatus === request.status}
@@ -762,10 +888,13 @@ export default function RequestDetailsPage() {
                 </form>
 
                 {/* 2. Forward / Assignment Form */}
-                {canAssign && (
+                {canAssign ? (
                   <form onSubmit={handleAssignSubmit} className="space-y-3">
-                    <label htmlFor="assignStaffSelect" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Assign / Forward Complaint
+                    <label
+                      htmlFor="assignStaffSelect"
+                      className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
+                    >
+                      Assign Handler
                     </label>
                     <div className="flex gap-2">
                       <select
@@ -775,14 +904,16 @@ export default function RequestDetailsPage() {
                         onChange={(e) => setAssignedStaffId(e.target.value)}
                         className="flex-1 h-10 px-3 py-1.5 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-850 dark:text-slate-200 text-xs focus:outline-none focus:border-primary transition-all disabled:opacity-50"
                       >
-                        <option value="" disabled>Select Staff Member</option>
+                        <option value="" disabled>
+                          Select Staff Member
+                        </option>
                         {staffOptions.map((opt) => (
                           <option key={opt.id} value={opt.id}>
                             {opt.name} ({opt.role.replace("_", " ")})
                           </option>
                         ))}
                       </select>
-                      
+
                       <button
                         type="submit"
                         disabled={isSubmitting || !assignedStaffId}
@@ -792,15 +923,58 @@ export default function RequestDetailsPage() {
                       </button>
                     </div>
                   </form>
+                ) : (
+                  isAssignedToMe && (
+                    <form onSubmit={handleForwardSubmit} className="space-y-3">
+                      <label
+                        htmlFor="forwardStaffSelect"
+                        className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
+                      >
+                        Forward Request (Self-Unassign & Watch)
+                      </label>
+                      <div className="flex gap-2">
+                        <select
+                          id="forwardStaffSelect"
+                          disabled={isSubmitting}
+                          value={forwardStaffId}
+                          onChange={(e) => setForwardStaffId(e.target.value)}
+                          className="flex-1 h-10 px-3 py-1.5 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-850 dark:text-slate-200 text-xs focus:outline-none focus:border-primary transition-all disabled:opacity-50"
+                        >
+                          <option value="" disabled>
+                            Select Staff Member
+                          </option>
+                          {staffOptions.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.name} ({opt.role.replace("_", " ")})
+                            </option>
+                          ))}
+                        </select>
+
+                        <button
+                          type="submit"
+                          disabled={isSubmitting || !forwardStaffId}
+                          className="px-4 h-10 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Forward
+                        </button>
+                      </div>
+                    </form>
+                  )
                 )}
               </div>
 
               {/* 3. Add Comments Action Form */}
-              <form onSubmit={handleCommentSubmit} className="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-4">
-                <label htmlFor="commentTextarea" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <form
+                onSubmit={handleCommentSubmit}
+                className="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-4"
+              >
+                <label
+                  htmlFor="commentTextarea"
+                  className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
+                >
                   Add Resolution Comment / Updates
                 </label>
-                
+
                 <div className="relative group">
                   <textarea
                     id="commentTextarea"
@@ -812,7 +986,7 @@ export default function RequestDetailsPage() {
                     rows={3}
                     className="w-full pl-4 pr-12 py-3 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-xs focus:outline-none focus:border-primary transition-all resize-y disabled:opacity-50"
                   />
-                  
+
                   <button
                     type="submit"
                     disabled={isSubmitting || !commentText.trim()}
@@ -836,9 +1010,14 @@ export default function RequestDetailsPage() {
                     onChange={(e) => setIsInternalComment(e.target.checked)}
                     className="h-3.5 w-3.5 text-primary border-slate-350 dark:border-slate-800 rounded cursor-pointer"
                   />
-                  <label htmlFor="internalCommentCheck" className="text-xs text-slate-550 dark:text-slate-300 font-semibold cursor-pointer flex items-center gap-1">
+                  <label
+                    htmlFor="internalCommentCheck"
+                    className="text-xs text-slate-550 dark:text-slate-300 font-semibold cursor-pointer flex items-center gap-1"
+                  >
                     <Lock className="h-3 w-3 text-amber-500" />
-                    <span>Internal Comment (Staff Only - Hidden from Students)</span>
+                    <span>
+                      Internal Comment (Staff Only - Hidden from Students)
+                    </span>
                   </label>
                 </div>
               </form>
@@ -851,7 +1030,7 @@ export default function RequestDetailsPage() {
               <h3 className="text-sm font-bold text-slate-950 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
                 Write a Response Note
               </h3>
-              
+
               <form onSubmit={handleCommentSubmit} className="space-y-3">
                 <div className="relative group">
                   <textarea
@@ -863,7 +1042,7 @@ export default function RequestDetailsPage() {
                     rows={3}
                     className="w-full pl-4 pr-12 py-3 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-xs focus:outline-none focus:border-primary transition-all resize-y disabled:opacity-50"
                   />
-                  
+
                   <button
                     type="submit"
                     disabled={isSubmitting || !commentText.trim()}
@@ -879,103 +1058,13 @@ export default function RequestDetailsPage() {
               </form>
             </div>
           )}
-
         </div>
 
         {/* Right Column: Chronological Timeline (2/5 Width) */}
         <div className="lg:col-span-2 space-y-login-gap">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm min-h-[450px] flex flex-col">
-            <h3 className="text-sm font-bold text-slate-950 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-3 mb-6">
-              Request Activity Timeline
-            </h3>
-
-            {/* Vertical timeline timelineItems */}
-            <div className="flex-1 relative pl-6 border-l-2 border-slate-100 dark:border-slate-800 space-y-6">
-              
-              {timelineItems.map((item: any) => {
-                const isComment = item.timelineType === "COMMENT";
-                
-                return (
-                  <div key={item.id} className="relative group select-none">
-                    
-                    {/* Timeline Node Point Dot Icon */}
-                    <div className={`absolute -left-[31px] top-1 h-4 w-4 rounded-full border-4 bg-white dark:bg-slate-900 ${
-                      isComment 
-                        ? item.internal 
-                          ? "border-amber-450" 
-                          : "border-primary" 
-                        : "border-slate-350 dark:border-slate-600"
-                    }`} />
-
-                    {/* Timeline Content card */}
-                    <div className={`p-4 rounded-login-radius border text-xs space-y-1.5 transition-colors ${
-                      isComment 
-                        ? item.internal 
-                          ? "bg-amber-50/40 dark:bg-amber-955/15 border-amber-200/50 dark:border-amber-850" 
-                          : "bg-primary/5 border-primary/20" 
-                        : "bg-slate-50/50 dark:bg-slate-955/20 border-slate-200/50 dark:border-slate-800/80"
-                    }`}>
-                      
-                      {/* Sub-header (Author/Actor and Date) */}
-                      <div className="flex justify-between items-center gap-2">
-                        <div className="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-250">
-                          {isComment ? (
-                            <>
-                              <span>{item.authorName}</span>
-                              <span className="text-[10px] text-slate-400 font-medium">({item.authorRole.replace("_", " ")})</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>{item.actorName}</span>
-                            </>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap font-medium">
-                          {formatTimelineDate(item.createdAt)}
-                        </span>
-                      </div>
-
-                      {/* Content details */}
-                      {isComment ? (
-                        <div className="space-y-1.5 pt-1 text-slate-700 dark:text-slate-300">
-                          {item.internal && (
-                            <div className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-450 font-bold tracking-wider uppercase">
-                              <Lock className="h-3 w-3" />
-                              <span>Internal Note</span>
-                            </div>
-                          )}
-                          <p className="leading-relaxed whitespace-pre-wrap">{item.message}</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-1 text-slate-500 dark:text-slate-400 leading-relaxed pt-0.5">
-                          {/* Activity Specific text representations */}
-                          <div className="flex items-center gap-1">
-                            <span className="font-semibold text-slate-750 dark:text-slate-300">
-                              {item.type.replace("_", " ")}
-                            </span>
-                            {item.oldValue && item.newValue && (
-                              <span className="text-[10px] text-slate-400 font-mono">
-                                ({item.oldValue} → {item.newValue})
-                              </span>
-                            )}
-                          </div>
-                          {item.message && <p className="text-[11px] text-slate-400 font-medium">{item.message}</p>}
-                        </div>
-                      )}
-
-                    </div>
-
-                  </div>
-                );
-              })}
-
-            </div>
-
-          </div>
+          <TimeLine timelineItems={timelineItems} />
         </div>
-
       </div>
-
     </div>
   );
 }

@@ -86,6 +86,7 @@ export const UserScalarFieldEnum = {
   email: 'email',
   rollNumber: 'rollNumber',
   mobileNumber: 'mobileNumber',
+  batch: 'batch',
   passwordHash: 'passwordHash',
   resetPasswordToken: 'resetPasswordToken',
   resetPasswordTokenExpiry: 'resetPasswordTokenExpiry',
@@ -124,6 +125,7 @@ export const CourseScalarFieldEnum = {
   code: 'code',
   name: 'name',
   duration: 'duration',
+  departmentId: 'departmentId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
