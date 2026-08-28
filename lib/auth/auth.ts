@@ -56,7 +56,7 @@ export const fetchSSOToken = async (code: string) => {
     const cookieStores = await cookies();
     const codeVerifier = cookieStores.get("sso_code_verifier")?.value;
 
-    const res = await fetch(`http://localhost:3000/api/token`, {
+    const res = await fetch(`${process.env.SSO_URL}/api/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
