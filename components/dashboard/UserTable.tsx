@@ -14,6 +14,7 @@ interface UserTableProps {
   handleDeleteClick: (id: string) => void;
   currentUser: { id?: string; role: string; departmentId?: string } | null;
   getRoleBadge: (role: string) => React.ReactNode;
+  className?: string;
 }
 
 export default function UserTable({
@@ -26,7 +27,8 @@ export default function UserTable({
   handleEditClick,
   handleDeleteClick,
   currentUser,
-  getRoleBadge
+  getRoleBadge,
+  className = "",
 }: UserTableProps) {
   const isHOD = currentUser?.role.toUpperCase() === "HOD";
   const isAdmin = currentUser?.role.toUpperCase() === "ADMIN" || currentUser?.role.toUpperCase() === "SUPER_ADMIN";
@@ -48,7 +50,7 @@ export default function UserTable({
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm lg:col-span-2 overflow-hidden flex flex-col min-h-[450px]">
+    <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm overflow-hidden flex flex-col min-h-[450px] ${className || "lg:col-span-2"}`}>
       
       {/* Table Header with Local Search and Filters */}
       <div className="p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">

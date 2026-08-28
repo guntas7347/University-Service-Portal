@@ -13,6 +13,7 @@ enum Role {
   HOD
   ADMIN
   SUPER_ADMIN
+  UNKNOWN
 }
 
 enum Gender {
@@ -59,7 +60,8 @@ enum Priority {
 }
 
 model User {
-  id String @id @default(cuid())
+  id    String  @id @default(cuid())
+  ssoId String? @unique
 
   fullName     String
   email        String  @unique
@@ -67,11 +69,6 @@ model User {
   mobileNumber String? @unique
 
   batch Int?
-
-  passwordHash String
-
-  resetPasswordToken       String?
-  resetPasswordTokenExpiry DateTime?
 
   dateOfBirth DateTime?
   gender      Gender?

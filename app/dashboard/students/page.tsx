@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, FormEvent } from "react";
-import { 
-  GraduationCap, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  GraduationCap,
+  Plus,
+  Save,
+  Edit,
+  Trash2,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   Hash,
   FileText,
@@ -21,14 +22,13 @@ import {
   BookOpen,
   Calendar,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 import { useForm } from "@/hooks/useForm";
-import { 
-  getStudents, 
-  createStudent, 
-  updateStudent, 
-  deleteStudent 
+import {
+  getStudents,
+  updateStudent,
+  deleteStudent,
 } from "@/lib/prisma/actions/students";
 import { getDepartments } from "@/lib/prisma/actions/departments";
 import { getCourses } from "@/lib/prisma/actions/courses";
@@ -51,11 +51,15 @@ interface StudentType {
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<StudentType[]>([]);
-  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
-  const [courses, setCourses] = useState<{ id: string; name: string; departmentId?: string | null }[]>([]);
+  const [departments, setDepartments] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [courses, setCourses] = useState<
+    { id: string; name: string; departmentId?: string | null }[]
+  >([]);
   const [userRole, setUserRole] = useState("STUDENT");
   const [userDeptId, setUserDeptId] = useState("");
-  
+
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -77,7 +81,7 @@ export default function StudentsPage() {
     departmentId: "",
     courseId: "",
     batch: "",
-    status: "ACTIVE"
+    status: "ACTIVE",
   });
 
   // Fetch all initial data
@@ -87,7 +91,7 @@ export default function StudentsPage() {
       const [studentRes, deptRes, coursesRes] = await Promise.all([
         getStudents(),
         getDepartments(),
-        getCourses()
+        getCourses(),
       ]);
 
       let role = "STUDENT";
@@ -113,7 +117,6 @@ export default function StudentsPage() {
       if (role === "HOD" && deptId) {
         setFields({ departmentId: deptId });
       }
-
     } catch (err) {
       setErrorMsg("Failed to load student dashboard records.");
     } finally {
@@ -128,7 +131,7 @@ export default function StudentsPage() {
   // Filter courses based on department selection (especially useful for HOD or during department choice)
   const selectedDeptId = userRole === "HOD" ? userDeptId : form.departmentId;
   const filteredCourses = selectedDeptId
-    ? courses.filter(c => c.departmentId === selectedDeptId)
+    ? courses.filter((c) => c.departmentId === selectedDeptId)
     : courses;
 
   // Form submission handler (Create and Update)
@@ -150,37 +153,27 @@ export default function StudentsPage() {
       return;
     }
 
+    if (!editingId) {
+      setErrorMsg("No active student profile selected for editing.");
+      return;
+    }
+
     setIsSubmitting(true);
     const batchNum = form.batch ? Number(form.batch) : undefined;
 
     try {
-      let response;
-      if (editingId) {
-        // Update existing student
-        response = await updateStudent(editingId, {
-          name: form.name,
-          email: form.email,
-          rollNumber: form.rollNumber,
-          mobileNumber: form.mobileNumber || undefined,
-          batch: batchNum,
-          gender: form.gender || undefined,
-          departmentId: finalDeptId,
-          courseId: form.courseId || undefined,
-          status: form.status
-        });
-      } else {
-        // Create new student
-        response = await createStudent({
-          name: form.name,
-          email: form.email,
-          rollNumber: form.rollNumber,
-          mobileNumber: form.mobileNumber || undefined,
-          batch: batchNum,
-          gender: form.gender || undefined,
-          departmentId: finalDeptId,
-          courseId: form.courseId || undefined
-        });
-      }
+      // Update existing student
+      const response = await updateStudent(editingId, {
+        name: form.name,
+        email: form.email,
+        rollNumber: form.rollNumber,
+        mobileNumber: form.mobileNumber || undefined,
+        batch: batchNum,
+        gender: form.gender || undefined,
+        departmentId: finalDeptId,
+        courseId: form.courseId || undefined,
+        status: form.status,
+      });
 
       if (response.success) {
         setSuccessMsg(response.message);
@@ -218,7 +211,7 @@ export default function StudentsPage() {
       departmentId: student.departmentId || "",
       courseId: student.courseId || "",
       batch: student.batch ? String(student.batch) : "",
-      status: student.status
+      status: student.status,
     });
   };
 
@@ -235,7 +228,11 @@ export default function StudentsPage() {
 
   // Delete click handler
   const handleDeleteClick = async (student: StudentType) => {
-    if (!window.confirm(`Are you sure you want to permanently delete the student account for ${student.name}?`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to permanently delete the student account for ${student.name}?`,
+      )
+    ) {
       return;
     }
 
@@ -259,12 +256,12 @@ export default function StudentsPage() {
   };
 
   // Search query filters
-  const filteredStudents = students.filter(s => {
-    const matchesSearch = 
+  const filteredStudents = students.filter((s) => {
+    const matchesSearch =
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.rollNumber.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     return matchesSearch;
   });
 
@@ -296,62 +293,60 @@ export default function StudentsPage() {
 
   return (
     <div className="space-y-6">
-      
       {/* Title */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight font-sans">
           Manage Students
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          {userRole === "HOD" 
-            ? "Register and configure student profiles and course transitions within your department"
-            : "University-wide administration of student user accounts, batch details, and program enrollments"
-          }
+          {userRole === "HOD"
+            ? "Configure student profiles and course transitions within your department"
+            : "University-wide administration and editing of student user accounts, batch details, and program enrollments"}
         </p>
       </div>
 
+      {/* Feedback alerts */}
+      {errorMsg && (
+        <div className="flex items-start gap-2.5 p-3.5 bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-800/30 rounded-xl text-red-800 dark:text-red-300 text-xs">
+          <AlertCircle className="h-4.5 w-4.5 shrink-0 text-red-650 dark:text-red-400 mt-0.5" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="flex items-start gap-2.5 p-3.5 bg-emerald-50 dark:bg-emerald-955/20 border border-emerald-200 dark:border-emerald-800/30 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs">
+          <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-emerald-655 dark:text-emerald-400 mt-0.5" />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
       {/* Grid Layout: Form on Left, List on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-login-gap">
-        
         {/* Left Column: Register/Edit Form Card */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
-          <div className="mb-6 flex justify-between items-center">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
-              {editingId ? "Edit Student Profile" : "Register Student"}
-            </h2>
-            {editingId && (
-              <button 
-                type="button" 
+        {editingId ? (
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
+            <div className="mb-6 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+                Edit Student Profile
+              </h2>
+              <button
+                type="button"
                 onClick={handleCancelEdit}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-all"
+                className="p-1 text-slate-400 hover:text-slate-650 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-all"
                 title="Cancel Edit"
               >
                 <X className="h-4 w-4" />
               </button>
-            )}
-          </div>
-
-          {/* Feedback alerts */}
-          {errorMsg && (
-            <div className="mb-4 flex items-start gap-2.5 p-3 bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-800/30 rounded-xl text-red-800 dark:text-red-300 text-xs">
-              <AlertCircle className="h-4.5 w-4.5 shrink-0 text-red-650 dark:text-red-400 mt-0.5" />
-              <span>{errorMsg}</span>
             </div>
-          )}
-
-          {successMsg && (
-            <div className="mb-4 flex items-start gap-2.5 p-3 bg-emerald-50 dark:bg-emerald-955/20 border border-emerald-200 dark:border-emerald-800/30 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs">
-              <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-emerald-655 dark:text-emerald-400 mt-0.5" />
-              <span>{successMsg}</span>
-            </div>
-          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            
             {/* Student Name */}
             <div>
-              <label htmlFor="name" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="name"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Full Name
               </label>
               <div className="relative group">
@@ -374,7 +369,10 @@ export default function StudentsPage() {
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="email"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Email Address
               </label>
               <div className="relative group">
@@ -397,7 +395,10 @@ export default function StudentsPage() {
 
             {/* Roll Number */}
             <div>
-              <label htmlFor="rollNumber" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="rollNumber"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Roll Number / Student ID
               </label>
               <div className="relative group">
@@ -420,7 +421,10 @@ export default function StudentsPage() {
 
             {/* Mobile Number */}
             <div>
-              <label htmlFor="mobileNumber" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="mobileNumber"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Mobile Number
               </label>
               <div className="relative group">
@@ -442,7 +446,10 @@ export default function StudentsPage() {
 
             {/* Department */}
             <div>
-              <label htmlFor="departmentId" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="departmentId"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Department
               </label>
               <div className="relative group">
@@ -470,7 +477,10 @@ export default function StudentsPage() {
 
             {/* Course */}
             <div>
-              <label htmlFor="courseId" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="courseId"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Enrolled Course Program
               </label>
               <div className="relative group">
@@ -499,7 +509,10 @@ export default function StudentsPage() {
             <div className="grid grid-cols-2 gap-3">
               {/* Batch */}
               <div>
-                <label htmlFor="batch" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <label
+                  htmlFor="batch"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
                   Graduation Batch
                 </label>
                 <div className="relative group">
@@ -523,7 +536,10 @@ export default function StudentsPage() {
 
               {/* Gender */}
               <div>
-                <label htmlFor="gender" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <label
+                  htmlFor="gender"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
                   Gender
                 </label>
                 <select
@@ -546,7 +562,10 @@ export default function StudentsPage() {
             {/* Account Status (Only visible in edit mode) */}
             {editingId && (
               <div>
-                <label htmlFor="status" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <label
+                  htmlFor="status"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
                   Account Access Status
                 </label>
                 <select
@@ -567,22 +586,18 @@ export default function StudentsPage() {
 
             {/* Action Buttons */}
             <div className="pt-2 flex gap-2">
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  disabled={isSubmitting}
-                  className="w-1/2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] cursor-pointer"
-                >
-                  Cancel
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                disabled={isSubmitting}
+                className="w-1/2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] cursor-pointer"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`h-11 bg-primary hover:bg-primary/95 text-white font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] shadow-md shadow-primary/10 cursor-pointer flex items-center justify-center gap-1.5 ${
-                  editingId ? "w-1/2" : "w-full"
-                }`}
+                className="w-1/2 h-11 bg-primary hover:bg-primary/95 text-white font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] shadow-md shadow-primary/10 cursor-pointer flex items-center justify-center gap-1.5"
               >
                 {isSubmitting ? (
                   <>
@@ -591,19 +606,20 @@ export default function StudentsPage() {
                   </>
                 ) : (
                   <>
-                    <Plus className="h-4 w-4" />
-                    <span>{editingId ? "Save Profile" : "Register Student"}</span>
+                    <Save className="h-4 w-4" />
+                    <span>Save Profile</span>
                   </>
                 )}
               </button>
             </div>
-
           </form>
         </div>
+      ) : null}
 
-        {/* Right Column: List Table card */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm lg:col-span-2 overflow-hidden flex flex-col min-h-[450px]">
-          
+      {/* Right Column: List Table card */}
+      <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm overflow-hidden flex flex-col min-h-[450px] ${
+        editingId ? "lg:col-span-2" : "lg:col-span-3"
+      }`}>
           {/* Controls */}
           <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div>
@@ -614,7 +630,7 @@ export default function StudentsPage() {
                 Active student enrollment records
               </p>
             </div>
-            
+
             {/* Search filter input */}
             <div className="relative group w-full sm:w-64">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -634,17 +650,20 @@ export default function StudentsPage() {
           {isPageLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2.5 py-20">
               <Loader2 className="h-8 w-8 text-primary animate-spin" />
-              <p className="text-sm text-slate-400">Loading student directory...</p>
+              <p className="text-sm text-slate-400">
+                Loading student directory...
+              </p>
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2 py-20 text-center px-4">
               <GraduationCap className="h-10 w-10 text-slate-350 dark:text-slate-650" />
-              <h4 className="font-bold text-slate-700 dark:text-slate-400 text-sm">No Student Profiles Found</h4>
+              <h4 className="font-bold text-slate-700 dark:text-slate-400 text-sm">
+                No Student Profiles Found
+              </h4>
               <p className="text-xs text-slate-400 max-w-xs mt-1">
-                {searchQuery 
-                  ? "No search matches found for the query parameter." 
-                  : "No students are currently registered in this department or system track."
-                }
+                {searchQuery
+                  ? "No search matches found for the query parameter."
+                  : "No students are currently registered in this department or system track."}
               </p>
             </div>
           ) : (
@@ -661,32 +680,51 @@ export default function StudentsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-155 dark:divide-slate-850">
                   {filteredStudents.map((student) => {
-                    const isOwnDept = userRole === "ADMIN" || userRole === "SUPER_ADMIN" || student.departmentId === userDeptId;
+                    const isOwnDept =
+                      userRole === "ADMIN" ||
+                      userRole === "SUPER_ADMIN" ||
+                      student.departmentId === userDeptId;
 
                     return (
-                      <tr key={student.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm">
-                        
+                      <tr
+                        key={student.id}
+                        className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm"
+                      >
                         {/* Student Name and Email */}
                         <td className="py-4 px-6">
-                          <div className="font-bold text-slate-900 dark:text-slate-100">{student.name}</div>
-                          <div className="text-xs text-slate-450 mt-0.5">{student.email}</div>
+                          <div className="font-bold text-slate-900 dark:text-slate-100">
+                            {student.name}
+                          </div>
+                          <div className="text-xs text-slate-450 mt-0.5">
+                            {student.email}
+                          </div>
                           {student.mobileNumber && (
-                            <div className="text-[10px] text-slate-400 font-medium mt-0.5 font-mono">{student.mobileNumber}</div>
+                            <div className="text-[10px] text-slate-400 font-medium mt-0.5 font-mono">
+                              {student.mobileNumber}
+                            </div>
                           )}
                         </td>
 
                         {/* Roll Number and Batch */}
                         <td className="py-4 px-6">
-                          <div className="font-semibold text-slate-800 dark:text-slate-300 font-mono text-xs">{student.rollNumber}</div>
+                          <div className="font-semibold text-slate-800 dark:text-slate-300 font-mono text-xs">
+                            {student.rollNumber}
+                          </div>
                           <div className="text-xs text-slate-450 mt-0.5">
-                            {student.batch ? `Graduation: ${student.batch}` : "Batch: N/A"}
+                            {student.batch
+                              ? `Graduation: ${student.batch}`
+                              : "Batch: N/A"}
                           </div>
                         </td>
 
                         {/* Course & Department */}
                         <td className="py-4 px-6">
-                          <div className="font-medium text-slate-700 dark:text-slate-350">{student.courseName || "General Track"}</div>
-                          <div className="text-xs text-slate-450 mt-0.5">{student.departmentName || "Unassigned"}</div>
+                          <div className="font-medium text-slate-700 dark:text-slate-350">
+                            {student.courseName || "General Track"}
+                          </div>
+                          <div className="text-xs text-slate-450 mt-0.5">
+                            {student.departmentName || "Unassigned"}
+                          </div>
                         </td>
 
                         {/* Status Badge */}
@@ -716,10 +754,11 @@ export default function StudentsPage() {
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400 italic pr-2">No Access</span>
+                            <span className="text-xs text-slate-400 italic pr-2">
+                              No Access
+                            </span>
                           )}
                         </td>
-
                       </tr>
                     );
                   })}
@@ -727,11 +766,8 @@ export default function StudentsPage() {
               </table>
             </div>
           )}
-          
         </div>
-
       </div>
-
     </div>
   );
 }

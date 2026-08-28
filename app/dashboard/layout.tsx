@@ -44,6 +44,7 @@ export default function DashboardLayout({
   const { theme, toggleTheme } = useTheme();
   const isDarkMode = theme === "dark";
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Auth state variables
   const [user, setUser] = useState<any | null>(null);
@@ -57,19 +58,38 @@ export default function DashboardLayout({
     const rights = user.rights || [];
 
     if (pathname === "/dashboard/users") {
-      return role === "ADMIN" || role === "SUPER_ADMIN" || role === "HOD" || rights.includes("MANAGE_USERS");
+      return (
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN" ||
+        role === "HOD" ||
+        rights.includes("MANAGE_USERS")
+      );
     }
 
     if (pathname === "/dashboard/students") {
-      return role === "ADMIN" || role === "SUPER_ADMIN" || role === "HOD" || rights.includes("MANAGE_USERS");
+      return (
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN" ||
+        role === "HOD" ||
+        rights.includes("MANAGE_USERS")
+      );
     }
 
     if (pathname === "/dashboard/courses") {
-      return role === "ADMIN" || role === "SUPER_ADMIN" || role === "HOD" || rights.includes("MANAGE_COURSES");
+      return (
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN" ||
+        role === "HOD" ||
+        rights.includes("MANAGE_COURSES")
+      );
     }
 
     if (pathname === "/dashboard/category") {
-      return role === "ADMIN" || role === "SUPER_ADMIN" || rights.includes("MANAGE_CATEGORIES");
+      return (
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN" ||
+        rights.includes("MANAGE_CATEGORIES")
+      );
     }
 
     if (pathname === "/dashboard/departments") {
@@ -77,7 +97,11 @@ export default function DashboardLayout({
     }
 
     if (pathname === "/dashboard/routing") {
-      return role === "ADMIN" || role === "SUPER_ADMIN" || rights.includes("MANAGE_ROUTING");
+      return (
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN" ||
+        rights.includes("MANAGE_ROUTING")
+      );
     }
 
     if (pathname === "/dashboard/create-request") {
@@ -103,8 +127,8 @@ export default function DashboardLayout({
   }, [router]);
 
   // Sign out click handler
-  const handleLogout = async (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
+  const handleLogout = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     const response = await logoutUser();
     if (response.success) {
       router.push("/login");
@@ -161,9 +185,7 @@ export default function DashboardLayout({
     : "ST";
 
   return (
-    <div
-      className="min-h-screen flex transition-colors duration-300 font-sans bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200"
-    >
+    <div className="min-h-screen flex transition-colors duration-300 font-sans bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200">
       {/* Mobile Sidebar Backdrop Overlay */}
       {isSidebarOpen && (
         <div
@@ -216,22 +238,29 @@ export default function DashboardLayout({
             label="Edit Profile"
             onClick={() => setIsSidebarOpen(false)}
           />
-          {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.role === "HOD" || user.rights?.includes("MANAGE_COURSES")) && (
-            <SidebarLink
-              href="/dashboard/courses"
-              icon={<BookOpen className="h-4 w-4" />}
-              label="Manage Courses"
-              onClick={() => setIsSidebarOpen(false)}
-            />
-          )}
-          {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.rights?.includes("MANAGE_CATEGORIES")) && (
-            <SidebarLink
-              href="/dashboard/category"
-              icon={<Grid className="h-4 w-4" />}
-              label="Manage Categories"
-              onClick={() => setIsSidebarOpen(false)}
-            />
-          )}
+          {user &&
+            (user.role === "ADMIN" ||
+              user.role === "SUPER_ADMIN" ||
+              user.role === "HOD" ||
+              user.rights?.includes("MANAGE_COURSES")) && (
+              <SidebarLink
+                href="/dashboard/courses"
+                icon={<BookOpen className="h-4 w-4" />}
+                label="Manage Courses"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            )}
+          {user &&
+            (user.role === "ADMIN" ||
+              user.role === "SUPER_ADMIN" ||
+              user.rights?.includes("MANAGE_CATEGORIES")) && (
+              <SidebarLink
+                href="/dashboard/category"
+                icon={<Grid className="h-4 w-4" />}
+                label="Manage Categories"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            )}
           {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN") && (
             <SidebarLink
               href="/dashboard/departments"
@@ -240,38 +269,52 @@ export default function DashboardLayout({
               onClick={() => setIsSidebarOpen(false)}
             />
           )}
-          {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.rights?.includes("MANAGE_ROUTING")) && (
-            <SidebarLink
-              href="/dashboard/routing"
-              icon={<Shuffle className="h-4 w-4" />}
-              label="Routing Rules"
-              onClick={() => setIsSidebarOpen(false)}
-            />
-          )}
-          {user && (user.role === "STUDENT" || user.role === "FACULTY" || user.role === "HOD") && (
-            <SidebarLink
-              href="/dashboard/create-request"
-              icon={<PlusCircle className="h-4 w-4" />}
-              label="Submit Request"
-              onClick={() => setIsSidebarOpen(false)}
-            />
-          )}
-          {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.role === "HOD" || user.rights?.includes("MANAGE_USERS")) && (
-            <SidebarLink
-              href="/dashboard/users"
-              icon={<Users className="h-4 w-4" />}
-              label="Manage Users"
-              onClick={() => setIsSidebarOpen(false)}
-            />
-          )}
-          {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.role === "HOD" || user.rights?.includes("MANAGE_USERS")) && (
-            <SidebarLink
-              href="/dashboard/students"
-              icon={<GraduationCap className="h-4 w-4" />}
-              label="Manage Students"
-              onClick={() => setIsSidebarOpen(false)}
-            />
-          )}
+          {user &&
+            (user.role === "ADMIN" ||
+              user.role === "SUPER_ADMIN" ||
+              user.rights?.includes("MANAGE_ROUTING")) && (
+              <SidebarLink
+                href="/dashboard/routing"
+                icon={<Shuffle className="h-4 w-4" />}
+                label="Routing Rules"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            )}
+          {user &&
+            (user.role === "STUDENT" ||
+              user.role === "FACULTY" ||
+              user.role === "HOD") && (
+              <SidebarLink
+                href="/dashboard/create-request"
+                icon={<PlusCircle className="h-4 w-4" />}
+                label="Submit Request"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            )}
+          {user &&
+            (user.role === "ADMIN" ||
+              user.role === "SUPER_ADMIN" ||
+              user.role === "HOD" ||
+              user.rights?.includes("MANAGE_USERS")) && (
+              <SidebarLink
+                href="/dashboard/users"
+                icon={<Users className="h-4 w-4" />}
+                label="Manage Users"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            )}
+          {user &&
+            (user.role === "ADMIN" ||
+              user.role === "SUPER_ADMIN" ||
+              user.role === "HOD" ||
+              user.rights?.includes("MANAGE_USERS")) && (
+              <SidebarLink
+                href="/dashboard/students"
+                icon={<GraduationCap className="h-4 w-4" />}
+                label="Manage Students"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            )}
           <SidebarLink
             href="/dashboard/requests"
             icon={<Inbox className="h-4 w-4" />}
@@ -338,7 +381,11 @@ export default function DashboardLayout({
             </button>
 
             {/* User Profile Thumbnail & Details */}
-            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsProfileModalOpen(true)}
+              className="flex items-center gap-2.5 pl-2 border-l border-slate-200 dark:border-slate-800 hover:opacity-80 transition-opacity text-left cursor-pointer focus:outline-none"
+            >
               <div className="flex flex-col text-right hidden sm:flex">
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">
                   {user?.name || "Loading..."}
@@ -347,10 +394,10 @@ export default function DashboardLayout({
                   {user?.role?.replace("_", " ") || ""}
                 </span>
               </div>
-              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-sm select-none shrink-0">
+              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-sm select-none shrink-0 hover:scale-105 transition-transform">
                 {initials}
               </div>
-            </div>
+            </button>
           </div>
         </header>
 
@@ -362,15 +409,198 @@ export default function DashboardLayout({
             <div className="flex flex-col items-center justify-center py-20 text-center gap-4 animate-fade-in">
               <ShieldAlert className="h-16 w-16 text-red-500" />
               <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">Access Denied</h2>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
+                  Access Denied
+                </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-                  You do not have the required permissions to view this page. Please contact the administrator if you believe this is an error.
+                  You do not have the required permissions to view this page.
+                  Please contact the administrator if you believe this is an
+                  error.
                 </p>
               </div>
             </div>
           )}
         </main>
       </div>
+
+      {/* Profile Modal */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            onClick={() => setIsProfileModalOpen(false)}
+            className="fixed inset-0 bg-slate-955/45 backdrop-blur-sm transition-opacity duration-300"
+          />
+
+          {/* Modal Content Container */}
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden transform transition-all duration-300 animate-in fade-in zoom-in-95 duration-200 z-10 flex flex-col max-h-[90vh]">
+            {/* Close Button */}
+            <button
+              onClick={() => setIsProfileModalOpen(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200 z-20 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Modal Header / Banner */}
+            <div className="relative p-6 pt-8 pb-6 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-br from-primary/5 via-transparent to-transparent flex flex-col items-center text-center">
+              <div className="h-20 w-20 rounded-full bg-primary/10 border-2 border-primary/20 text-primary flex items-center justify-center font-bold text-2xl mb-4 select-none shrink-0 shadow-lg shadow-primary/5">
+                {initials}
+              </div>
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white leading-tight">
+                {user?.name}
+              </h3>
+              <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 bg-primary/10 text-primary rounded-full mt-2 inline-block">
+                {user?.role?.replace("_", " ")}
+              </span>
+            </div>
+
+            {/* Modal Body / User Details */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/55 dark:bg-slate-900/55">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                {/* Email (Common) */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                    Email Address
+                  </span>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 break-all">
+                    {user?.email || "N/A"}
+                  </span>
+                </div>
+
+                {/* Mobile (Common) */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                    Mobile Number
+                  </span>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    {user?.mobileNumber || "N/A"}
+                  </span>
+                </div>
+
+                {user?.role === "STUDENT" ? (
+                  <>
+                    {/* Roll Number */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                        Roll Number
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                        {user?.rollNumber || "N/A"}
+                      </span>
+                    </div>
+
+                    {/* Course */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                        Enrolled Course
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                        {user?.enrolledCourse || "N/A"}
+                      </span>
+                    </div>
+
+                    {/* Department */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                        Department
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                        {user?.departmentName || "N/A"}
+                      </span>
+                    </div>
+
+                    {/* Gender */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                        Gender
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 capitalize">
+                        {user?.gender || "N/A"}
+                      </span>
+                    </div>
+
+                    {/* DOB */}
+                    <div className="flex flex-col gap-1 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                        Date of Birth
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                        {user?.dob || "N/A"}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Designation */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                        Designation
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 capitalize">
+                        {user?.designation || "N/A"}
+                      </span>
+                    </div>
+
+                    {/* Department */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                        Department
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                        {user?.departmentName || "N/A"}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {/* System Permissions (Only show if not STUDENT and has rights) */}
+                {user?.role !== "STUDENT" &&
+                  user?.rights &&
+                  user.rights.length > 0 && (
+                    <div className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 mt-2">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                        System Permissions
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {user.rights.map((right: string) => (
+                          <span
+                            key={right}
+                            className="text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded"
+                          >
+                            {right.replace("MANAGE_", "")}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-6 flex gap-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+              <Link
+                href="/dashboard/profile"
+                onClick={() => setIsProfileModalOpen(false)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98] transition-all text-sm cursor-pointer text-center"
+              >
+                <User className="h-4 w-4" />
+                <span>Edit Profile</span>
+              </Link>
+              <button
+                onClick={(e) => {
+                  setIsProfileModalOpen(false);
+                  handleLogout(e as any);
+                }}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold shadow-lg shadow-red-600/10 active:scale-[0.98] transition-all text-sm cursor-pointer"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

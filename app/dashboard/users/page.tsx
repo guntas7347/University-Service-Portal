@@ -1,17 +1,17 @@
 "use client";
 
 import React, { useState, useEffect, FormEvent } from "react";
-import { 
-  getStaffUsers, 
-  createStaffUser, 
-  updateStaffUser, 
-  deleteStaffUser 
+import {
+  getStaffUsers,
+  updateStaffUser,
+  deleteStaffUser,
 } from "@/lib/prisma/actions/staff";
 import { getDepartments } from "@/lib/prisma/actions/departments";
 import { getProfile } from "@/lib/prisma/actions/users";
 import { useForm } from "@/hooks/useForm";
 import UserForm from "@/components/dashboard/UserForm";
 import UserTable from "@/components/dashboard/UserTable";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface StaffUserType {
   id: string;
@@ -32,14 +32,21 @@ const RIGHTS_OPTIONS = [
   { value: "MANAGE_COURSES", label: "Manage Courses" },
   { value: "MANAGE_CATEGORIES", label: "Manage Categories" },
   { value: "MANAGE_USERS", label: "Manage Users" },
-  { value: "MANAGE_ROUTING", label: "Manage Routing Rules" }
+  { value: "MANAGE_ROUTING", label: "Manage Routing Rules" },
 ];
 
 export default function UsersPage() {
   const [staff, setStaff] = useState<StaffUserType[]>([]);
-  const [departments, setDepartments] = useState<{ id: string; code: string; name: string }[]>([]);
-  const [currentUser, setCurrentUser] = useState<{ id: string; role: string; departmentId?: string; departmentName?: string } | null>(null);
-  
+  const [departments, setDepartments] = useState<
+    { id: string; code: string; name: string }[]
+  >([]);
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    role: string;
+    departmentId?: string;
+    departmentName?: string;
+  } | null>(null);
+
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,7 +70,7 @@ export default function UsersPage() {
     mobileNumber: "",
     departmentId: "",
     role: "FACULTY",
-    gender: ""
+    gender: "",
   });
 
   // Load staff records on load
@@ -119,45 +126,37 @@ export default function UsersPage() {
       return;
     }
 
-    const targetRole = currentUser?.role.toUpperCase() === "HOD" ? "FACULTY" : form.role;
-    const targetDeptId = currentUser?.role.toUpperCase() === "HOD" 
-      ? currentUser.departmentId 
-      : form.departmentId;
+    const targetRole =
+      currentUser?.role.toUpperCase() === "HOD" ? "FACULTY" : form.role;
+    const targetDeptId =
+      currentUser?.role.toUpperCase() === "HOD"
+        ? currentUser.departmentId
+        : form.departmentId;
 
     if (targetRole === "HOD" && !targetDeptId) {
       setErrorMsg("Department is a required field for the HOD role.");
       return;
     }
 
+    if (!editingId) {
+      setErrorMsg("No active user account selected for editing.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      let response;
-      if (editingId) {
-        // Update user
-        response = await updateStaffUser(editingId, {
-          name: form.name,
-          email: form.email,
-          role: targetRole,
-          designation: form.designation || undefined,
-          departmentId: targetDeptId || undefined,
-          mobileNumber: form.mobileNumber || undefined,
-          gender: form.gender || undefined,
-          rights: selectedRights
-        });
-      } else {
-        // Create user
-        response = await createStaffUser({
-          name: form.name,
-          email: form.email,
-          role: targetRole,
-          designation: form.designation || undefined,
-          departmentId: targetDeptId || undefined,
-          mobileNumber: form.mobileNumber || undefined,
-          gender: form.gender || undefined,
-          rights: selectedRights
-        });
-      }
+      // Update user
+      const response = await updateStaffUser(editingId, {
+        name: form.name,
+        email: form.email,
+        role: targetRole,
+        designation: form.designation || undefined,
+        departmentId: targetDeptId || undefined,
+        mobileNumber: form.mobileNumber || undefined,
+        gender: form.gender || undefined,
+        rights: selectedRights,
+      });
 
       if (response.success) {
         setSuccessMsg(response.message);
@@ -188,7 +187,7 @@ export default function UsersPage() {
       mobileNumber: u.mobileNumber,
       departmentId: u.departmentId || "",
       role: u.role,
-      gender: u.gender
+      gender: u.gender,
     });
   };
 
@@ -203,7 +202,11 @@ export default function UsersPage() {
 
   // Delete click handler
   const handleDeleteClick = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this staff user account?")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this staff user account?",
+      )
+    ) {
       return;
     }
 
@@ -230,13 +233,12 @@ export default function UsersPage() {
       if (u.departmentId !== currentUser.departmentId) return false;
     }
 
-    const matchesSearch = 
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch =
+      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesRole = 
-      roleFilter === "ALL" || 
-      u.role.toUpperCase() === roleFilter.toUpperCase();
+    const matchesRole =
+      roleFilter === "ALL" || u.role.toUpperCase() === roleFilter.toUpperCase();
 
     return matchesSearch && matchesRole;
   });
@@ -273,36 +275,51 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      
       {/* Page Title */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
           Manage Users
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          {currentUser?.role.toUpperCase() === "HOD" 
-            ? `Manage faculty members inside the ${currentUser?.departmentName || ""} Department` 
-            : "Create, edit, and configure access permissions for university administrative staff and faculty"}
+          {currentUser?.role.toUpperCase() === "HOD"
+            ? `Manage faculty members inside the ${currentUser?.departmentName || ""} Department`
+            : "Configure access permissions and edit profile details for university administrative staff and faculty"}
         </p>
       </div>
 
+      {/* Feedback alerts */}
+      {errorMsg && (
+        <div className="flex items-start gap-2.5 p-3.5 bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-800/30 rounded-xl text-red-800 dark:text-red-300 text-xs">
+          <AlertCircle className="h-4.5 w-4.5 shrink-0 text-red-650 dark:text-red-400 mt-0.5" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="flex items-start gap-2.5 p-3.5 bg-emerald-50 dark:bg-emerald-955/20 border border-emerald-200 dark:border-emerald-800/30 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs">
+          <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-emerald-655 dark:text-emerald-400 mt-0.5" />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
       {/* Grid: Form on Left, List table on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-login-gap">
-        
-        {/* Left Column: Register/Edit Form Card */}
-        <UserForm
-          form={form}
-          handleChange={handleChange}
-          isSubmitting={isSubmitting}
-          editingId={editingId}
-          handleCancelEdit={handleCancelEdit}
-          departments={departments}
-          currentUser={currentUser}
-          selectedRights={selectedRights}
-          handleRightCheckboxChange={handleRightCheckboxChange}
-          rightsOptions={RIGHTS_OPTIONS}
-          handleSubmit={handleSubmit}
-        />
+        {/* Left Column: Edit Form Card */}
+        {editingId ? (
+          <UserForm
+            form={form}
+            handleChange={handleChange}
+            isSubmitting={isSubmitting}
+            editingId={editingId}
+            handleCancelEdit={handleCancelEdit}
+            departments={departments}
+            currentUser={currentUser}
+            selectedRights={selectedRights}
+            handleRightCheckboxChange={handleRightCheckboxChange}
+            rightsOptions={RIGHTS_OPTIONS}
+            handleSubmit={handleSubmit}
+          />
+        ) : null}
 
         {/* Right Column: List Table */}
         <UserTable
@@ -316,10 +333,9 @@ export default function UsersPage() {
           handleDeleteClick={handleDeleteClick}
           currentUser={currentUser}
           getRoleBadge={getRoleBadge}
+          className={editingId ? "lg:col-span-2" : "lg:col-span-3"}
         />
-
       </div>
-
     </div>
   );
 }

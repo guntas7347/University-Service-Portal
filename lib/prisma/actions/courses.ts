@@ -19,7 +19,7 @@ export async function getCourses() {
       };
     }
 
-    const payload = verifyToken(token);
+    const payload = await verifyToken(token);
     if (!payload || !payload.userId) {
       return { success: false, message: "Invalid session." };
     }
@@ -72,8 +72,9 @@ export async function createCourse(data: {
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
-    if (!payload || !payload.userId) return { success: false, message: "Invalid session." };
+    const payload = await verifyToken(token);
+    if (!payload || !payload.userId)
+      return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
       where: { id: payload.userId },
@@ -81,12 +82,16 @@ export async function createCourse(data: {
     if (!activeUser) return { success: false, message: "User not found." };
 
     // Authorization
-    const isAdmin = activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
+    const isAdmin =
+      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
     const isHod = activeUser.role === Role.HOD;
     const hasRights = activeUser.rights?.includes("MANAGE_COURSES");
 
     if (!isAdmin && !isHod && !hasRights) {
-      return { success: false, message: "Access Denied. You do not have permission to create courses." };
+      return {
+        success: false,
+        message: "Access Denied. You do not have permission to create courses.",
+      };
     }
 
     if (!data.code.trim() || !data.name.trim()) {
@@ -100,7 +105,11 @@ export async function createCourse(data: {
     let targetDeptId: string | null = null;
     if (isHod) {
       if (!activeUser.departmentId) {
-        return { success: false, message: "Access Denied. HOD must belong to a department to create courses." };
+        return {
+          success: false,
+          message:
+            "Access Denied. HOD must belong to a department to create courses.",
+        };
       }
       targetDeptId = activeUser.departmentId;
     } else {
@@ -146,7 +155,12 @@ export async function createCourse(data: {
  */
 export async function updateCourse(
   id: string,
-  data: { code: string; name: string; duration?: number; departmentId?: string },
+  data: {
+    code: string;
+    name: string;
+    duration?: number;
+    departmentId?: string;
+  },
 ) {
   try {
     if (!id) {
@@ -157,8 +171,9 @@ export async function updateCourse(
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
-    if (!payload || !payload.userId) return { success: false, message: "Invalid session." };
+    const payload = await verifyToken(token);
+    if (!payload || !payload.userId)
+      return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
       where: { id: payload.userId },
@@ -173,17 +188,28 @@ export async function updateCourse(
     }
 
     // Authorization
-    const isAdmin = activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
+    const isAdmin =
+      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
     const isHod = activeUser.role === Role.HOD;
     const hasRights = activeUser.rights?.includes("MANAGE_COURSES");
 
     if (!isAdmin && !isHod && !hasRights) {
-      return { success: false, message: "Access Denied. You do not have permission to update courses." };
+      return {
+        success: false,
+        message: "Access Denied. You do not have permission to update courses.",
+      };
     }
 
     if (isHod) {
-      if (!activeUser.departmentId || existingCourse.departmentId !== activeUser.departmentId) {
-        return { success: false, message: "Access Denied. You can only update courses in your own department." };
+      if (
+        !activeUser.departmentId ||
+        existingCourse.departmentId !== activeUser.departmentId
+      ) {
+        return {
+          success: false,
+          message:
+            "Access Denied. You can only update courses in your own department.",
+        };
       }
     }
 
@@ -203,7 +229,9 @@ export async function updateCourse(
     }
 
     // Target department: HOD can't change department, Admin can
-    const targetDeptId = isHod ? activeUser.departmentId : (data.departmentId || existingCourse.departmentId);
+    const targetDeptId = isHod
+      ? activeUser.departmentId
+      : data.departmentId || existingCourse.departmentId;
 
     const updatedCourse = await prisma.course.update({
       where: { id },
@@ -239,8 +267,9 @@ export async function deleteCourse(id: string) {
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
-    if (!payload || !payload.userId) return { success: false, message: "Invalid session." };
+    const payload = await verifyToken(token);
+    if (!payload || !payload.userId)
+      return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
       where: { id: payload.userId },
@@ -257,17 +286,28 @@ export async function deleteCourse(id: string) {
     }
 
     // Authorization
-    const isAdmin = activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
+    const isAdmin =
+      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
     const isHod = activeUser.role === Role.HOD;
     const hasRights = activeUser.rights?.includes("MANAGE_COURSES");
 
     if (!isAdmin && !isHod && !hasRights) {
-      return { success: false, message: "Access Denied. You do not have permission to delete courses." };
+      return {
+        success: false,
+        message: "Access Denied. You do not have permission to delete courses.",
+      };
     }
 
     if (isHod) {
-      if (!activeUser.departmentId || course.departmentId !== activeUser.departmentId) {
-        return { success: false, message: "Access Denied. You can only delete courses in your own department." };
+      if (
+        !activeUser.departmentId ||
+        course.departmentId !== activeUser.departmentId
+      ) {
+        return {
+          success: false,
+          message:
+            "Access Denied. You can only delete courses in your own department.",
+        };
       }
     }
 

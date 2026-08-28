@@ -6,7 +6,6 @@ const main = async () => {
       data: {
         fullName: "SUPER ADMIN",
         email: "admin@gmail.com",
-        passwordHash: "resetlater",
         role: "SUPER_ADMIN",
       },
     });

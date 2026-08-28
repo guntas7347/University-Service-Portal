@@ -36,7 +36,7 @@ export async function createRequest(data: {
       };
     }
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId) {
       return { success: false, message: "Invalid or expired session token." };
     }
@@ -121,7 +121,10 @@ export async function createRequest(data: {
         where: { id: data.departmentId },
       });
       if (!department) {
-        return { success: false, message: "Selected department does not exist." };
+        return {
+          success: false,
+          message: "Selected department does not exist.",
+        };
       }
     }
 
@@ -141,7 +144,8 @@ export async function createRequest(data: {
           createdById: payload.userId,
           status: RequestStatus.SUBMITTED,
           categoryId: data.raiseMode === "CATEGORY" ? data.categoryId : null,
-          departmentId: data.raiseMode === "DEPARTMENT" ? data.departmentId : null,
+          departmentId:
+            data.raiseMode === "DEPARTMENT" ? data.departmentId : null,
         },
       });
 
@@ -153,19 +157,19 @@ export async function createRequest(data: {
         const rules = await tx.routingRule.findMany({
           where: {
             categoryId: data.categoryId,
-            isActive: true
-          }
+            isActive: true,
+          },
         });
-        rules.forEach(r => assignedIds.add(r.userId));
+        rules.forEach((r) => assignedIds.add(r.userId));
       } else if (data.raiseMode === "DEPARTMENT" && data.departmentId) {
         // Raise by Department
         if (data.assignedUserIds && data.assignedUserIds.length > 0) {
-          data.assignedUserIds.forEach(id => assignedIds.add(id));
+          data.assignedUserIds.forEach((id) => assignedIds.add(id));
         } else {
           // If no specific users are chosen, auto-assign to the HOD of that department
           const dept = await tx.department.findUnique({
             where: { id: data.departmentId },
-            select: { hodId: true }
+            select: { hodId: true },
           });
           if (dept?.hodId) {
             assignedIds.add(dept.hodId);
@@ -176,31 +180,32 @@ export async function createRequest(data: {
       // Create RequestAssignment records
       if (assignedIds.size > 0) {
         await tx.requestAssignment.createMany({
-          data: Array.from(assignedIds).map(userId => ({
+          data: Array.from(assignedIds).map((userId) => ({
             requestId: req.id,
             userId: userId,
             assignedById: payload.userId,
             role: "PRIMARY",
-            status: "PENDING"
-          }))
+            status: "PENDING",
+          })),
         });
       }
 
       // Create RequestWatcher records
       if (data.watcherUserIds && data.watcherUserIds.length > 0) {
         await tx.requestWatcher.createMany({
-          data: data.watcherUserIds.map(userId => ({
+          data: data.watcherUserIds.map((userId) => ({
             requestId: req.id,
             userId: userId,
-            addedById: payload.userId
-          }))
+            addedById: payload.userId,
+          })),
         });
       }
 
       // Log initial activity
-      const assignedUserNames = assignedIds.size > 0 
-        ? "Auto-assigned on creation."
-        : "Unassigned initially.";
+      const assignedUserNames =
+        assignedIds.size > 0
+          ? "Auto-assigned on creation."
+          : "Unassigned initially.";
 
       await tx.requestActivity.create({
         data: {
@@ -243,7 +248,7 @@ export async function getStudentRequests() {
       };
     }
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId) {
       return { success: false, message: "Invalid session." };
     }
@@ -293,7 +298,7 @@ export async function getAllRequests() {
       return { success: false, message: "Not authenticated." };
     }
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId) {
       return { success: false, message: "Invalid session." };
     }
@@ -318,11 +323,11 @@ export async function getAllRequests() {
       // HODs see requests related to their department, requests made by students of their department,
       // or requests where they are explicitly assigned, watching, or created.
       const departmentId = user.departmentId;
-      
+
       const hodOrConditions: any[] = [
         { assignments: { some: { userId: user.id } } },
         { watchers: { some: { userId: user.id } } },
-        { createdById: user.id }
+        { createdById: user.id },
       ];
 
       if (departmentId) {
@@ -332,9 +337,9 @@ export async function getAllRequests() {
           {
             createdBy: {
               role: Role.STUDENT,
-              departmentId: departmentId
-            }
-          }
+              departmentId: departmentId,
+            },
+          },
         );
       } else {
         hodOrConditions.push(
@@ -342,14 +347,14 @@ export async function getAllRequests() {
           {
             createdBy: {
               role: Role.STUDENT,
-              department: { hodId: user.id }
-            }
-          }
+              department: { hodId: user.id },
+            },
+          },
         );
       }
 
       whereClause = {
-        OR: hodOrConditions
+        OR: hodOrConditions,
       };
     } else {
       // Other staff (FACULTY, etc.) see only requests where they are assigned, watching, or created
@@ -357,8 +362,8 @@ export async function getAllRequests() {
         OR: [
           { assignments: { some: { userId: user.id } } },
           { watchers: { some: { userId: user.id } } },
-          { createdById: user.id }
-        ]
+          { createdById: user.id },
+        ],
       };
     }
 
@@ -370,9 +375,9 @@ export async function getAllRequests() {
         createdBy: { select: { fullName: true } },
         assignments: {
           include: {
-            user: { select: { fullName: true } }
-          }
-        }
+            user: { select: { fullName: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -382,7 +387,7 @@ export async function getAllRequests() {
       role: user.role,
       requests: requests.map((r) => {
         const assignedNames = r.assignments
-          .map(a => a.user.fullName)
+          .map((a) => a.user.fullName)
           .join(", ");
 
         return {
@@ -392,7 +397,11 @@ export async function getAllRequests() {
           type: r.type,
           priority: r.priority,
           status: r.status,
-          category: r.category ? r.category.name : (r.department ? `Dept: ${r.department.name}` : "General"),
+          category: r.category
+            ? r.category.name
+            : r.department
+              ? `Dept: ${r.department.name}`
+              : "General",
           createdByName:
             r.isAnonymous && user.role === Role.STUDENT
               ? "Anonymous"
@@ -419,7 +428,7 @@ export async function getRequestDetails(requestId: string) {
       return { success: false, message: "Not authenticated." };
     }
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId) {
       return { success: false, message: "Invalid session." };
     }
@@ -455,10 +464,10 @@ export async function getRequestDetails(requestId: string) {
                 fullName: true,
                 email: true,
                 role: true,
-                designation: true
-              }
-            }
-          }
+                designation: true,
+              },
+            },
+          },
         },
         watchers: {
           include: {
@@ -467,10 +476,10 @@ export async function getRequestDetails(requestId: string) {
                 id: true,
                 fullName: true,
                 email: true,
-                role: true
-              }
-            }
-          }
+                role: true,
+              },
+            },
+          },
         },
         comments: {
           include: {
@@ -496,27 +505,45 @@ export async function getRequestDetails(requestId: string) {
 
     // Security Gate check based on roles
     let hasAccess = false;
-    if (activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN) {
+    if (
+      activeUser.role === Role.ADMIN ||
+      activeUser.role === Role.SUPER_ADMIN
+    ) {
       hasAccess = true;
     } else if (activeUser.role === Role.STUDENT) {
       hasAccess = reqDetails.createdById === activeUser.id;
     } else if (activeUser.role === Role.HOD) {
       const isCreator = reqDetails.createdById === activeUser.id;
-      const isAssigned = reqDetails.assignments.some(a => a.user.id === activeUser.id);
-      const isWatcher = reqDetails.watchers.some(w => w.user.id === activeUser.id);
-      
-      const isRelatedDept = reqDetails.departmentId === activeUser.departmentId ||
-                            reqDetails.department?.hodId === activeUser.id;
+      const isAssigned = reqDetails.assignments.some(
+        (a) => a.user.id === activeUser.id,
+      );
+      const isWatcher = reqDetails.watchers.some(
+        (w) => w.user.id === activeUser.id,
+      );
 
-      const isStudentOfDept = reqDetails.createdBy.role === Role.STUDENT &&
-                              reqDetails.createdBy.departmentId === activeUser.departmentId;
+      const isRelatedDept =
+        reqDetails.departmentId === activeUser.departmentId ||
+        reqDetails.department?.hodId === activeUser.id;
 
-      hasAccess = isCreator || isAssigned || isWatcher || isRelatedDept || isStudentOfDept;
+      const isStudentOfDept =
+        reqDetails.createdBy.role === Role.STUDENT &&
+        reqDetails.createdBy.departmentId === activeUser.departmentId;
+
+      hasAccess =
+        isCreator ||
+        isAssigned ||
+        isWatcher ||
+        isRelatedDept ||
+        isStudentOfDept;
     } else {
       // FACULTY and other roles
       const isCreator = reqDetails.createdById === activeUser.id;
-      const isAssigned = reqDetails.assignments.some(a => a.user.id === activeUser.id);
-      const isWatcher = reqDetails.watchers.some(w => w.user.id === activeUser.id);
+      const isAssigned = reqDetails.assignments.some(
+        (a) => a.user.id === activeUser.id,
+      );
+      const isWatcher = reqDetails.watchers.some(
+        (w) => w.user.id === activeUser.id,
+      );
 
       hasAccess = isCreator || isAssigned || isWatcher;
     }
@@ -524,7 +551,8 @@ export async function getRequestDetails(requestId: string) {
     if (!hasAccess) {
       return {
         success: false,
-        message: "Access Denied. You do not have permissions to view this ticket.",
+        message:
+          "Access Denied. You do not have permissions to view this ticket.",
       };
     }
 
@@ -542,7 +570,11 @@ export async function getRequestDetails(requestId: string) {
       type: reqDetails.type,
       priority: reqDetails.priority,
       status: reqDetails.status,
-      categoryName: reqDetails.category ? reqDetails.category.name : (reqDetails.department ? `Dept: ${reqDetails.department.name}` : "General"),
+      categoryName: reqDetails.category
+        ? reqDetails.category.name
+        : reqDetails.department
+          ? `Dept: ${reqDetails.department.name}`
+          : "General",
       categoryId: reqDetails.categoryId,
       departmentId: reqDetails.departmentId,
       departmentName: reqDetails.department?.name || "",
@@ -566,7 +598,7 @@ export async function getRequestDetails(requestId: string) {
         courseName: reqDetails.createdBy.course?.name || "N/A",
         departmentId: reqDetails.createdBy.departmentId || "",
       },
-      assignments: reqDetails.assignments.map(a => ({
+      assignments: reqDetails.assignments.map((a) => ({
         id: a.id,
         role: a.role,
         status: a.status,
@@ -575,16 +607,16 @@ export async function getRequestDetails(requestId: string) {
           name: a.user.fullName,
           email: a.user.email,
           role: a.user.role,
-          designation: a.user.designation || ""
-        }
+          designation: a.user.designation || "",
+        },
       })),
-      watchers: reqDetails.watchers.map(w => ({
+      watchers: reqDetails.watchers.map((w) => ({
         user: {
           id: w.user.id,
           name: w.user.fullName,
           email: w.user.email,
-          role: w.user.role
-        }
+          role: w.user.role,
+        },
       })),
       comments: comments.map((c) => ({
         id: c.id,
@@ -613,13 +645,13 @@ export async function getRequestDetails(requestId: string) {
       })),
     };
 
-    return { 
-      success: true, 
-      request: mappedDetails, 
+    return {
+      success: true,
+      request: mappedDetails,
       userRole: activeUser.role,
       userRights: activeUser.rights,
       userId: activeUser.id,
-      userDeptId: activeUser.departmentId || ""
+      userDeptId: activeUser.departmentId || "",
     };
   } catch (error: any) {
     console.error("Error retrieving request details:", error);
@@ -643,7 +675,7 @@ export async function updateRequestStatus(
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
@@ -696,13 +728,13 @@ export async function assignRequest(
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
     const request = await prisma.request.findUnique({
       where: { id: requestId },
-      include: { assignments: true, createdBy: true }
+      include: { assignments: true, createdBy: true },
     });
     if (!request) return { success: false, message: "Request not found." };
 
@@ -710,7 +742,8 @@ export async function assignRequest(
     const activeUser = await prisma.user.findUnique({
       where: { id: payload.userId },
     });
-    if (!activeUser) return { success: false, message: "User session not found." };
+    if (!activeUser)
+      return { success: false, message: "User session not found." };
 
     // Authorization checks
     const role = activeUser.role;
@@ -721,13 +754,15 @@ export async function assignRequest(
     let isHodOfDept = false;
     if (role === Role.HOD) {
       const isRequestDeptHod = request.departmentId === activeUser.departmentId;
-      const isStudentDeptHod = request.createdBy.role === Role.STUDENT && request.createdBy.departmentId === activeUser.departmentId;
-      
+      const isStudentDeptHod =
+        request.createdBy.role === Role.STUDENT &&
+        request.createdBy.departmentId === activeUser.departmentId;
+
       let isExplicitHod = false;
       if (request.departmentId) {
         const dept = await prisma.department.findUnique({
           where: { id: request.departmentId },
-          select: { hodId: true }
+          select: { hodId: true },
         });
         if (dept?.hodId === activeUser.id) {
           isExplicitHod = true;
@@ -742,7 +777,8 @@ export async function assignRequest(
     if (!isAdmin && !hasRoutingRight && !isHodOfDept) {
       return {
         success: false,
-        message: "Access Denied. You do not have permissions to manually assign handlers for this request.",
+        message:
+          "Access Denied. You do not have permissions to manually assign handlers for this request.",
       };
     }
 
@@ -758,9 +794,12 @@ export async function assignRequest(
     }
 
     // Check if duplicate assignment exists
-    const existing = request.assignments.find(a => a.userId === assignedToId);
+    const existing = request.assignments.find((a) => a.userId === assignedToId);
     if (existing) {
-      return { success: false, message: `${staff.fullName} is already assigned to this request.` };
+      return {
+        success: false,
+        message: `${staff.fullName} is already assigned to this request.`,
+      };
     }
 
     // Update request status to ASSIGNED if SUBMITTED
@@ -777,15 +816,15 @@ export async function assignRequest(
           userId: assignedToId,
           assignedById: payload.userId,
           role: "PRIMARY",
-          status: "PENDING"
-        }
+          status: "PENDING",
+        },
       });
 
       // Update request status
       if (nextStatus !== request.status) {
         await tx.request.update({
           where: { id: requestId },
-          data: { status: nextStatus }
+          data: { status: nextStatus },
         });
       }
     });
@@ -838,7 +877,7 @@ export async function addRequestComment(
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
@@ -889,7 +928,7 @@ export async function addRequestAttachment(
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
@@ -938,7 +977,7 @@ export async function unassignRequest(requestId: string, userId: string) {
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
@@ -946,12 +985,12 @@ export async function unassignRequest(requestId: string, userId: string) {
       where: {
         requestId_userId: {
           requestId,
-          userId
-        }
+          userId,
+        },
       },
       include: {
-        user: { select: { fullName: true } }
-      }
+        user: { select: { fullName: true } },
+      },
     });
 
     if (!assignment) {
@@ -962,12 +1001,13 @@ export async function unassignRequest(requestId: string, userId: string) {
     const activeUser = await prisma.user.findUnique({
       where: { id: payload.userId },
     });
-    if (!activeUser) return { success: false, message: "User session not found." };
+    if (!activeUser)
+      return { success: false, message: "User session not found." };
 
     // Authorization checks
     const request = await prisma.request.findUnique({
       where: { id: requestId },
-      include: { createdBy: true }
+      include: { createdBy: true },
     });
     if (!request) return { success: false, message: "Request not found." };
 
@@ -979,13 +1019,15 @@ export async function unassignRequest(requestId: string, userId: string) {
     let isHodOfDept = false;
     if (role === Role.HOD) {
       const isRequestDeptHod = request.departmentId === activeUser.departmentId;
-      const isStudentDeptHod = request.createdBy.role === Role.STUDENT && request.createdBy.departmentId === activeUser.departmentId;
-      
+      const isStudentDeptHod =
+        request.createdBy.role === Role.STUDENT &&
+        request.createdBy.departmentId === activeUser.departmentId;
+
       let isExplicitHod = false;
       if (request.departmentId) {
         const dept = await prisma.department.findUnique({
           where: { id: request.departmentId },
-          select: { hodId: true }
+          select: { hodId: true },
         });
         if (dept?.hodId === activeUser.id) {
           isExplicitHod = true;
@@ -1000,7 +1042,8 @@ export async function unassignRequest(requestId: string, userId: string) {
     if (!isAdmin && !hasRoutingRight && !isHodOfDept) {
       return {
         success: false,
-        message: "Access Denied. You do not have permissions to modify assignments for this request.",
+        message:
+          "Access Denied. You do not have permissions to modify assignments for this request.",
       };
     }
 
@@ -1008,9 +1051,9 @@ export async function unassignRequest(requestId: string, userId: string) {
       where: {
         requestId_userId: {
           requestId,
-          userId
-        }
-      }
+          userId,
+        },
+      },
     });
 
     // Log Unassignment Activity
@@ -1024,7 +1067,10 @@ export async function unassignRequest(requestId: string, userId: string) {
       },
     });
 
-    return { success: true, message: `Removed ${assignment.user.fullName} from assigned handlers.` };
+    return {
+      success: true,
+      message: `Removed ${assignment.user.fullName} from assigned handlers.`,
+    };
   } catch (error: any) {
     console.error("Error unassigning user:", error);
     return { success: false, message: "Failed to remove assignment." };
@@ -1040,7 +1086,7 @@ export async function addRequestWatcher(requestId: string, userId: string) {
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
@@ -1048,18 +1094,21 @@ export async function addRequestWatcher(requestId: string, userId: string) {
       where: {
         requestId_userId: {
           requestId,
-          userId
-        }
-      }
+          userId,
+        },
+      },
     });
 
     if (existing) {
-      return { success: false, message: "User is already watching this request." };
+      return {
+        success: false,
+        message: "User is already watching this request.",
+      };
     }
 
     const staff = await prisma.user.findUnique({
       where: { id: userId },
-      select: { fullName: true }
+      select: { fullName: true },
     });
 
     if (!staff) {
@@ -1070,8 +1119,8 @@ export async function addRequestWatcher(requestId: string, userId: string) {
       data: {
         requestId,
         userId,
-        addedById: payload.userId
-      }
+        addedById: payload.userId,
+      },
     });
 
     // Log Activity
@@ -1100,7 +1149,7 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
@@ -1108,12 +1157,12 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
       where: {
         requestId_userId: {
           requestId,
-          userId
-        }
+          userId,
+        },
       },
       include: {
-        user: { select: { fullName: true } }
-      }
+        user: { select: { fullName: true } },
+      },
     });
 
     if (!watcher) {
@@ -1124,9 +1173,9 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
       where: {
         requestId_userId: {
           requestId,
-          userId
-        }
-      }
+          userId,
+        },
+      },
     });
 
     // Log Activity
@@ -1139,7 +1188,10 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
       },
     });
 
-    return { success: true, message: `Removed ${watcher.user.fullName} from watchers list.` };
+    return {
+      success: true,
+      message: `Removed ${watcher.user.fullName} from watchers list.`,
+    };
   } catch (error: any) {
     console.error("Error removing watcher:", error);
     return { success: false, message: "Failed to remove watcher." };
@@ -1152,14 +1204,14 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
 export async function updateRequestTarget(
   requestId: string,
   targetType: "CATEGORY" | "DEPARTMENT",
-  targetId: string
+  targetId: string,
 ) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
@@ -1169,16 +1221,21 @@ export async function updateRequestTarget(
     if (!activeUser) return { success: false, message: "User not found." };
 
     // Authorization Gate: admin or HOD
-    const isAdmin = activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
+    const isAdmin =
+      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
     const isHod = activeUser.role === Role.HOD;
 
     if (!isAdmin && !isHod) {
-      return { success: false, message: "Access Denied. Only Admins or HODs can change request category/department." };
+      return {
+        success: false,
+        message:
+          "Access Denied. Only Admins or HODs can change request category/department.",
+      };
     }
 
     const request = await prisma.request.findUnique({
       where: { id: requestId },
-      include: { category: true, department: true }
+      include: { category: true, department: true },
     });
     if (!request) return { success: false, message: "Request not found." };
 
@@ -1187,32 +1244,46 @@ export async function updateRequestTarget(
     let newTargetName = "";
 
     if (targetType === "CATEGORY") {
-      const newCat = await prisma.category.findUnique({ where: { id: targetId } });
-      if (!newCat) return { success: false, message: "Selected category not found." };
-      
-      oldTargetName = request.category ? request.category.name : (request.department ? `Dept: ${request.department.name}` : "General");
+      const newCat = await prisma.category.findUnique({
+        where: { id: targetId },
+      });
+      if (!newCat)
+        return { success: false, message: "Selected category not found." };
+
+      oldTargetName = request.category
+        ? request.category.name
+        : request.department
+          ? `Dept: ${request.department.name}`
+          : "General";
       newTargetName = newCat.name;
 
       await prisma.request.update({
         where: { id: requestId },
         data: {
           categoryId: targetId,
-          departmentId: null
-        }
+          departmentId: null,
+        },
       });
     } else {
-      const newDept = await prisma.department.findUnique({ where: { id: targetId } });
-      if (!newDept) return { success: false, message: "Selected department not found." };
+      const newDept = await prisma.department.findUnique({
+        where: { id: targetId },
+      });
+      if (!newDept)
+        return { success: false, message: "Selected department not found." };
 
-      oldTargetName = request.category ? request.category.name : (request.department ? `Dept: ${request.department.name}` : "General");
+      oldTargetName = request.category
+        ? request.category.name
+        : request.department
+          ? `Dept: ${request.department.name}`
+          : "General";
       newTargetName = `Dept: ${newDept.name}`;
 
       await prisma.request.update({
         where: { id: requestId },
         data: {
           categoryId: null,
-          departmentId: targetId
-        }
+          departmentId: targetId,
+        },
       });
     }
 
@@ -1228,7 +1299,10 @@ export async function updateRequestTarget(
       },
     });
 
-    return { success: true, message: `Successfully updated request target to ${newTargetName}!` };
+    return {
+      success: true,
+      message: `Successfully updated request target to ${newTargetName}!`,
+    };
   } catch (error: any) {
     console.error("Error updating request target:", error);
     return { success: false, message: "Failed to update request target." };
@@ -1241,14 +1315,14 @@ export async function updateRequestTarget(
 export async function forwardRequest(
   requestId: string,
   targetUserId: string,
-  message?: string
+  message?: string,
 ) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = verifyToken(token);
+    const payload = await await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
@@ -1259,17 +1333,20 @@ export async function forwardRequest(
       include: {
         assignments: true,
         watchers: true,
-      }
+      },
     });
 
     if (!request) return { success: false, message: "Request not found." };
 
     // Verify active user is assigned
-    const activeUserAssignment = request.assignments.find(a => a.userId === activeUserId);
+    const activeUserAssignment = request.assignments.find(
+      (a) => a.userId === activeUserId,
+    );
     if (!activeUserAssignment) {
       return {
         success: false,
-        message: "Access Denied. Only assigned handlers can forward this request.",
+        message:
+          "Access Denied. Only assigned handlers can forward this request.",
       };
     }
 
@@ -1285,7 +1362,7 @@ export async function forwardRequest(
     }
 
     // Verify duplicate assignment
-    const existing = request.assignments.find(a => a.userId === targetUserId);
+    const existing = request.assignments.find((a) => a.userId === targetUserId);
     if (existing) {
       return {
         success: false,
@@ -1296,7 +1373,8 @@ export async function forwardRequest(
     const activeUser = await prisma.user.findUnique({
       where: { id: activeUserId },
     });
-    if (!activeUser) return { success: false, message: "Active user session not found." };
+    if (!activeUser)
+      return { success: false, message: "Active user session not found." };
 
     await prisma.$transaction(async (tx) => {
       // 1. Remove active user from assignees
@@ -1305,19 +1383,21 @@ export async function forwardRequest(
           requestId_userId: {
             requestId,
             userId: activeUserId,
-          }
-        }
+          },
+        },
       });
 
       // 2. Add active user as watcher (if not already watching)
-      const isAlreadyWatcher = request.watchers.some(w => w.userId === activeUserId);
+      const isAlreadyWatcher = request.watchers.some(
+        (w) => w.userId === activeUserId,
+      );
       if (!isAlreadyWatcher) {
         await tx.requestWatcher.create({
           data: {
             requestId,
             userId: activeUserId,
-            addedById: activeUserId
-          }
+            addedById: activeUserId,
+          },
         });
       }
 
@@ -1328,8 +1408,8 @@ export async function forwardRequest(
           userId: targetUserId,
           assignedById: activeUserId,
           role: "PRIMARY",
-          status: "PENDING"
-        }
+          status: "PENDING",
+        },
       });
     });
 
@@ -1341,7 +1421,9 @@ export async function forwardRequest(
         type: ActivityType.FORWARDED,
         oldValue: activeUser.fullName,
         newValue: targetUser.fullName,
-        message: message || `Request forwarded from ${activeUser.fullName} to ${targetUser.fullName}.`,
+        message:
+          message ||
+          `Request forwarded from ${activeUser.fullName} to ${targetUser.fullName}.`,
       },
     });
 
@@ -1354,4 +1436,3 @@ export async function forwardRequest(
     return { success: false, message: "Database error during forward." };
   }
 }
-

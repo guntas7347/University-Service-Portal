@@ -1282,14 +1282,12 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 
 export const UserScalarFieldEnum = {
   id: 'id',
+  ssoId: 'ssoId',
   fullName: 'fullName',
   email: 'email',
   rollNumber: 'rollNumber',
   mobileNumber: 'mobileNumber',
   batch: 'batch',
-  passwordHash: 'passwordHash',
-  resetPasswordToken: 'resetPasswordToken',
-  resetPasswordTokenExpiry: 'resetPasswordTokenExpiry',
   dateOfBirth: 'dateOfBirth',
   gender: 'gender',
   role: 'role',

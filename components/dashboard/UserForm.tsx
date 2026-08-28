@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { User, Mail, Smartphone, Briefcase, Plus, Loader2, X, Shield, Landmark } from "lucide-react";
+import { User, Mail, Smartphone, Briefcase, Save, Loader2, X, Shield, Landmark } from "lucide-react";
 
 interface UserFormProps {
   form: any;
@@ -37,18 +37,16 @@ export default function UserForm({
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
       <div className="mb-6 flex justify-between items-center">
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
-          {editingId ? "Edit Staff Account" : "Register Staff User"}
+          Edit Staff Account
         </h2>
-        {editingId && (
-          <button 
-            type="button" 
-            onClick={handleCancelEdit}
-            className="p-1 text-slate-450 hover:text-slate-650 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
-            title="Cancel Edit"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
+        <button 
+          type="button" 
+          onClick={handleCancelEdit}
+          className="p-1 text-slate-450 hover:text-slate-650 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
+          title="Cancel Edit"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -262,22 +260,18 @@ export default function UserForm({
 
         {/* Submit Action Block */}
         <div className="pt-2 flex gap-2">
-          {editingId && (
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              disabled={isSubmitting}
-              className="w-1/2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] cursor-pointer"
-            >
-              Cancel
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleCancelEdit}
+            disabled={isSubmitting}
+            className="w-1/2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] cursor-pointer"
+          >
+            Cancel
+          </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`h-11 bg-primary hover:bg-primary/95 text-white font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] shadow-md shadow-primary/10 cursor-pointer flex items-center justify-center gap-1.5 ${
-              editingId ? "w-1/2" : "w-full"
-            }`}
+            className="w-1/2 h-11 bg-primary hover:bg-primary/95 text-white font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] shadow-md shadow-primary/10 cursor-pointer flex items-center justify-center gap-1.5"
           >
             {isSubmitting ? (
               <>
@@ -286,8 +280,8 @@ export default function UserForm({
               </>
             ) : (
               <>
-                <Plus className="h-4 w-4" />
-                <span>{editingId ? "Save User" : "Register User"}</span>
+                <Save className="h-4 w-4" />
+                <span>Save User</span>
               </>
             )}
           </button>

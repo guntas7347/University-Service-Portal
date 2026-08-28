@@ -35,26 +35,28 @@ export default function Home() {
   const faqData = [
     {
       question: "Who is eligible to file a grievance on this portal?",
-      answer: "All currently enrolled students, faculty members, and administrative staff at Shaheed Bhagat Singh State University are eligible to submit grievances and track their redressal.",
+      answer:
+        "All currently enrolled students, faculty members, and administrative staff at Shaheed Bhagat Singh State University are eligible to submit grievances and track their redressal.",
     },
     {
       question: "Can I submit my grievance anonymously?",
-      answer: "Yes. When submitting a grievance, you can select the 'Anonymous' option. This hides your personal details (name, roll number, and email) from the department handlers, ensuring your identity is protected while the issue is being resolved.",
+      answer:
+        "Yes. When submitting a grievance, you can select the 'Anonymous' option. This hides your personal details (name, roll number, and email) from the department handlers, ensuring your identity is protected while the issue is being resolved.",
     },
     {
       question: "What is the typical resolution time for complaints?",
-      answer: "Grievances are processed under standard SLAs. Critical/urgent matters (like exam portal issues or immediate hostel complaints) are usually acknowledged within 12-24 hours. General academic or administrative issues are resolved within 3 to 5 business days.",
+      answer:
+        "Grievances are processed under standard SLAs. Critical/urgent matters (like exam portal issues or immediate hostel complaints) are usually acknowledged within 12-24 hours. General academic or administrative issues are resolved within 3 to 5 business days.",
     },
     {
       question: "What happens if I am not satisfied with the resolution?",
-      answer: "Once a grievance is marked as 'Resolved', you have 7 days to review the action. If you feel the redressal is insufficient, you can decline the resolution and 'Reopen' the complaint for escalation to higher university authorities.",
+      answer:
+        "Once a grievance is marked as 'Resolved', you have 7 days to review the action. If you feel the redressal is insufficient, you can decline the resolution and 'Reopen' the complaint for escalation to higher university authorities.",
     },
   ];
 
   return (
-    <div
-      className="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 min-h-screen font-sans transition-colors duration-300 flex flex-col"
-    >
+    <div className="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 min-h-screen font-sans transition-colors duration-300 flex flex-col">
       {/* 1. Header / Navigation */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/50 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -75,16 +77,28 @@ export default function Home() {
 
           {/* Nav Links - Desktop */}
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm font-semibold hover:text-primary transition-colors">
+            <a
+              href="#features"
+              className="text-sm font-semibold hover:text-primary transition-colors"
+            >
               Features
             </a>
-            <a href="#workflow" className="text-sm font-semibold hover:text-primary transition-colors">
+            <a
+              href="#workflow"
+              className="text-sm font-semibold hover:text-primary transition-colors"
+            >
               How It Works
             </a>
-            <a href="#stats" className="text-sm font-semibold hover:text-primary transition-colors">
+            <a
+              href="#stats"
+              className="text-sm font-semibold hover:text-primary transition-colors"
+            >
               Impact
             </a>
-            <a href="#faqs" className="text-sm font-semibold hover:text-primary transition-colors">
+            <a
+              href="#faqs"
+              className="text-sm font-semibold hover:text-primary transition-colors"
+            >
               FAQs
             </a>
           </nav>
@@ -108,17 +122,9 @@ export default function Home() {
             {/* Login */}
             <Link
               href="/login"
-              className="text-sm font-semibold px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors hidden sm:block"
-            >
-              Sign In
-            </Link>
-
-            {/* Register / Dashboard */}
-            <Link
-              href="/register"
               className="text-sm font-semibold bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-xl transition-all shadow-md shadow-primary/10 active:scale-95 cursor-pointer"
             >
-              Register
+              Sign In
             </Link>
           </div>
         </div>
@@ -145,8 +151,9 @@ export default function Home() {
                 </span>
               </h1>
               <p className="text-base sm:text-lg text-secondary max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium">
-                The official Grievance Redressal Portal for Shaheed Bhagat Singh State University.
-                Submit complaints, interact directly with department heads, and monitor your case resolution in real-time.
+                The official Grievance Redressal Portal for Shaheed Bhagat Singh
+                State University. Submit complaints, interact directly with
+                department heads, and monitor your case resolution in real-time.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
@@ -171,23 +178,35 @@ export default function Home() {
                 <div className="flex flex-col items-center lg:items-start">
                   <div className="flex items-center gap-1.5 text-emerald-500">
                     <ShieldCheck className="h-4 w-4" />
-                    <span className="text-xs font-bold uppercase tracking-wider">Secured</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      Secured
+                    </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 mt-0.5">End-to-End SSL</span>
+                  <span className="text-[10px] text-slate-500 mt-0.5">
+                    End-to-End SSL
+                  </span>
                 </div>
                 <div className="flex flex-col items-center lg:items-start">
                   <div className="flex items-center gap-1.5 text-primary">
                     <Clock className="h-4 w-4" />
-                    <span className="text-xs font-bold uppercase tracking-wider">Fast SLAs</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      Fast SLAs
+                    </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 mt-0.5">24h First Response</span>
+                  <span className="text-[10px] text-slate-500 mt-0.5">
+                    24h First Response
+                  </span>
                 </div>
                 <div className="flex flex-col items-center lg:items-start">
                   <div className="flex items-center gap-1.5 text-indigo-500">
                     <Lock className="h-4 w-4" />
-                    <span className="text-xs font-bold uppercase tracking-wider">Protected</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      Protected
+                    </span>
                   </div>
-                  <span className="text-[10px] text-slate-500 mt-0.5">Anonymous Option</span>
+                  <span className="text-[10px] text-slate-500 mt-0.5">
+                    Anonymous Option
+                  </span>
                 </div>
               </div>
             </div>
@@ -282,24 +301,43 @@ export default function Home() {
       </section>
 
       {/* 3. Statistics Grid */}
-      <section id="stats" className="py-12 bg-slate-100/55 dark:bg-slate-900/45 border-y border-slate-200/60 dark:border-slate-800/60 transition-colors">
+      <section
+        id="stats"
+        className="py-12 bg-slate-100/55 dark:bg-slate-900/45 border-y border-slate-200/60 dark:border-slate-800/60 transition-colors"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-extrabold text-primary">98.4%</p>
-              <p className="text-xs font-semibold text-secondary uppercase tracking-wider">Resolution Rate</p>
+              <p className="text-3xl sm:text-4xl font-extrabold text-primary">
+                98.4%
+              </p>
+              <p className="text-xs font-semibold text-secondary uppercase tracking-wider">
+                Resolution Rate
+              </p>
             </div>
             <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-extrabold text-indigo-500">{"< 24 Hours"}</p>
-              <p className="text-xs font-semibold text-secondary uppercase tracking-wider">Avg Acknowledgment</p>
+              <p className="text-3xl sm:text-4xl font-extrabold text-indigo-500">
+                {"< 24 Hours"}
+              </p>
+              <p className="text-xs font-semibold text-secondary uppercase tracking-wider">
+                Avg Acknowledgment
+              </p>
             </div>
             <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-50">4,200+</p>
-              <p className="text-xs font-semibold text-secondary uppercase tracking-wider">Resolved Grievances</p>
+              <p className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-50">
+                4,200+
+              </p>
+              <p className="text-xs font-semibold text-secondary uppercase tracking-wider">
+                Resolved Grievances
+              </p>
             </div>
             <div className="space-y-1">
-              <p className="text-3xl sm:text-4xl font-extrabold text-emerald-500">100%</p>
-              <p className="text-xs font-semibold text-secondary uppercase tracking-wider">SSL Encrypted</p>
+              <p className="text-3xl sm:text-4xl font-extrabold text-emerald-500">
+                100%
+              </p>
+              <p className="text-xs font-semibold text-secondary uppercase tracking-wider">
+                SSL Encrypted
+              </p>
             </div>
           </div>
         </div>
@@ -309,12 +347,16 @@ export default function Home() {
       <section id="features" className="py-20 sm:py-28 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <h2 className="text-xs font-bold text-primary uppercase tracking-widest">Core Capabilities</h2>
+            <h2 className="text-xs font-bold text-primary uppercase tracking-widest">
+              Core Capabilities
+            </h2>
             <h3 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
               Designed for Speed, Security, and Student Welfare
             </h3>
             <p className="text-sm text-secondary leading-relaxed font-medium">
-              Eliminate paper bureaucracy. The portal establishes direct accountability between university departments and our campus community.
+              Eliminate paper bureaucracy. The portal establishes direct
+              accountability between university departments and our campus
+              community.
             </p>
           </div>
 
@@ -328,7 +370,8 @@ export default function Home() {
                 Digital Complaint Filing
               </h4>
               <p className="text-xs text-secondary leading-relaxed">
-                Choose departments, describe issues, and upload file attachments (receipts, photos, transcripts). Submit securely in minutes.
+                Choose departments, describe issues, and upload file attachments
+                (receipts, photos, transcripts). Submit securely in minutes.
               </p>
             </div>
 
@@ -341,7 +384,9 @@ export default function Home() {
                 Real-Time Tracking Logs
               </h4>
               <p className="text-xs text-secondary leading-relaxed">
-                Stay updated via step-by-step progress tracking. See which officer was assigned, read status reports, and access action logs.
+                Stay updated via step-by-step progress tracking. See which
+                officer was assigned, read status reports, and access action
+                logs.
               </p>
             </div>
 
@@ -354,7 +399,8 @@ export default function Home() {
                 Resolution Reopening
               </h4>
               <p className="text-xs text-secondary leading-relaxed">
-                Redressal satisfaction is guaranteed. If the resolved action is unsatisfactory, reopen the ticket to alert supervisor boards.
+                Redressal satisfaction is guaranteed. If the resolved action is
+                unsatisfactory, reopen the ticket to alert supervisor boards.
               </p>
             </div>
           </div>
@@ -362,15 +408,21 @@ export default function Home() {
       </section>
 
       {/* 5. Workflow / How It Works */}
-      <section id="workflow" className="py-20 bg-slate-100/55 dark:bg-slate-900/45 border-y border-slate-200/60 dark:border-slate-800/60 transition-colors">
+      <section
+        id="workflow"
+        className="py-20 bg-slate-100/55 dark:bg-slate-900/45 border-y border-slate-200/60 dark:border-slate-800/60 transition-colors"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <h2 className="text-xs font-bold text-primary uppercase tracking-widest font-sans">REDRESSAL PIPELINE</h2>
+            <h2 className="text-xs font-bold text-primary uppercase tracking-widest font-sans">
+              REDRESSAL PIPELINE
+            </h2>
             <h3 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
               How Your Complaint is Processed
             </h3>
             <p className="text-sm text-secondary font-medium">
-              A transparent, structured four-step procedure handling complaints from submission to final check.
+              A transparent, structured four-step procedure handling complaints
+              from submission to final check.
             </p>
           </div>
 
@@ -384,7 +436,8 @@ export default function Home() {
                 Submit Grievance
               </h4>
               <p className="text-xs text-secondary px-3 leading-relaxed">
-                Log in and fill the form with category details, descriptions, and supporting attachments.
+                Log in and fill the form with category details, descriptions,
+                and supporting attachments.
               </p>
             </div>
 
@@ -397,7 +450,8 @@ export default function Home() {
                 Auto-Routing
               </h4>
               <p className="text-xs text-secondary px-3 leading-relaxed">
-                Our system instantly routes the complaint to the designated officer of the selected department.
+                Our system instantly routes the complaint to the designated
+                officer of the selected department.
               </p>
             </div>
 
@@ -410,7 +464,8 @@ export default function Home() {
                 Investigation
               </h4>
               <p className="text-xs text-secondary px-3 leading-relaxed">
-                The department officer investigates, drafts updates, and implements resolution actions.
+                The department officer investigates, drafts updates, and
+                implements resolution actions.
               </p>
             </div>
 
@@ -423,7 +478,8 @@ export default function Home() {
                 Feedback & Closure
               </h4>
               <p className="text-xs text-secondary px-3 leading-relaxed">
-                Approve the resolution to close the grievance, or reopen it within 7 days if unresolved.
+                Approve the resolution to close the grievance, or reopen it
+                within 7 days if unresolved.
               </p>
             </div>
           </div>
@@ -431,7 +487,10 @@ export default function Home() {
       </section>
 
       {/* 6. FAQ Section (Interactive Accordion) */}
-      <section id="faqs" className="py-20 sm:py-28 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section
+        id="faqs"
+        className="py-20 sm:py-28 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8"
+      >
         <div className="text-center mb-16 space-y-3">
           <div className="inline-flex items-center justify-center p-2.5 bg-primary/10 border border-primary/20 rounded-xl text-primary mb-1">
             <HelpCircle className="h-5 w-5" />
@@ -440,7 +499,8 @@ export default function Home() {
             Frequently Asked Questions
           </h3>
           <p className="text-sm text-secondary font-medium">
-            Find answers to commonly asked questions about submitting and tracking grievances.
+            Find answers to commonly asked questions about submitting and
+            tracking grievances.
           </p>
         </div>
 
@@ -466,7 +526,9 @@ export default function Home() {
                 </button>
                 <div
                   className={`transition-all duration-300 ease-in-out ${
-                    isOpen ? "max-h-60 opacity-100 border-t border-slate-100 dark:border-slate-800/35" : "max-h-0 opacity-0 pointer-events-none"
+                    isOpen
+                      ? "max-h-60 opacity-100 border-t border-slate-100 dark:border-slate-800/35"
+                      : "max-h-0 opacity-0 pointer-events-none"
                   } overflow-hidden`}
                 >
                   <p className="p-5 text-xs text-secondary leading-relaxed bg-slate-50/50 dark:bg-slate-955/20">
@@ -494,7 +556,8 @@ export default function Home() {
                 </span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed max-w-xs">
-                Dedicated to improving student welfare and administrative efficiency through digital accountability.
+                Dedicated to improving student welfare and administrative
+                efficiency through digital accountability.
               </p>
             </div>
 
@@ -505,22 +568,34 @@ export default function Home() {
               </h4>
               <ul className="space-y-2 text-xs">
                 <li>
-                  <Link href="/login" className="hover:text-white transition-colors">
+                  <Link
+                    href="/login"
+                    className="hover:text-white transition-colors"
+                  >
                     Student Login
                   </Link>
                 </li>
                 <li>
-                  <Link href="/register" className="hover:text-white transition-colors">
+                  <Link
+                    href="/register"
+                    className="hover:text-white transition-colors"
+                  >
                     Create Student Account
                   </Link>
                 </li>
                 <li>
-                  <a href="#features" className="hover:text-white transition-colors">
+                  <a
+                    href="#features"
+                    className="hover:text-white transition-colors"
+                  >
                     Core Portal Features
                   </a>
                 </li>
                 <li>
-                  <a href="#workflow" className="hover:text-white transition-colors">
+                  <a
+                    href="#workflow"
+                    className="hover:text-white transition-colors"
+                  >
                     Redressal Process
                   </a>
                 </li>
@@ -535,7 +610,10 @@ export default function Home() {
               <ul className="space-y-2 text-xs">
                 <li className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-primary shrink-0" />
-                  <a href="mailto:grievance@sbs.university.edu" className="hover:text-white transition-colors">
+                  <a
+                    href="mailto:grievance@sbs.university.edu"
+                    className="hover:text-white transition-colors"
+                  >
                     grievance@sbs.university.edu
                   </a>
                 </li>
@@ -552,7 +630,10 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-between pt-6 text-[10px] text-slate-600 gap-4">
-            <p>© {new Date().getFullYear()} Shaheed Bhagat Singh State University. All rights reserved.</p>
+            <p>
+              © {new Date().getFullYear()} Shaheed Bhagat Singh State
+              University. All rights reserved.
+            </p>
             <p>Developed with excellence by Team Hamilton</p>
           </div>
         </div>
