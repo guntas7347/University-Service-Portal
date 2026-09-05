@@ -131,7 +131,7 @@ export default function DashboardLayout({
     if (e) e.preventDefault();
     const response = await logoutUser();
     if (response.success) {
-      router.push("/login");
+      router.push("/");
     }
   };
 

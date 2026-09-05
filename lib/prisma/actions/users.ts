@@ -184,7 +184,7 @@ export async function updateUserProfile(data: {
     // 3. Update database record
     const dateOfBirth = data.dob ? new Date(data.dob) : null;
     const updatedUser = await prisma.user.update({
-      where: { id: payload.userId },
+      where: { ssoId: payload.userId },
       data: {
         fullName: data.name,
         email: data.email,

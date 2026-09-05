@@ -25,7 +25,7 @@ export async function getCourses() {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { ssoId: payload.userId },
     });
     if (!user) {
       return { success: false, message: "User profile not found." };
@@ -77,7 +77,7 @@ export async function createCourse(data: {
       return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { ssoId: payload.userId },
     });
     if (!activeUser) return { success: false, message: "User not found." };
 
@@ -176,7 +176,7 @@ export async function updateCourse(
       return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { ssoId: payload.userId },
     });
     if (!activeUser) return { success: false, message: "User not found." };
 
@@ -272,7 +272,7 @@ export async function deleteCourse(id: string) {
       return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { ssoId: payload.userId },
     });
     if (!activeUser) return { success: false, message: "User not found." };
 

@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "@/hooks/useTheme";
 import { fetchSSOToken, loginWithSSO } from "@/lib/auth/auth";
 
-export const REDIRECT_URL = "http://localhost:3000?redirect=grevience";
-
 export default function LoginPage() {
   const router = useRouter();
 

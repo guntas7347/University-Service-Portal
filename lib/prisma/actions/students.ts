@@ -15,13 +15,13 @@ export async function getStudents() {
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = await await verifyToken(token);
+    const payload = await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
-
     const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { ssoId: payload.userId },
     });
+
     if (!activeUser) return { success: false, message: "User not found." };
 
     const isAdmin =
@@ -110,7 +110,7 @@ export async function updateStudent(
       return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { ssoId: payload.userId },
     });
     if (!activeUser) return { success: false, message: "User not found." };
 
@@ -253,7 +253,7 @@ export async function deleteStudent(id: string) {
       return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { ssoId: payload.userId },
     });
     if (!activeUser) return { success: false, message: "User not found." };
 
