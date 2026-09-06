@@ -141,7 +141,7 @@ export async function createRequest(data: {
           description: data.description.trim(),
           priority: priorityEnum,
           isAnonymous: data.isAnonymous,
-          createdByssoId: payload.userId,
+          createdById: payload.userId,
           status: RequestStatus.SUBMITTED,
           categoryId: data.raiseMode === "CATEGORY" ? data.categoryId : null,
           departmentId:
@@ -183,7 +183,7 @@ export async function createRequest(data: {
           data: Array.from(assignedIds).map((userId) => ({
             requestId: req.id,
             userId: userId,
-            assignedByssoId: payload.userId,
+            assignedById: payload.userId,
             role: "PRIMARY",
             status: "PENDING",
           })),
@@ -196,7 +196,7 @@ export async function createRequest(data: {
           data: data.watcherUserIds.map((userId) => ({
             requestId: req.id,
             userId: userId,
-            addedByssoId: payload.userId,
+            addedById: payload.userId,
           })),
         });
       }
@@ -210,7 +210,7 @@ export async function createRequest(data: {
       await tx.requestActivity.create({
         data: {
           requestId: req.id,
-          actorssoId: payload.userId,
+          actorId: payload.userId,
           type: ActivityType.CREATED,
           message: `Grievance ticket created successfully. ${assignedUserNames}`,
         },
@@ -254,7 +254,7 @@ export async function getStudentRequests() {
     }
 
     const requests = await prisma.request.findMany({
-      where: { createdByssoId: payload.userId },
+      where: { createdById: payload.userId },
       include: {
         category: {
           select: {
@@ -698,7 +698,7 @@ export async function updateRequestStatus(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorssoId: payload.userId,
+        actorId: payload.userId,
         type: ActivityType.STATUS_CHANGED,
         oldValue: request.status,
         newValue: statusEnum,
@@ -814,7 +814,7 @@ export async function assignRequest(
         data: {
           requestId,
           userId: assignedToId,
-          assignedByssoId: payload.userId,
+          assignedById: payload.userId,
           role: "PRIMARY",
           status: "PENDING",
         },
@@ -833,7 +833,7 @@ export async function assignRequest(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorssoId: payload.userId,
+        actorId: payload.userId,
         type: ActivityType.ASSIGNED,
         newValue: staff.fullName,
         message: message || `Request assigned to ${staff.fullName}.`,
@@ -845,7 +845,7 @@ export async function assignRequest(
       await prisma.requestActivity.create({
         data: {
           requestId,
-          actorssoId: payload.userId,
+          actorId: payload.userId,
           type: ActivityType.STATUS_CHANGED,
           oldValue: request.status,
           newValue: nextStatus,
@@ -889,7 +889,7 @@ export async function addRequestComment(
     const newComment = await prisma.requestComment.create({
       data: {
         requestId,
-        authorssoId: payload.userId,
+        authorId: payload.userId,
         message: message.trim(),
         internal,
       },
@@ -899,7 +899,7 @@ export async function addRequestComment(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorssoId: payload.userId,
+        actorId: payload.userId,
         type: ActivityType.COMMENTED,
         message: internal
           ? "Added an internal comment (Staff Only)."
@@ -942,7 +942,7 @@ export async function addRequestAttachment(
     const newAttachment = await prisma.requestAttachment.create({
       data: {
         requestId,
-        uploadedByssoId: payload.userId,
+        uploadedById: payload.userId,
         fileName: fileName.trim(),
         fileUrl: fileUrl.trim(),
         mimeType: mime,
@@ -954,7 +954,7 @@ export async function addRequestAttachment(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorssoId: payload.userId,
+        actorId: payload.userId,
         type: ActivityType.ATTACHMENT_ADDED,
         message: `Attached file: ${fileName.trim()}`,
       },
@@ -1060,7 +1060,7 @@ export async function unassignRequest(requestId: string, userId: string) {
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorssoId: payload.userId,
+        actorId: payload.userId,
         type: ActivityType.FORWARDED,
         oldValue: assignment.user.fullName,
         message: `Removed ${assignment.user.fullName} from assigned handlers.`,
@@ -1119,7 +1119,7 @@ export async function addRequestWatcher(requestId: string, userId: string) {
       data: {
         requestId,
         userId,
-        addedByssoId: payload.userId,
+        addedById: payload.userId,
       },
     });
 
@@ -1127,7 +1127,7 @@ export async function addRequestWatcher(requestId: string, userId: string) {
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorssoId: payload.userId,
+        actorId: payload.userId,
         type: ActivityType.COMMENTED,
         message: `Added ${staff.fullName} as a watcher.`,
       },
@@ -1182,7 +1182,7 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorssoId: payload.userId,
+        actorId: payload.userId,
         type: ActivityType.COMMENTED,
         message: `Removed ${watcher.user.fullName} from watchers list.`,
       },
@@ -1291,7 +1291,7 @@ export async function updateRequestTarget(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorssoId: payload.userId,
+        actorId: payload.userId,
         type: ActivityType.STATUS_CHANGED,
         oldValue: oldTargetName,
         newValue: newTargetName,

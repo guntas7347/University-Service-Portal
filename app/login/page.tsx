@@ -32,33 +32,7 @@ export default function LoginPage() {
       setStatusMessage(
         "Initializing verification of SSO authorization code...",
       );
-
-      const timer1 = setTimeout(() => {
-        setStatusMessage(
-          "Verifying token signature and authentication credentials...",
-        );
-
-        const timer2 = setTimeout(() => {
-          setStatusMessage(
-            "Syncing student profile details with university directory...",
-          );
-
-          const timer3 = setTimeout(() => {
-            setVerificationSuccess(true);
-            setStatusMessage(
-              "Authentication successful! Loading your dashboard...",
-            );
-
-            const timer4 = setTimeout(() => {
-              router.push("/dashboard");
-            }, 1000);
-            return () => clearTimeout(timer4);
-          }, 1200);
-          return () => clearTimeout(timer3);
-        }, 1200);
-        return () => clearTimeout(timer2);
-      }, 1000);
-      return () => clearTimeout(timer1);
+      router.push("/dashboard");
     } else {
       setIsRedirecting(true);
       setStatusMessage(
