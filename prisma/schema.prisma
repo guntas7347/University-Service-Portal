@@ -176,6 +176,11 @@ model Request {
 
   isAnonymous Boolean @default(false)
 
+  escalationLevel Int       @default(0)
+  lastEscalatedAt DateTime?
+  isEscalated     Boolean   @default(false)
+  tags            String[]  @default([])
+
   activities  RequestActivity[]
   comments    RequestComment[]
   attachments RequestAttachment[]
@@ -203,6 +208,7 @@ enum ActivityType {
   RESOLVED
   CLOSED
   REOPENED
+  ESCALATED
 }
 
 model RequestActivity {
@@ -267,20 +273,22 @@ model RequestAttachment {
 model RoutingRule {
   id String @id @default(cuid())
 
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  isActive Boolean @default(true)
+  level     Int     @default(1)
+  isCentral Boolean @default(false)
+  isActive  Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([categoryId, userId])
   @@index([categoryId])
   @@index([userId])
+  @@index([level])
 }
 
 enum AssignmentRole {

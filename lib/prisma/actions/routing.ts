@@ -6,7 +6,7 @@ import { verifyToken } from "@/lib/auth/auth";
 import { Role } from "@/prisma/generated/prisma/enums";
 
 /**
- * Fetch all routing rules in the system
+ * Fetch all routing rules in the system (both category-based and central escalation)
  */
 export async function getRoutingRules() {
   try {
@@ -19,26 +19,32 @@ export async function getRoutingRules() {
             fullName: true,
             email: true,
             role: true,
-            designation: true
-          }
-        }
+            designation: true,
+          },
+        },
       },
-      orderBy: { category: { name: "asc" } }
+      orderBy: [
+        { isCentral: "asc" },
+        { categoryId: "asc" },
+        { level: "asc" },
+      ],
     });
 
     return {
       success: true,
-      rules: rules.map(r => ({
+      rules: rules.map((r) => ({
         id: r.id,
-        categoryId: r.categoryId,
-        categoryName: r.category.name,
+        categoryId: r.categoryId || "",
+        categoryName: r.isCentral ? "Central Escalation (Last Resort)" : (r.category?.name || "Uncategorized"),
         userId: r.userId,
         userName: r.user.fullName,
         userEmail: r.user.email,
         userRole: r.user.role,
         userDesignation: r.user.designation || "",
-        isActive: r.isActive
-      }))
+        level: r.level,
+        isCentral: r.isCentral,
+        isActive: r.isActive,
+      })),
     };
   } catch (error: any) {
     console.error("Error fetching routing rules:", error);
@@ -47,37 +53,60 @@ export async function getRoutingRules() {
 }
 
 /**
- * Create a new routing rule
+ * Create a new routing rule (Category or Central Escalation)
  */
-export async function createRoutingRule(data: { categoryId: string; userId: string }) {
+export async function createRoutingRule(data: {
+  categoryId?: string | null;
+  userId: string;
+  level?: number;
+  isCentral?: boolean;
+}) {
   try {
-    if (!data.categoryId || !data.userId) {
-      return { success: false, message: "Category and User are required fields." };
+    const isCentral = !!data.isCentral;
+    const level = data.level && Number(data.level) > 0 ? Number(data.level) : 1;
+
+    if (!isCentral && !data.categoryId) {
+      return { success: false, message: "Category is required for standard routing rules." };
+    }
+    if (!data.userId) {
+      return { success: false, message: "Staff user is required." };
     }
 
+    const categoryId = isCentral ? null : data.categoryId!;
+
     // Check if duplicate rule exists
-    const existing = await prisma.routingRule.findUnique({
+    const existing = await prisma.routingRule.findFirst({
       where: {
-        categoryId_userId: {
-          categoryId: data.categoryId,
-          userId: data.userId
-        }
-      }
+        isCentral,
+        categoryId,
+        level,
+        userId: data.userId,
+      },
     });
 
     if (existing) {
-      return { success: false, message: "A routing rule already exists for this category and user combination." };
+      return {
+        success: false,
+        message: `A routing rule already exists for this staff member at Level ${level}.`,
+      };
     }
 
     await prisma.routingRule.create({
       data: {
-        categoryId: data.categoryId,
+        isCentral,
+        categoryId,
         userId: data.userId,
-        isActive: true
-      }
+        level,
+        isActive: true,
+      },
     });
 
-    return { success: true, message: "Routing rule created successfully!" };
+    return {
+      success: true,
+      message: isCentral
+        ? `Central Escalation Rule (Level ${level}) created successfully!`
+        : `Category Routing Rule (Level ${level}) created successfully!`,
+    };
   } catch (error: any) {
     console.error("Error creating routing rule:", error);
     return { success: false, message: "Failed to create routing rule." };
@@ -95,10 +124,13 @@ export async function toggleRoutingRule(id: string, isActive: boolean) {
 
     await prisma.routingRule.update({
       where: { id },
-      data: { isActive }
+      data: { isActive },
     });
 
-    return { success: true, message: `Routing rule ${isActive ? "enabled" : "disabled"} successfully!` };
+    return {
+      success: true,
+      message: `Routing rule ${isActive ? "enabled" : "disabled"} successfully!`,
+    };
   } catch (error: any) {
     console.error("Error toggling routing rule:", error);
     return { success: false, message: "Failed to update routing rule." };
@@ -115,7 +147,7 @@ export async function deleteRoutingRule(id: string) {
     }
 
     await prisma.routingRule.delete({
-      where: { id }
+      where: { id },
     });
 
     return { success: true, message: "Routing rule deleted successfully!" };

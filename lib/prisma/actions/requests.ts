@@ -3,6 +3,7 @@
 import prisma from "../prisma";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth/auth";
+
 import {
   RequestType,
   Priority,
@@ -10,6 +11,22 @@ import {
   ActivityType,
   Role,
 } from "@/prisma/generated/prisma/enums";
+
+/**
+ * Helper to fetch the authenticated User record from session JWT
+ */
+async function getAuthenticatedUser() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  if (!token) return null;
+
+  const payload = await verifyToken(token);
+  if (!payload || !payload.userId) return null;
+
+  return prisma.user.findUnique({
+    where: { id: payload.userId },
+  });
+}
 
 /**
  * File a new grievance or query request in the database
@@ -27,18 +44,12 @@ export async function createRequest(data: {
   watcherUserIds?: string[];
 }) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) {
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) {
       return {
         success: false,
-        message: "Not authenticated. Session token missing.",
+        message: "Not authenticated. Session token missing or invalid.",
       };
-    }
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId) {
-      return { success: false, message: "Invalid or expired session token." };
     }
 
     // Input validations
@@ -141,7 +152,7 @@ export async function createRequest(data: {
           description: data.description.trim(),
           priority: priorityEnum,
           isAnonymous: data.isAnonymous,
-          createdById: payload.userId,
+          createdById: activeUser.id,
           status: RequestStatus.SUBMITTED,
           categoryId: data.raiseMode === "CATEGORY" ? data.categoryId : null,
           departmentId:
@@ -153,14 +164,41 @@ export async function createRequest(data: {
       const assignedIds = new Set<string>();
 
       if (data.raiseMode === "CATEGORY" && data.categoryId) {
-        // Look up active RoutingRules for this category
-        const rules = await tx.routingRule.findMany({
+        // Look up active Level 1 RoutingRules for this category
+        const level1Rules = await tx.routingRule.findMany({
           where: {
             categoryId: data.categoryId,
+            level: 1,
             isActive: true,
           },
         });
-        rules.forEach((r) => assignedIds.add(r.userId));
+
+        if (level1Rules.length > 0) {
+          level1Rules.forEach((r) => assignedIds.add(r.userId));
+        } else {
+          // Fallback to lowest level active rule for this category
+          const fallbackRules = await tx.routingRule.findMany({
+            where: {
+              categoryId: data.categoryId,
+              isActive: true,
+            },
+            orderBy: { level: "asc" },
+            take: 1,
+          });
+          fallbackRules.forEach((r) => assignedIds.add(r.userId));
+        }
+
+        // If no category rules at all, fallback to Central Escalation Level 1
+        if (assignedIds.size === 0) {
+          const centralRules = await tx.routingRule.findMany({
+            where: {
+              isCentral: true,
+              level: 1,
+              isActive: true,
+            },
+          });
+          centralRules.forEach((r) => assignedIds.add(r.userId));
+        }
       } else if (data.raiseMode === "DEPARTMENT" && data.departmentId) {
         // Raise by Department
         if (data.assignedUserIds && data.assignedUserIds.length > 0) {
@@ -183,7 +221,7 @@ export async function createRequest(data: {
           data: Array.from(assignedIds).map((userId) => ({
             requestId: req.id,
             userId: userId,
-            assignedById: payload.userId,
+            assignedById: activeUser.id,
             role: "PRIMARY",
             status: "PENDING",
           })),
@@ -196,7 +234,7 @@ export async function createRequest(data: {
           data: data.watcherUserIds.map((userId) => ({
             requestId: req.id,
             userId: userId,
-            addedById: payload.userId,
+            addedById: activeUser.id,
           })),
         });
       }
@@ -210,7 +248,7 @@ export async function createRequest(data: {
       await tx.requestActivity.create({
         data: {
           requestId: req.id,
-          actorId: payload.userId,
+          actorId: activeUser.id,
           type: ActivityType.CREATED,
           message: `Grievance ticket created successfully. ${assignedUserNames}`,
         },
@@ -239,22 +277,16 @@ export async function createRequest(data: {
  */
 export async function getStudentRequests() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) {
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) {
       return {
         success: false,
         message: "Not authenticated. Session token missing.",
       };
     }
 
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId) {
-      return { success: false, message: "Invalid session." };
-    }
-
     const requests = await prisma.request.findMany({
-      where: { createdById: payload.userId },
+      where: { createdById: activeUser.id },
       include: {
         category: {
           select: {
@@ -292,100 +324,120 @@ export async function getStudentRequests() {
  */
 export async function getAllRequests() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) {
+    const user = await getAuthenticatedUser();
+    if (!user) {
       return { success: false, message: "Not authenticated." };
     }
 
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId) {
-      return { success: false, message: "Invalid session." };
-    }
-
-    // Check user role
-    const user = await prisma.user.findUnique({
-      where: { ssoId: payload.userId },
-    });
-    if (!user) {
-      return { success: false, message: "User session not found." };
-    }
-
-    let whereClause: any = {};
-
+    let requests;
     if (user.role === Role.STUDENT) {
-      // Students can only see their own requests
-      whereClause = { createdById: user.id };
-    } else if (user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN) {
-      // Admins see all requests
-      whereClause = {};
-    } else if (user.role === Role.HOD) {
-      // HODs see requests related to their department, requests made by students of their department,
-      // or requests where they are explicitly assigned, watching, or created.
-      const departmentId = user.departmentId;
-
-      const hodOrConditions: any[] = [
-        { assignments: { some: { userId: user.id } } },
-        { watchers: { some: { userId: user.id } } },
-        { createdById: user.id },
-      ];
-
-      if (departmentId) {
-        hodOrConditions.push(
-          { departmentId: departmentId },
-          { department: { hodId: user.id } },
-          {
-            createdBy: {
-              role: Role.STUDENT,
-              departmentId: departmentId,
+      requests = await prisma.request.findMany({
+        where: { createdById: user.id },
+        include: {
+          category: { select: { name: true } },
+          department: { select: { name: true } },
+          createdBy: { select: { fullName: true, rollNumber: true } },
+          assignments: {
+            include: {
+              user: { select: { id: true, fullName: true, role: true } },
             },
-          },
-        );
-      } else {
-        hodOrConditions.push(
-          { department: { hodId: user.id } },
-          {
-            createdBy: {
-              role: Role.STUDENT,
-              department: { hodId: user.id },
-            },
-          },
-        );
-      }
-
-      whereClause = {
-        OR: hodOrConditions,
-      };
-    } else {
-      // Other staff (FACULTY, etc.) see only requests where they are assigned, watching, or created
-      whereClause = {
-        OR: [
-          { assignments: { some: { userId: user.id } } },
-          { watchers: { some: { userId: user.id } } },
-          { createdById: user.id },
-        ],
-      };
-    }
-
-    const requests = await prisma.request.findMany({
-      where: whereClause,
-      include: {
-        category: true,
-        department: true,
-        createdBy: { select: { fullName: true } },
-        assignments: {
-          include: {
-            user: { select: { fullName: true } },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        orderBy: { createdAt: "desc" },
+      });
+    } else if (user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN) {
+      requests = await prisma.request.findMany({
+        include: {
+          category: { select: { name: true } },
+          department: { select: { name: true } },
+          createdBy: { select: { fullName: true, rollNumber: true } },
+          assignments: {
+            include: {
+              user: { select: { id: true, fullName: true, role: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    } else if (user.role === Role.HOD) {
+      const managedDept = user.departmentId
+        ? await prisma.department.findUnique({
+            where: { id: user.departmentId },
+          })
+        : null;
+
+      requests = await prisma.request.findMany({
+        where: {
+          OR: [
+            { departmentId: user.departmentId || "" },
+            {
+              createdBy: {
+                departmentId: user.departmentId || "",
+              },
+            },
+            {
+              assignments: {
+                some: { userId: user.id },
+              },
+            },
+            {
+              watchers: {
+                some: { userId: user.id },
+              },
+            },
+            { createdById: user.id },
+          ],
+        },
+        include: {
+          category: { select: { name: true } },
+          department: { select: { name: true } },
+          createdBy: { select: { fullName: true, rollNumber: true } },
+          assignments: {
+            include: {
+              user: { select: { id: true, fullName: true, role: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    } else {
+      // Faculty / Staff
+      requests = await prisma.request.findMany({
+        where: {
+          OR: [
+            {
+              assignments: {
+                some: { userId: user.id },
+              },
+            },
+            {
+              watchers: {
+                some: { userId: user.id },
+              },
+            },
+            { createdById: user.id },
+          ],
+        },
+        include: {
+          category: { select: { name: true } },
+          department: { select: { name: true } },
+          createdBy: { select: { fullName: true, rollNumber: true } },
+          assignments: {
+            include: {
+              user: { select: { id: true, fullName: true, role: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     return {
       success: true,
-      role: user.role,
       requests: requests.map((r) => {
+        const primaryAssignee = r.assignments.find(
+          (a) => a.role === "PRIMARY",
+        )?.user;
         const assignedNames = r.assignments
           .map((a) => a.user.fullName)
           .join(", ");
@@ -393,27 +445,34 @@ export async function getAllRequests() {
         return {
           id: r.id,
           ticketId: r.ticketId,
-          subject: r.subject,
           type: r.type,
-          priority: r.priority,
+          category: r.category?.name || "N/A",
+          department: r.department?.name || "General",
+          subject: r.subject,
+          description: r.description,
           status: r.status,
-          category: r.category
-            ? r.category.name
-            : r.department
-              ? `Dept: ${r.department.name}`
-              : "General",
-          createdByName:
-            r.isAnonymous && user.role === Role.STUDENT
-              ? "Anonymous"
-              : r.createdBy.fullName,
+          priority: r.priority,
+          studentName: r.isAnonymous ? "Anonymous" : r.createdBy.fullName,
+          createdByName: r.isAnonymous ? "Anonymous" : r.createdBy.fullName,
+          studentRoll: r.isAnonymous ? "N/A" : r.createdBy.rollNumber || "N/A",
+          assignedToId: primaryAssignee?.id || null,
           assignedToName: assignedNames || "Unassigned",
           date: r.createdAt.toISOString(),
+          isAnonymous: r.isAnonymous,
+          escalationLevel: r.escalationLevel || 0,
+          isEscalated: r.isEscalated || false,
+          tags: r.tags || [],
         };
       }),
+      userRole: user.role,
+      userDeptId: user.departmentId || "",
     };
   } catch (error: any) {
-    console.error("Error retrieving all requests:", error);
-    return { success: false, message: "Database query error." };
+    console.error("Error fetching all requests:", error);
+    return {
+      success: false,
+      message: "Failed to load requests due to database error.",
+    };
   }
 }
 
@@ -422,22 +481,9 @@ export async function getAllRequests() {
  */
 export async function getRequestDetails(requestId: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) {
-      return { success: false, message: "Not authenticated." };
-    }
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId) {
-      return { success: false, message: "Invalid session." };
-    }
-
-    const activeUser = await prisma.user.findUnique({
-      where: { ssoId: payload.userId },
-    });
+    const activeUser = await getAuthenticatedUser();
     if (!activeUser) {
-      return { success: false, message: "Active user session not found." };
+      return { success: false, message: "Not authenticated." };
     }
 
     const reqDetails = await prisma.request.findUnique({
@@ -446,14 +492,9 @@ export async function getRequestDetails(requestId: string) {
         category: true,
         department: true,
         createdBy: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            mobileNumber: true,
-            role: true,
-            course: { select: { name: true } },
-            departmentId: true,
+          include: {
+            department: true,
+            course: true,
           },
         },
         assignments: {
@@ -462,9 +503,9 @@ export async function getRequestDetails(requestId: string) {
               select: {
                 id: true,
                 fullName: true,
-                email: true,
                 role: true,
                 designation: true,
+                email: true,
               },
             },
           },
@@ -475,76 +516,80 @@ export async function getRequestDetails(requestId: string) {
               select: {
                 id: true,
                 fullName: true,
-                email: true,
                 role: true,
+                designation: true,
+                email: true,
               },
             },
           },
         },
         comments: {
           include: {
-            author: { select: { fullName: true, role: true } },
+            author: {
+              select: {
+                id: true,
+                fullName: true,
+                role: true,
+                designation: true,
+              },
+            },
           },
           orderBy: { createdAt: "asc" },
         },
         activities: {
           include: {
-            actor: { select: { fullName: true, role: true } },
+            actor: {
+              select: {
+                id: true,
+                fullName: true,
+                role: true,
+              },
+            },
           },
-          orderBy: { createdAt: "asc" },
+          orderBy: { createdAt: "desc" },
         },
         attachments: {
-          orderBy: { createdAt: "asc" },
+          include: {
+            uploadedBy: {
+              select: {
+                fullName: true,
+                role: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
 
     if (!reqDetails) {
-      return { success: false, message: "Request ticket not found." };
+      return { success: false, message: "Request not found." };
     }
 
-    // Security Gate check based on roles
+    // Access control evaluation
     let hasAccess = false;
+    const isCreator = reqDetails.createdById === activeUser.id;
+    const isAssigned = reqDetails.assignments.some(
+      (a) => a.userId === activeUser.id,
+    );
+    const isWatcher = reqDetails.watchers.some(
+      (w) => w.userId === activeUser.id,
+    );
+
     if (
       activeUser.role === Role.ADMIN ||
-      activeUser.role === Role.SUPER_ADMIN
+      activeUser.role === Role.SUPER_ADMIN ||
+      activeUser.rights.includes("VIEW_ALL_REQUESTS")
     ) {
       hasAccess = true;
-    } else if (activeUser.role === Role.STUDENT) {
-      hasAccess = reqDetails.createdById === activeUser.id;
     } else if (activeUser.role === Role.HOD) {
-      const isCreator = reqDetails.createdById === activeUser.id;
-      const isAssigned = reqDetails.assignments.some(
-        (a) => a.user.id === activeUser.id,
-      );
-      const isWatcher = reqDetails.watchers.some(
-        (w) => w.user.id === activeUser.id,
-      );
-
       const isRelatedDept =
         reqDetails.departmentId === activeUser.departmentId ||
-        reqDetails.department?.hodId === activeUser.id;
+        (reqDetails.createdBy.departmentId === activeUser.departmentId &&
+          reqDetails.createdBy.role === Role.STUDENT);
 
-      const isStudentOfDept =
-        reqDetails.createdBy.role === Role.STUDENT &&
-        reqDetails.createdBy.departmentId === activeUser.departmentId;
-
-      hasAccess =
-        isCreator ||
-        isAssigned ||
-        isWatcher ||
-        isRelatedDept ||
-        isStudentOfDept;
+      hasAccess = isCreator || isAssigned || isWatcher || isRelatedDept;
     } else {
-      // FACULTY and other roles
-      const isCreator = reqDetails.createdById === activeUser.id;
-      const isAssigned = reqDetails.assignments.some(
-        (a) => a.user.id === activeUser.id,
-      );
-      const isWatcher = reqDetails.watchers.some(
-        (w) => w.user.id === activeUser.id,
-      );
-
       hasAccess = isCreator || isAssigned || isWatcher;
     }
 
@@ -552,79 +597,113 @@ export async function getRequestDetails(requestId: string) {
       return {
         success: false,
         message:
-          "Access Denied. You do not have permissions to view this ticket.",
+          "Access Denied. You do not have permission to view this ticket.",
       };
     }
 
-    // Filter out internal comments from students
-    let comments = reqDetails.comments;
-    if (activeUser.role === Role.STUDENT) {
-      comments = comments.filter((c) => !c.internal);
-    }
+    const visibleComments = reqDetails.comments.filter((c) => {
+      if (!c.internal) return true;
+      return activeUser.role !== Role.STUDENT;
+    });
 
     const mappedDetails = {
       id: reqDetails.id,
       ticketId: reqDetails.ticketId,
+      type: reqDetails.type,
       subject: reqDetails.subject,
       description: reqDetails.description,
-      type: reqDetails.type,
-      priority: reqDetails.priority,
       status: reqDetails.status,
-      categoryName: reqDetails.category
-        ? reqDetails.category.name
-        : reqDetails.department
-          ? `Dept: ${reqDetails.department.name}`
-          : "General",
-      categoryId: reqDetails.categoryId,
-      departmentId: reqDetails.departmentId,
+      priority: reqDetails.priority,
+      createdAt: reqDetails.createdAt.toISOString(),
+      updatedAt: reqDetails.updatedAt.toISOString(),
+      isAnonymous: reqDetails.isAnonymous,
+      categoryId: reqDetails.categoryId || "",
+      categoryName: reqDetails.category?.name || "General",
+      departmentId: reqDetails.departmentId || "",
       departmentName: reqDetails.department?.name || "",
       departmentHodId: reqDetails.department?.hodId || "",
-      isAnonymous: reqDetails.isAnonymous,
-      createdAt: reqDetails.createdAt.toISOString(),
-      creator: {
-        id: reqDetails.createdBy.id,
-        name:
-          reqDetails.isAnonymous && activeUser.role === Role.STUDENT
-            ? "Anonymous"
-            : reqDetails.createdBy.fullName,
-        email:
-          reqDetails.isAnonymous && activeUser.role === Role.STUDENT
-            ? "N/A"
-            : reqDetails.createdBy.email,
-        mobileNumber:
-          reqDetails.isAnonymous && activeUser.role === Role.STUDENT
-            ? "N/A"
-            : reqDetails.createdBy.mobileNumber || "N/A",
+      student: {
+        id: reqDetails.createdById,
+        name: reqDetails.isAnonymous
+          ? "Anonymous Student"
+          : reqDetails.createdBy.fullName,
+        fullName: reqDetails.isAnonymous
+          ? "Anonymous Student"
+          : reqDetails.createdBy.fullName,
+        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy.email,
+        rollNumber: reqDetails.isAnonymous
+          ? "N/A"
+          : reqDetails.createdBy.rollNumber || "N/A",
+        mobileNumber: reqDetails.isAnonymous
+          ? "N/A"
+          : reqDetails.createdBy.mobileNumber || "N/A",
         courseName: reqDetails.createdBy.course?.name || "N/A",
         departmentId: reqDetails.createdBy.departmentId || "",
+        departmentName: reqDetails.createdBy.department?.name || "N/A",
+      },
+      creator: {
+        id: reqDetails.createdById,
+        name: reqDetails.isAnonymous
+          ? "Anonymous Student"
+          : reqDetails.createdBy.fullName,
+        fullName: reqDetails.isAnonymous
+          ? "Anonymous Student"
+          : reqDetails.createdBy.fullName,
+        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy.email,
+        rollNumber: reqDetails.isAnonymous
+          ? "N/A"
+          : reqDetails.createdBy.rollNumber || "N/A",
+        mobileNumber: reqDetails.isAnonymous
+          ? "N/A"
+          : reqDetails.createdBy.mobileNumber || "N/A",
+        courseName: reqDetails.createdBy.course?.name || "N/A",
+        departmentId: reqDetails.createdBy.departmentId || "",
+        departmentName: reqDetails.createdBy.department?.name || "N/A",
       },
       assignments: reqDetails.assignments.map((a) => ({
         id: a.id,
-        role: a.role,
+        userId: a.userId,
+        name: a.user.fullName,
+        email: a.user.email,
+        role: a.user.role,
+        designation: a.user.designation || "",
+        assignmentRole: a.role,
         status: a.status,
+        assignedAt: a.assignedAt.toISOString(),
         user: {
           id: a.user.id,
           name: a.user.fullName,
+          fullName: a.user.fullName,
           email: a.user.email,
           role: a.user.role,
           designation: a.user.designation || "",
         },
       })),
       watchers: reqDetails.watchers.map((w) => ({
+        id: w.userId,
+        userId: w.userId,
+        name: w.user.fullName,
+        email: w.user.email,
+        role: w.user.role,
+        designation: w.user.designation || "",
         user: {
           id: w.user.id,
           name: w.user.fullName,
+          fullName: w.user.fullName,
           email: w.user.email,
           role: w.user.role,
+          designation: w.user.designation || "",
         },
       })),
-      comments: comments.map((c) => ({
+      comments: visibleComments.map((c) => ({
         id: c.id,
         message: c.message,
-        internal: c.internal,
-        createdAt: c.createdAt.toISOString(),
+        authorId: c.authorId,
         authorName: c.author.fullName,
         authorRole: c.author.role,
+        authorDesignation: c.author.designation || "",
+        createdAt: c.createdAt.toISOString(),
+        internal: c.internal,
       })),
       activities: reqDetails.activities.map((a) => ({
         id: a.id,
@@ -634,15 +713,44 @@ export async function getRequestDetails(requestId: string) {
         message: a.message,
         createdAt: a.createdAt.toISOString(),
         actorName: a.actor?.fullName || "System",
+        actorRole: a.actor?.role || "SYSTEM",
       })),
-      attachments: reqDetails.attachments.map((at) => ({
-        id: at.id,
-        fileName: at.fileName,
-        fileUrl: at.fileUrl,
-        fileSize: at.fileSize,
-        mimeType: at.mimeType,
-        createdAt: at.createdAt.toISOString(),
+      attachments: reqDetails.attachments.map((att) => ({
+        id: att.id,
+        fileName: att.fileName,
+        fileUrl: att.fileUrl,
+        fileSize: att.fileSize,
+        mimeType: att.mimeType,
+        uploadedByName: att.uploadedBy.fullName,
+        createdAt: att.createdAt.toISOString(),
       })),
+      escalationLevel: reqDetails.escalationLevel || 0,
+      lastEscalatedAt: reqDetails.lastEscalatedAt ? reqDetails.lastEscalatedAt.toISOString() : null,
+      isEscalated: reqDetails.isEscalated || false,
+      tags: reqDetails.tags || [],
+      canEscalate: (() => {
+        const isTerminal = (
+          [
+            RequestStatus.RESOLVED,
+            RequestStatus.CLOSED,
+            RequestStatus.REJECTED,
+            RequestStatus.CANCELLED,
+          ] as RequestStatus[]
+        ).includes(reqDetails.status);
+        if (isTerminal) return false;
+        const isCreatorOrAdmin = isCreator || activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
+        if (!isCreatorOrAdmin) return false;
+        const baseDate = reqDetails.lastEscalatedAt || reqDetails.createdAt;
+        const msPassed = Date.now() - new Date(baseDate).getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        return msPassed >= sevenDaysMs;
+      })(),
+      daysUntilEscalation: (() => {
+        const baseDate = reqDetails.lastEscalatedAt || reqDetails.createdAt;
+        const msPassed = Date.now() - new Date(baseDate).getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        return Math.max(0, Math.ceil((sevenDaysMs - msPassed) / (24 * 60 * 60 * 1000)));
+      })(),
     };
 
     return {
@@ -663,6 +771,269 @@ export async function getRequestDetails(requestId: string) {
 }
 
 /**
+ * Manually escalate a grievance request by the student creator
+ * Automatically forwards to the next authority (next level or central escalation)
+ */
+export async function escalateRequest(requestId: string, reason?: string) {
+  try {
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) {
+      return { success: false, message: "Not authenticated." };
+    }
+
+    const req = await prisma.request.findUnique({
+      where: { id: requestId },
+      include: {
+        category: true,
+        department: true,
+        assignments: {
+          include: {
+            user: { select: { id: true, fullName: true, role: true } },
+          },
+        },
+      },
+    });
+
+    if (!req) {
+      return { success: false, message: "Request not found." };
+    }
+
+    // Must be the creator of the request (or admin)
+    if (
+      req.createdById !== activeUser.id &&
+      activeUser.role !== Role.ADMIN &&
+      activeUser.role !== Role.SUPER_ADMIN
+    ) {
+      return {
+        success: false,
+        message: "Only the creator of this request can escalate it.",
+      };
+    }
+
+    // Cannot escalate closed or resolved requests
+    const isTerminal = (
+      [
+        RequestStatus.RESOLVED,
+        RequestStatus.CLOSED,
+        RequestStatus.REJECTED,
+        RequestStatus.CANCELLED,
+      ] as RequestStatus[]
+    ).includes(req.status);
+
+    if (isTerminal) {
+      return {
+        success: false,
+        message: `Cannot escalate a request that is already ${req.status}.`,
+      };
+    }
+
+    // 7-day cooldown check
+    const baseDate = req.lastEscalatedAt || req.createdAt;
+    const msPassed = Date.now() - new Date(baseDate).getTime();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    if (
+      msPassed < sevenDaysMs &&
+      activeUser.role !== Role.ADMIN &&
+      activeUser.role !== Role.SUPER_ADMIN
+    ) {
+      const daysLeft = Math.ceil(
+        (sevenDaysMs - msPassed) / (24 * 60 * 60 * 1000),
+      );
+      return {
+        success: false,
+        message: `Escalation is available after 7 days from previous action (${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining).`,
+      };
+    }
+
+    const currentEscalation = req.escalationLevel;
+    const nextEscalation = currentEscalation + 1;
+    const targetCategoryLevel = nextEscalation + 1; // Level 2, Level 3...
+
+    let nextAssigneeIds: string[] = [];
+    let nextTargetLabel = "";
+
+    // 1. Check if Category-specific routing rule exists for targetCategoryLevel
+    if (req.categoryId) {
+      const categoryRules = await prisma.routingRule.findMany({
+        where: {
+          categoryId: req.categoryId,
+          level: targetCategoryLevel,
+          isActive: true,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              role: true,
+              designation: true,
+            },
+          },
+        },
+      });
+
+      if (categoryRules.length > 0) {
+        nextAssigneeIds = categoryRules.map((r) => r.userId);
+        nextTargetLabel = `Level ${targetCategoryLevel} (${categoryRules.map((r) => r.user.fullName).join(", ")})`;
+      }
+    }
+
+    // 2. If no category-specific rule found, escalate to Central Escalation Section
+    if (nextAssigneeIds.length === 0) {
+      const centralRules = await prisma.routingRule.findMany({
+        where: {
+          isCentral: true,
+          isActive: true,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              role: true,
+              designation: true,
+            },
+          },
+        },
+        orderBy: { level: "asc" },
+      });
+
+      if (centralRules.length > 0) {
+        const assignedUserIds = new Set(req.assignments.map((a) => a.userId));
+        const unassignedCentral = centralRules.filter(
+          (r) => !assignedUserIds.has(r.userId),
+        );
+
+        const targetCentral =
+          unassignedCentral.length > 0
+            ? unassignedCentral[0]
+            : centralRules[centralRules.length - 1];
+        nextAssigneeIds = [targetCentral.userId];
+        nextTargetLabel = `Central Authority Level ${targetCentral.level} (${targetCentral.user.fullName})`;
+      } else {
+        // Fallback: If no central rules configured, find super admin or admin
+        const adminUsers = await prisma.user.findMany({
+          where: {
+            role: { in: [Role.SUPER_ADMIN, Role.ADMIN] },
+            status: "ACTIVE",
+          },
+          take: 1,
+        });
+        if (adminUsers.length > 0) {
+          nextAssigneeIds = [adminUsers[0].id];
+          nextTargetLabel = `Central Administration (${adminUsers[0].fullName})`;
+        }
+      }
+    }
+
+    if (nextAssigneeIds.length === 0) {
+      return {
+        success: false,
+        message: "No escalation authority could be resolved in the system.",
+      };
+    }
+
+    // Execute escalation in transaction
+    const newTag = `escalated-${nextEscalation}`;
+    const updatedTags = Array.from(new Set([...(req.tags || []), newTag]));
+
+    const nextPriority =
+      req.priority === Priority.LOW
+        ? Priority.MEDIUM
+        : req.priority === Priority.MEDIUM
+        ? Priority.HIGH
+        : Priority.URGENT;
+
+    await prisma.$transaction(async (tx) => {
+      // Update request metadata
+      await tx.request.update({
+        where: { id: req.id },
+        data: {
+          escalationLevel: nextEscalation,
+          lastEscalatedAt: new Date(),
+          isEscalated: true,
+          tags: updatedTags,
+          priority: nextPriority,
+          status: RequestStatus.UNDER_REVIEW,
+        },
+      });
+
+      // Move existing primary assignments to SECONDARY
+      await tx.requestAssignment.updateMany({
+        where: {
+          requestId: req.id,
+          role: "PRIMARY",
+        },
+        data: {
+          role: "SECONDARY",
+        },
+      });
+
+      // Upsert new primary assignees
+      for (const newUserId of nextAssigneeIds) {
+        const existing = await tx.requestAssignment.findUnique({
+          where: {
+            requestId_userId: {
+              requestId: req.id,
+              userId: newUserId,
+            },
+          },
+        });
+
+        if (existing) {
+          await tx.requestAssignment.update({
+            where: { id: existing.id },
+            data: {
+              role: "PRIMARY",
+              status: "PENDING",
+            },
+          });
+        } else {
+          await tx.requestAssignment.create({
+            data: {
+              requestId: req.id,
+              userId: newUserId,
+              assignedById: activeUser.id,
+              role: "PRIMARY",
+              status: "PENDING",
+            },
+          });
+        }
+      }
+
+      // Add timeline log activity
+      await tx.requestActivity.create({
+        data: {
+          requestId: req.id,
+          actorId: activeUser.id,
+          type: ActivityType.ESCALATED,
+          oldValue:
+            currentEscalation === 0
+              ? "Standard (Level 1)"
+              : `Escalated Level ${currentEscalation}`,
+          newValue: `Escalated Level ${nextEscalation}`,
+          message: reason?.trim()
+            ? `Request escalated by student to ${nextTargetLabel}. Reason: "${reason.trim()}"`
+            : `Request escalated by student to ${nextTargetLabel} following 7-day resolution threshold.`,
+        },
+      });
+    });
+
+    return {
+      success: true,
+      message: `Request successfully escalated to Level ${nextEscalation} (${nextTargetLabel}).`,
+    };
+  } catch (error: any) {
+    console.error("Error escalating request:", error);
+    return {
+      success: false,
+      message: "Failed to escalate request due to an internal error.",
+    };
+  }
+}
+
+/**
  * Update request status & log activity
  */
 export async function updateRequestStatus(
@@ -671,13 +1042,8 @@ export async function updateRequestStatus(
   commentMessage?: string,
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) return { success: false, message: "Not authenticated." };
 
     const request = await prisma.request.findUnique({
       where: { id: requestId },
@@ -689,7 +1055,7 @@ export async function updateRequestStatus(
     let statusEnum = newStatus.toUpperCase() as RequestStatus;
 
     // Update status
-    const updatedRequest = await prisma.request.update({
+    await prisma.request.update({
       where: { id: requestId },
       data: { status: statusEnum },
     });
@@ -698,7 +1064,7 @@ export async function updateRequestStatus(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorId: payload.userId,
+        actorId: activeUser.id,
         type: ActivityType.STATUS_CHANGED,
         oldValue: request.status,
         newValue: statusEnum,
@@ -724,26 +1090,14 @@ export async function assignRequest(
   message?: string,
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) return { success: false, message: "Not authenticated." };
 
     const request = await prisma.request.findUnique({
       where: { id: requestId },
       include: { assignments: true, createdBy: true },
     });
     if (!request) return { success: false, message: "Request not found." };
-
-    // Fetch active user details
-    const activeUser = await prisma.user.findUnique({
-      where: { ssoId: payload.userId },
-    });
-    if (!activeUser)
-      return { success: false, message: "User session not found." };
 
     // Authorization checks
     const role = activeUser.role;
@@ -814,7 +1168,7 @@ export async function assignRequest(
         data: {
           requestId,
           userId: assignedToId,
-          assignedById: payload.userId,
+          assignedById: activeUser.id,
           role: "PRIMARY",
           status: "PENDING",
         },
@@ -833,7 +1187,7 @@ export async function assignRequest(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorId: payload.userId,
+        actorId: activeUser.id,
         type: ActivityType.ASSIGNED,
         newValue: staff.fullName,
         message: message || `Request assigned to ${staff.fullName}.`,
@@ -845,7 +1199,7 @@ export async function assignRequest(
       await prisma.requestActivity.create({
         data: {
           requestId,
-          actorId: payload.userId,
+          actorId: activeUser.id,
           type: ActivityType.STATUS_CHANGED,
           oldValue: request.status,
           newValue: nextStatus,
@@ -873,23 +1227,18 @@ export async function addRequestComment(
   internal: boolean,
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) return { success: false, message: "Not authenticated." };
 
     if (!message.trim()) {
       return { success: false, message: "Comment message cannot be empty." };
     }
 
     // Insert comment
-    const newComment = await prisma.requestComment.create({
+    await prisma.requestComment.create({
       data: {
         requestId,
-        authorId: payload.userId,
+        authorId: activeUser.id,
         message: message.trim(),
         internal,
       },
@@ -899,7 +1248,7 @@ export async function addRequestComment(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorId: payload.userId,
+        actorId: activeUser.id,
         type: ActivityType.COMMENTED,
         message: internal
           ? "Added an internal comment (Staff Only)."
@@ -924,13 +1273,8 @@ export async function addRequestAttachment(
   fileUrl: string,
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) return { success: false, message: "Not authenticated." };
 
     if (!fileName.trim() || !fileUrl.trim()) {
       return { success: false, message: "File name and URL are required." };
@@ -942,7 +1286,7 @@ export async function addRequestAttachment(
     const newAttachment = await prisma.requestAttachment.create({
       data: {
         requestId,
-        uploadedById: payload.userId,
+        uploadedById: activeUser.id,
         fileName: fileName.trim(),
         fileUrl: fileUrl.trim(),
         mimeType: mime,
@@ -954,7 +1298,7 @@ export async function addRequestAttachment(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorId: payload.userId,
+        actorId: activeUser.id,
         type: ActivityType.ATTACHMENT_ADDED,
         message: `Attached file: ${fileName.trim()}`,
       },
@@ -973,13 +1317,8 @@ export async function addRequestAttachment(
  */
 export async function unassignRequest(requestId: string, userId: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) return { success: false, message: "Not authenticated." };
 
     const assignment = await prisma.requestAssignment.findUnique({
       where: {
@@ -997,14 +1336,6 @@ export async function unassignRequest(requestId: string, userId: string) {
       return { success: false, message: "Assignment not found." };
     }
 
-    // Fetch active user details
-    const activeUser = await prisma.user.findUnique({
-      where: { ssoId: payload.userId },
-    });
-    if (!activeUser)
-      return { success: false, message: "User session not found." };
-
-    // Authorization checks
     const request = await prisma.request.findUnique({
       where: { id: requestId },
       include: { createdBy: true },
@@ -1060,7 +1391,7 @@ export async function unassignRequest(requestId: string, userId: string) {
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorId: payload.userId,
+        actorId: activeUser.id,
         type: ActivityType.FORWARDED,
         oldValue: assignment.user.fullName,
         message: `Removed ${assignment.user.fullName} from assigned handlers.`,
@@ -1082,13 +1413,8 @@ export async function unassignRequest(requestId: string, userId: string) {
  */
 export async function addRequestWatcher(requestId: string, userId: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) return { success: false, message: "Not authenticated." };
 
     const existing = await prisma.requestWatcher.findUnique({
       where: {
@@ -1119,7 +1445,7 @@ export async function addRequestWatcher(requestId: string, userId: string) {
       data: {
         requestId,
         userId,
-        addedById: payload.userId,
+        addedById: activeUser.id,
       },
     });
 
@@ -1127,7 +1453,7 @@ export async function addRequestWatcher(requestId: string, userId: string) {
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorId: payload.userId,
+        actorId: activeUser.id,
         type: ActivityType.COMMENTED,
         message: `Added ${staff.fullName} as a watcher.`,
       },
@@ -1145,13 +1471,8 @@ export async function addRequestWatcher(requestId: string, userId: string) {
  */
 export async function removeRequestWatcher(requestId: string, userId: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) return { success: false, message: "Not authenticated." };
 
     const watcher = await prisma.requestWatcher.findUnique({
       where: {
@@ -1182,7 +1503,7 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorId: payload.userId,
+        actorId: activeUser.id,
         type: ActivityType.COMMENTED,
         message: `Removed ${watcher.user.fullName} from watchers list.`,
       },
@@ -1207,18 +1528,8 @@ export async function updateRequestTarget(
   targetId: string,
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
-
-    const activeUser = await prisma.user.findUnique({
-      where: { ssoId: payload.userId },
-    });
-    if (!activeUser) return { success: false, message: "User not found." };
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) return { success: false, message: "Not authenticated." };
 
     // Authorization Gate: admin or HOD
     const isAdmin =
@@ -1291,7 +1602,7 @@ export async function updateRequestTarget(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorId: payload.userId,
+        actorId: activeUser.id,
         type: ActivityType.STATUS_CHANGED,
         oldValue: oldTargetName,
         newValue: newTargetName,
@@ -1318,15 +1629,8 @@ export async function forwardRequest(
   message?: string,
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
-
-    const activeUserId = payload.userId;
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) return { success: false, message: "Not authenticated." };
 
     const request = await prisma.request.findUnique({
       where: { id: requestId },
@@ -1340,7 +1644,7 @@ export async function forwardRequest(
 
     // Verify active user is assigned
     const activeUserAssignment = request.assignments.find(
-      (a) => a.userId === activeUserId,
+      (a) => a.userId === activeUser.id,
     );
     if (!activeUserAssignment) {
       return {
@@ -1370,33 +1674,27 @@ export async function forwardRequest(
       };
     }
 
-    const activeUser = await prisma.user.findUnique({
-      where: { id: activeUserId },
-    });
-    if (!activeUser)
-      return { success: false, message: "Active user session not found." };
-
     await prisma.$transaction(async (tx) => {
       // 1. Remove active user from assignees
       await tx.requestAssignment.delete({
         where: {
           requestId_userId: {
             requestId,
-            userId: activeUserId,
+            userId: activeUser.id,
           },
         },
       });
 
       // 2. Add active user as watcher (if not already watching)
       const isAlreadyWatcher = request.watchers.some(
-        (w) => w.userId === activeUserId,
+        (w) => w.userId === activeUser.id,
       );
       if (!isAlreadyWatcher) {
         await tx.requestWatcher.create({
           data: {
             requestId,
-            userId: activeUserId,
-            addedById: activeUserId,
+            userId: activeUser.id,
+            addedById: activeUser.id,
           },
         });
       }
@@ -1406,7 +1704,7 @@ export async function forwardRequest(
         data: {
           requestId,
           userId: targetUserId,
-          assignedById: activeUserId,
+          assignedById: activeUser.id,
           role: "PRIMARY",
           status: "PENDING",
         },
@@ -1417,7 +1715,7 @@ export async function forwardRequest(
     await prisma.requestActivity.create({
       data: {
         requestId,
-        actorId: activeUserId,
+        actorId: activeUser.id,
         type: ActivityType.FORWARDED,
         oldValue: activeUser.fullName,
         newValue: targetUser.fullName,

@@ -20,8 +20,18 @@ export type RequestModel = runtime.Types.Result.DefaultSelection<Prisma.$Request
 
 export type AggregateRequest = {
   _count: RequestCountAggregateOutputType | null
+  _avg: RequestAvgAggregateOutputType | null
+  _sum: RequestSumAggregateOutputType | null
   _min: RequestMinAggregateOutputType | null
   _max: RequestMaxAggregateOutputType | null
+}
+
+export type RequestAvgAggregateOutputType = {
+  escalationLevel: number | null
+}
+
+export type RequestSumAggregateOutputType = {
+  escalationLevel: number | null
 }
 
 export type RequestMinAggregateOutputType = {
@@ -34,6 +44,9 @@ export type RequestMinAggregateOutputType = {
   status: $Enums.RequestStatus | null
   createdById: string | null
   isAnonymous: boolean | null
+  escalationLevel: number | null
+  lastEscalatedAt: Date | null
+  isEscalated: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   categoryId: string | null
@@ -50,6 +63,9 @@ export type RequestMaxAggregateOutputType = {
   status: $Enums.RequestStatus | null
   createdById: string | null
   isAnonymous: boolean | null
+  escalationLevel: number | null
+  lastEscalatedAt: Date | null
+  isEscalated: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   categoryId: string | null
@@ -66,6 +82,10 @@ export type RequestCountAggregateOutputType = {
   status: number
   createdById: number
   isAnonymous: number
+  escalationLevel: number
+  lastEscalatedAt: number
+  isEscalated: number
+  tags: number
   createdAt: number
   updatedAt: number
   categoryId: number
@@ -73,6 +93,14 @@ export type RequestCountAggregateOutputType = {
   _all: number
 }
 
+
+export type RequestAvgAggregateInputType = {
+  escalationLevel?: true
+}
+
+export type RequestSumAggregateInputType = {
+  escalationLevel?: true
+}
 
 export type RequestMinAggregateInputType = {
   id?: true
@@ -84,6 +112,9 @@ export type RequestMinAggregateInputType = {
   status?: true
   createdById?: true
   isAnonymous?: true
+  escalationLevel?: true
+  lastEscalatedAt?: true
+  isEscalated?: true
   createdAt?: true
   updatedAt?: true
   categoryId?: true
@@ -100,6 +131,9 @@ export type RequestMaxAggregateInputType = {
   status?: true
   createdById?: true
   isAnonymous?: true
+  escalationLevel?: true
+  lastEscalatedAt?: true
+  isEscalated?: true
   createdAt?: true
   updatedAt?: true
   categoryId?: true
@@ -116,6 +150,10 @@ export type RequestCountAggregateInputType = {
   status?: true
   createdById?: true
   isAnonymous?: true
+  escalationLevel?: true
+  lastEscalatedAt?: true
+  isEscalated?: true
+  tags?: true
   createdAt?: true
   updatedAt?: true
   categoryId?: true
@@ -161,6 +199,18 @@ export type RequestAggregateArgs<ExtArgs extends runtime.Types.Extensions.Intern
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: RequestAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: RequestSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: RequestMinAggregateInputType
@@ -191,6 +241,8 @@ export type RequestGroupByArgs<ExtArgs extends runtime.Types.Extensions.Internal
   take?: number
   skip?: number
   _count?: RequestCountAggregateInputType | true
+  _avg?: RequestAvgAggregateInputType
+  _sum?: RequestSumAggregateInputType
   _min?: RequestMinAggregateInputType
   _max?: RequestMaxAggregateInputType
 }
@@ -205,11 +257,17 @@ export type RequestGroupByOutputType = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous: boolean
+  escalationLevel: number
+  lastEscalatedAt: Date | null
+  isEscalated: boolean
+  tags: string[]
   createdAt: Date
   updatedAt: Date
   categoryId: string | null
   departmentId: string | null
   _count: RequestCountAggregateOutputType | null
+  _avg: RequestAvgAggregateOutputType | null
+  _sum: RequestSumAggregateOutputType | null
   _min: RequestMinAggregateOutputType | null
   _max: RequestMaxAggregateOutputType | null
 }
@@ -242,6 +300,10 @@ export type RequestWhereInput = {
   status?: Prisma.EnumRequestStatusFilter<"Request"> | $Enums.RequestStatus
   createdById?: Prisma.StringFilter<"Request"> | string
   isAnonymous?: Prisma.BoolFilter<"Request"> | boolean
+  escalationLevel?: Prisma.IntFilter<"Request"> | number
+  lastEscalatedAt?: Prisma.DateTimeNullableFilter<"Request"> | Date | string | null
+  isEscalated?: Prisma.BoolFilter<"Request"> | boolean
+  tags?: Prisma.StringNullableListFilter<"Request">
   createdAt?: Prisma.DateTimeFilter<"Request"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Request"> | Date | string
   categoryId?: Prisma.StringNullableFilter<"Request"> | string | null
@@ -266,6 +328,10 @@ export type RequestOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   isAnonymous?: Prisma.SortOrder
+  escalationLevel?: Prisma.SortOrder
+  lastEscalatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  isEscalated?: Prisma.SortOrder
+  tags?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   categoryId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -293,6 +359,10 @@ export type RequestWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.EnumRequestStatusFilter<"Request"> | $Enums.RequestStatus
   createdById?: Prisma.StringFilter<"Request"> | string
   isAnonymous?: Prisma.BoolFilter<"Request"> | boolean
+  escalationLevel?: Prisma.IntFilter<"Request"> | number
+  lastEscalatedAt?: Prisma.DateTimeNullableFilter<"Request"> | Date | string | null
+  isEscalated?: Prisma.BoolFilter<"Request"> | boolean
+  tags?: Prisma.StringNullableListFilter<"Request">
   createdAt?: Prisma.DateTimeFilter<"Request"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Request"> | Date | string
   categoryId?: Prisma.StringNullableFilter<"Request"> | string | null
@@ -317,13 +387,19 @@ export type RequestOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   isAnonymous?: Prisma.SortOrder
+  escalationLevel?: Prisma.SortOrder
+  lastEscalatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  isEscalated?: Prisma.SortOrder
+  tags?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   categoryId?: Prisma.SortOrderInput | Prisma.SortOrder
   departmentId?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.RequestCountOrderByAggregateInput
+  _avg?: Prisma.RequestAvgOrderByAggregateInput
   _max?: Prisma.RequestMaxOrderByAggregateInput
   _min?: Prisma.RequestMinOrderByAggregateInput
+  _sum?: Prisma.RequestSumOrderByAggregateInput
 }
 
 export type RequestScalarWhereWithAggregatesInput = {
@@ -339,6 +415,10 @@ export type RequestScalarWhereWithAggregatesInput = {
   status?: Prisma.EnumRequestStatusWithAggregatesFilter<"Request"> | $Enums.RequestStatus
   createdById?: Prisma.StringWithAggregatesFilter<"Request"> | string
   isAnonymous?: Prisma.BoolWithAggregatesFilter<"Request"> | boolean
+  escalationLevel?: Prisma.IntWithAggregatesFilter<"Request"> | number
+  lastEscalatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Request"> | Date | string | null
+  isEscalated?: Prisma.BoolWithAggregatesFilter<"Request"> | boolean
+  tags?: Prisma.StringNullableListFilter<"Request">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Request"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Request"> | Date | string
   categoryId?: Prisma.StringNullableWithAggregatesFilter<"Request"> | string | null
@@ -354,6 +434,10 @@ export type RequestCreateInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   createdBy: Prisma.UserCreateNestedOneWithoutRequestsInput
@@ -376,6 +460,10 @@ export type RequestUncheckedCreateInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -396,6 +484,10 @@ export type RequestUpdateInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.UserUpdateOneRequiredWithoutRequestsNestedInput
@@ -418,6 +510,10 @@ export type RequestUncheckedUpdateInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -439,6 +535,10 @@ export type RequestCreateManyInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -454,6 +554,10 @@ export type RequestUpdateManyMutationInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -468,6 +572,10 @@ export type RequestUncheckedUpdateManyInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -494,10 +602,18 @@ export type RequestCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   isAnonymous?: Prisma.SortOrder
+  escalationLevel?: Prisma.SortOrder
+  lastEscalatedAt?: Prisma.SortOrder
+  isEscalated?: Prisma.SortOrder
+  tags?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
   departmentId?: Prisma.SortOrder
+}
+
+export type RequestAvgOrderByAggregateInput = {
+  escalationLevel?: Prisma.SortOrder
 }
 
 export type RequestMaxOrderByAggregateInput = {
@@ -510,6 +626,9 @@ export type RequestMaxOrderByAggregateInput = {
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   isAnonymous?: Prisma.SortOrder
+  escalationLevel?: Prisma.SortOrder
+  lastEscalatedAt?: Prisma.SortOrder
+  isEscalated?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
@@ -526,10 +645,17 @@ export type RequestMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   isAnonymous?: Prisma.SortOrder
+  escalationLevel?: Prisma.SortOrder
+  lastEscalatedAt?: Prisma.SortOrder
+  isEscalated?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
   departmentId?: Prisma.SortOrder
+}
+
+export type RequestSumOrderByAggregateInput = {
+  escalationLevel?: Prisma.SortOrder
 }
 
 export type RequestScalarRelationFilter = {
@@ -663,6 +789,10 @@ export type RequestUncheckedUpdateManyWithoutCategoryNestedInput = {
   deleteMany?: Prisma.RequestScalarWhereInput | Prisma.RequestScalarWhereInput[]
 }
 
+export type RequestCreatetagsInput = {
+  set: string[]
+}
+
 export type EnumRequestTypeFieldUpdateOperationsInput = {
   set?: $Enums.RequestType
 }
@@ -673,6 +803,19 @@ export type EnumPriorityFieldUpdateOperationsInput = {
 
 export type EnumRequestStatusFieldUpdateOperationsInput = {
   set?: $Enums.RequestStatus
+}
+
+export type IntFieldUpdateOperationsInput = {
+  set?: number
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
+export type RequestUpdatetagsInput = {
+  set?: string[]
+  push?: string | string[]
 }
 
 export type RequestCreateNestedOneWithoutActivitiesInput = {
@@ -754,6 +897,10 @@ export type RequestCreateWithoutCreatedByInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   activities?: Prisma.RequestActivityCreateNestedManyWithoutRequestInput
@@ -774,6 +921,10 @@ export type RequestUncheckedCreateWithoutCreatedByInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -824,6 +975,10 @@ export type RequestScalarWhereInput = {
   status?: Prisma.EnumRequestStatusFilter<"Request"> | $Enums.RequestStatus
   createdById?: Prisma.StringFilter<"Request"> | string
   isAnonymous?: Prisma.BoolFilter<"Request"> | boolean
+  escalationLevel?: Prisma.IntFilter<"Request"> | number
+  lastEscalatedAt?: Prisma.DateTimeNullableFilter<"Request"> | Date | string | null
+  isEscalated?: Prisma.BoolFilter<"Request"> | boolean
+  tags?: Prisma.StringNullableListFilter<"Request">
   createdAt?: Prisma.DateTimeFilter<"Request"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Request"> | Date | string
   categoryId?: Prisma.StringNullableFilter<"Request"> | string | null
@@ -839,6 +994,10 @@ export type RequestCreateWithoutDepartmentInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   createdBy: Prisma.UserCreateNestedOneWithoutRequestsInput
@@ -860,6 +1019,10 @@ export type RequestUncheckedCreateWithoutDepartmentInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -905,6 +1068,10 @@ export type RequestCreateWithoutCategoryInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   createdBy: Prisma.UserCreateNestedOneWithoutRequestsInput
@@ -926,6 +1093,10 @@ export type RequestUncheckedCreateWithoutCategoryInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   departmentId?: string | null
@@ -971,6 +1142,10 @@ export type RequestCreateWithoutActivitiesInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   createdBy: Prisma.UserCreateNestedOneWithoutRequestsInput
@@ -992,6 +1167,10 @@ export type RequestUncheckedCreateWithoutActivitiesInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -1027,6 +1206,10 @@ export type RequestUpdateWithoutActivitiesInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.UserUpdateOneRequiredWithoutRequestsNestedInput
@@ -1048,6 +1231,10 @@ export type RequestUncheckedUpdateWithoutActivitiesInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1067,6 +1254,10 @@ export type RequestCreateWithoutCommentsInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   createdBy: Prisma.UserCreateNestedOneWithoutRequestsInput
@@ -1088,6 +1279,10 @@ export type RequestUncheckedCreateWithoutCommentsInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -1123,6 +1318,10 @@ export type RequestUpdateWithoutCommentsInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.UserUpdateOneRequiredWithoutRequestsNestedInput
@@ -1144,6 +1343,10 @@ export type RequestUncheckedUpdateWithoutCommentsInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1163,6 +1366,10 @@ export type RequestCreateWithoutAttachmentsInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   createdBy: Prisma.UserCreateNestedOneWithoutRequestsInput
@@ -1184,6 +1391,10 @@ export type RequestUncheckedCreateWithoutAttachmentsInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -1219,6 +1430,10 @@ export type RequestUpdateWithoutAttachmentsInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.UserUpdateOneRequiredWithoutRequestsNestedInput
@@ -1240,6 +1455,10 @@ export type RequestUncheckedUpdateWithoutAttachmentsInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1259,6 +1478,10 @@ export type RequestCreateWithoutAssignmentsInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   createdBy: Prisma.UserCreateNestedOneWithoutRequestsInput
@@ -1280,6 +1503,10 @@ export type RequestUncheckedCreateWithoutAssignmentsInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -1315,6 +1542,10 @@ export type RequestUpdateWithoutAssignmentsInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.UserUpdateOneRequiredWithoutRequestsNestedInput
@@ -1336,6 +1567,10 @@ export type RequestUncheckedUpdateWithoutAssignmentsInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1355,6 +1590,10 @@ export type RequestCreateWithoutWatchersInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   createdBy: Prisma.UserCreateNestedOneWithoutRequestsInput
@@ -1376,6 +1615,10 @@ export type RequestUncheckedCreateWithoutWatchersInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -1411,6 +1654,10 @@ export type RequestUpdateWithoutWatchersInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.UserUpdateOneRequiredWithoutRequestsNestedInput
@@ -1432,6 +1679,10 @@ export type RequestUncheckedUpdateWithoutWatchersInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1451,6 +1702,10 @@ export type RequestCreateManyCreatedByInput = {
   priority: $Enums.Priority
   status: $Enums.RequestStatus
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -1466,6 +1721,10 @@ export type RequestUpdateWithoutCreatedByInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   activities?: Prisma.RequestActivityUpdateManyWithoutRequestNestedInput
@@ -1486,6 +1745,10 @@ export type RequestUncheckedUpdateWithoutCreatedByInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1506,6 +1769,10 @@ export type RequestUncheckedUpdateManyWithoutCreatedByInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1522,6 +1789,10 @@ export type RequestCreateManyDepartmentInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   categoryId?: string | null
@@ -1536,6 +1807,10 @@ export type RequestUpdateWithoutDepartmentInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.UserUpdateOneRequiredWithoutRequestsNestedInput
@@ -1557,6 +1832,10 @@ export type RequestUncheckedUpdateWithoutDepartmentInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1577,6 +1856,10 @@ export type RequestUncheckedUpdateManyWithoutDepartmentInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1592,6 +1875,10 @@ export type RequestCreateManyCategoryInput = {
   status: $Enums.RequestStatus
   createdById: string
   isAnonymous?: boolean
+  escalationLevel?: number
+  lastEscalatedAt?: Date | string | null
+  isEscalated?: boolean
+  tags?: Prisma.RequestCreatetagsInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
   departmentId?: string | null
@@ -1606,6 +1893,10 @@ export type RequestUpdateWithoutCategoryInput = {
   priority?: Prisma.EnumPriorityFieldUpdateOperationsInput | $Enums.Priority
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.UserUpdateOneRequiredWithoutRequestsNestedInput
@@ -1627,6 +1918,10 @@ export type RequestUncheckedUpdateWithoutCategoryInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   departmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1647,6 +1942,10 @@ export type RequestUncheckedUpdateManyWithoutCategoryInput = {
   status?: Prisma.EnumRequestStatusFieldUpdateOperationsInput | $Enums.RequestStatus
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   isAnonymous?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  escalationLevel?: Prisma.IntFieldUpdateOperationsInput | number
+  lastEscalatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isEscalated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.RequestUpdatetagsInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   departmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1729,6 +2028,10 @@ export type RequestSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   status?: boolean
   createdById?: boolean
   isAnonymous?: boolean
+  escalationLevel?: boolean
+  lastEscalatedAt?: boolean
+  isEscalated?: boolean
+  tags?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   categoryId?: boolean
@@ -1754,6 +2057,10 @@ export type RequestSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   status?: boolean
   createdById?: boolean
   isAnonymous?: boolean
+  escalationLevel?: boolean
+  lastEscalatedAt?: boolean
+  isEscalated?: boolean
+  tags?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   categoryId?: boolean
@@ -1773,6 +2080,10 @@ export type RequestSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   status?: boolean
   createdById?: boolean
   isAnonymous?: boolean
+  escalationLevel?: boolean
+  lastEscalatedAt?: boolean
+  isEscalated?: boolean
+  tags?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   categoryId?: boolean
@@ -1792,13 +2103,17 @@ export type RequestSelectScalar = {
   status?: boolean
   createdById?: boolean
   isAnonymous?: boolean
+  escalationLevel?: boolean
+  lastEscalatedAt?: boolean
+  isEscalated?: boolean
+  tags?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   categoryId?: boolean
   departmentId?: boolean
 }
 
-export type RequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ticketId" | "subject" | "description" | "type" | "priority" | "status" | "createdById" | "isAnonymous" | "createdAt" | "updatedAt" | "categoryId" | "departmentId", ExtArgs["result"]["request"]>
+export type RequestOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ticketId" | "subject" | "description" | "type" | "priority" | "status" | "createdById" | "isAnonymous" | "escalationLevel" | "lastEscalatedAt" | "isEscalated" | "tags" | "createdAt" | "updatedAt" | "categoryId" | "departmentId", ExtArgs["result"]["request"]>
 export type RequestInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   activities?: boolean | Prisma.Request$activitiesArgs<ExtArgs>
@@ -1843,6 +2158,10 @@ export type $RequestPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     status: $Enums.RequestStatus
     createdById: string
     isAnonymous: boolean
+    escalationLevel: number
+    lastEscalatedAt: Date | null
+    isEscalated: boolean
+    tags: string[]
     createdAt: Date
     updatedAt: Date
     categoryId: string | null
@@ -2287,6 +2606,10 @@ export interface RequestFieldRefs {
   readonly status: Prisma.FieldRef<"Request", 'RequestStatus'>
   readonly createdById: Prisma.FieldRef<"Request", 'String'>
   readonly isAnonymous: Prisma.FieldRef<"Request", 'Boolean'>
+  readonly escalationLevel: Prisma.FieldRef<"Request", 'Int'>
+  readonly lastEscalatedAt: Prisma.FieldRef<"Request", 'DateTime'>
+  readonly isEscalated: Prisma.FieldRef<"Request", 'Boolean'>
+  readonly tags: Prisma.FieldRef<"Request", 'String[]'>
   readonly createdAt: Prisma.FieldRef<"Request", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Request", 'DateTime'>
   readonly categoryId: Prisma.FieldRef<"Request", 'String'>

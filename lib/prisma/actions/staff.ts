@@ -4,7 +4,6 @@ import prisma from "../prisma";
 import { cookies } from "next/headers";
 import { Role, Gender, UserStatus } from "@/prisma/generated/prisma/enums";
 import { verifyToken } from "@/lib/auth/auth";
-import crypto from "crypto";
 
 /**
  * Fetch all staff (non-student) user records
@@ -187,7 +186,7 @@ export async function deleteStaffUser(id: string) {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
     if (token) {
-      const payload = await await verifyToken(token);
+      const payload = await verifyToken(token);
       if (payload && payload.userId === id) {
         return {
           success: false,

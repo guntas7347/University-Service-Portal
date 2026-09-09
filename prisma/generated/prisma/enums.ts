@@ -88,7 +88,8 @@ export const ActivityType = {
   ATTACHMENT_ADDED: 'ATTACHMENT_ADDED',
   RESOLVED: 'RESOLVED',
   CLOSED: 'CLOSED',
-  REOPENED: 'REOPENED'
+  REOPENED: 'REOPENED',
+  ESCALATED: 'ESCALATED'
 } as const
 
 export type ActivityType = (typeof ActivityType)[keyof typeof ActivityType]

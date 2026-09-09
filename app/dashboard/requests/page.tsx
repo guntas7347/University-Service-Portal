@@ -28,6 +28,9 @@ interface RequestRow {
   createdByName: string;
   assignedToName: string;
   date: string;
+  escalationLevel?: number;
+  isEscalated?: boolean;
+  tags?: string[];
 }
 
 interface CategoryOption {
@@ -59,7 +62,7 @@ export default function RequestsPage() {
 
       if (reqResponse.success && reqResponse.requests) {
         setRequests(reqResponse.requests);
-        setUserRole(reqResponse.role || "STUDENT");
+        setUserRole(reqResponse.userRole || "STUDENT");
       } else {
         setErrorMsg(reqResponse.message || "Failed to load requests.");
       }
@@ -316,8 +319,15 @@ export default function RequestsPage() {
                     
                     {/* ID & Subject */}
                     <td className="py-4 px-6 max-w-xs">
-                      <div className="font-bold text-slate-900 dark:text-slate-100 truncate">
-                        {item.subject}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                          {item.subject}
+                        </span>
+                        {item.isEscalated && (
+                          <span className="inline-flex px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-red-100 dark:bg-red-955/40 text-red-700 dark:text-red-300 border border-red-200/50 uppercase">
+                            L{(item.escalationLevel || 0) + 1}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-slate-450 font-mono mt-0.5">
                         {item.ticketId}

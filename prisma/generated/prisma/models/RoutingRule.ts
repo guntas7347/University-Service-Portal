@@ -20,14 +20,26 @@ export type RoutingRuleModel = runtime.Types.Result.DefaultSelection<Prisma.$Rou
 
 export type AggregateRoutingRule = {
   _count: RoutingRuleCountAggregateOutputType | null
+  _avg: RoutingRuleAvgAggregateOutputType | null
+  _sum: RoutingRuleSumAggregateOutputType | null
   _min: RoutingRuleMinAggregateOutputType | null
   _max: RoutingRuleMaxAggregateOutputType | null
+}
+
+export type RoutingRuleAvgAggregateOutputType = {
+  level: number | null
+}
+
+export type RoutingRuleSumAggregateOutputType = {
+  level: number | null
 }
 
 export type RoutingRuleMinAggregateOutputType = {
   id: string | null
   categoryId: string | null
   userId: string | null
+  level: number | null
+  isCentral: boolean | null
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -37,6 +49,8 @@ export type RoutingRuleMaxAggregateOutputType = {
   id: string | null
   categoryId: string | null
   userId: string | null
+  level: number | null
+  isCentral: boolean | null
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -46,6 +60,8 @@ export type RoutingRuleCountAggregateOutputType = {
   id: number
   categoryId: number
   userId: number
+  level: number
+  isCentral: number
   isActive: number
   createdAt: number
   updatedAt: number
@@ -53,10 +69,20 @@ export type RoutingRuleCountAggregateOutputType = {
 }
 
 
+export type RoutingRuleAvgAggregateInputType = {
+  level?: true
+}
+
+export type RoutingRuleSumAggregateInputType = {
+  level?: true
+}
+
 export type RoutingRuleMinAggregateInputType = {
   id?: true
   categoryId?: true
   userId?: true
+  level?: true
+  isCentral?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -66,6 +92,8 @@ export type RoutingRuleMaxAggregateInputType = {
   id?: true
   categoryId?: true
   userId?: true
+  level?: true
+  isCentral?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -75,6 +103,8 @@ export type RoutingRuleCountAggregateInputType = {
   id?: true
   categoryId?: true
   userId?: true
+  level?: true
+  isCentral?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -119,6 +149,18 @@ export type RoutingRuleAggregateArgs<ExtArgs extends runtime.Types.Extensions.In
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: RoutingRuleAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: RoutingRuleSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: RoutingRuleMinAggregateInputType
@@ -149,18 +191,24 @@ export type RoutingRuleGroupByArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   _count?: RoutingRuleCountAggregateInputType | true
+  _avg?: RoutingRuleAvgAggregateInputType
+  _sum?: RoutingRuleSumAggregateInputType
   _min?: RoutingRuleMinAggregateInputType
   _max?: RoutingRuleMaxAggregateInputType
 }
 
 export type RoutingRuleGroupByOutputType = {
   id: string
-  categoryId: string
+  categoryId: string | null
   userId: string
+  level: number
+  isCentral: boolean
   isActive: boolean
   createdAt: Date
   updatedAt: Date
   _count: RoutingRuleCountAggregateOutputType | null
+  _avg: RoutingRuleAvgAggregateOutputType | null
+  _sum: RoutingRuleSumAggregateOutputType | null
   _min: RoutingRuleMinAggregateOutputType | null
   _max: RoutingRuleMaxAggregateOutputType | null
 }
@@ -185,19 +233,23 @@ export type RoutingRuleWhereInput = {
   OR?: Prisma.RoutingRuleWhereInput[]
   NOT?: Prisma.RoutingRuleWhereInput | Prisma.RoutingRuleWhereInput[]
   id?: Prisma.StringFilter<"RoutingRule"> | string
-  categoryId?: Prisma.StringFilter<"RoutingRule"> | string
+  categoryId?: Prisma.StringNullableFilter<"RoutingRule"> | string | null
   userId?: Prisma.StringFilter<"RoutingRule"> | string
+  level?: Prisma.IntFilter<"RoutingRule"> | number
+  isCentral?: Prisma.BoolFilter<"RoutingRule"> | boolean
   isActive?: Prisma.BoolFilter<"RoutingRule"> | boolean
   createdAt?: Prisma.DateTimeFilter<"RoutingRule"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"RoutingRule"> | Date | string
-  category?: Prisma.XOR<Prisma.CategoryScalarRelationFilter, Prisma.CategoryWhereInput>
+  category?: Prisma.XOR<Prisma.CategoryNullableScalarRelationFilter, Prisma.CategoryWhereInput> | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
 }
 
 export type RoutingRuleOrderByWithRelationInput = {
   id?: Prisma.SortOrder
-  categoryId?: Prisma.SortOrder
+  categoryId?: Prisma.SortOrderInput | Prisma.SortOrder
   userId?: Prisma.SortOrder
+  level?: Prisma.SortOrder
+  isCentral?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -207,29 +259,34 @@ export type RoutingRuleOrderByWithRelationInput = {
 
 export type RoutingRuleWhereUniqueInput = Prisma.AtLeast<{
   id?: string
-  categoryId_userId?: Prisma.RoutingRuleCategoryIdUserIdCompoundUniqueInput
   AND?: Prisma.RoutingRuleWhereInput | Prisma.RoutingRuleWhereInput[]
   OR?: Prisma.RoutingRuleWhereInput[]
   NOT?: Prisma.RoutingRuleWhereInput | Prisma.RoutingRuleWhereInput[]
-  categoryId?: Prisma.StringFilter<"RoutingRule"> | string
+  categoryId?: Prisma.StringNullableFilter<"RoutingRule"> | string | null
   userId?: Prisma.StringFilter<"RoutingRule"> | string
+  level?: Prisma.IntFilter<"RoutingRule"> | number
+  isCentral?: Prisma.BoolFilter<"RoutingRule"> | boolean
   isActive?: Prisma.BoolFilter<"RoutingRule"> | boolean
   createdAt?: Prisma.DateTimeFilter<"RoutingRule"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"RoutingRule"> | Date | string
-  category?: Prisma.XOR<Prisma.CategoryScalarRelationFilter, Prisma.CategoryWhereInput>
+  category?: Prisma.XOR<Prisma.CategoryNullableScalarRelationFilter, Prisma.CategoryWhereInput> | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
-}, "id" | "categoryId_userId">
+}, "id">
 
 export type RoutingRuleOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
-  categoryId?: Prisma.SortOrder
+  categoryId?: Prisma.SortOrderInput | Prisma.SortOrder
   userId?: Prisma.SortOrder
+  level?: Prisma.SortOrder
+  isCentral?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.RoutingRuleCountOrderByAggregateInput
+  _avg?: Prisma.RoutingRuleAvgOrderByAggregateInput
   _max?: Prisma.RoutingRuleMaxOrderByAggregateInput
   _min?: Prisma.RoutingRuleMinOrderByAggregateInput
+  _sum?: Prisma.RoutingRuleSumOrderByAggregateInput
 }
 
 export type RoutingRuleScalarWhereWithAggregatesInput = {
@@ -237,8 +294,10 @@ export type RoutingRuleScalarWhereWithAggregatesInput = {
   OR?: Prisma.RoutingRuleScalarWhereWithAggregatesInput[]
   NOT?: Prisma.RoutingRuleScalarWhereWithAggregatesInput | Prisma.RoutingRuleScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"RoutingRule"> | string
-  categoryId?: Prisma.StringWithAggregatesFilter<"RoutingRule"> | string
+  categoryId?: Prisma.StringNullableWithAggregatesFilter<"RoutingRule"> | string | null
   userId?: Prisma.StringWithAggregatesFilter<"RoutingRule"> | string
+  level?: Prisma.IntWithAggregatesFilter<"RoutingRule"> | number
+  isCentral?: Prisma.BoolWithAggregatesFilter<"RoutingRule"> | boolean
   isActive?: Prisma.BoolWithAggregatesFilter<"RoutingRule"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"RoutingRule"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"RoutingRule"> | Date | string
@@ -246,17 +305,21 @@ export type RoutingRuleScalarWhereWithAggregatesInput = {
 
 export type RoutingRuleCreateInput = {
   id?: string
+  level?: number
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  category: Prisma.CategoryCreateNestedOneWithoutRoutingRulesInput
+  category?: Prisma.CategoryCreateNestedOneWithoutRoutingRulesInput
   user: Prisma.UserCreateNestedOneWithoutRoutingRulesInput
 }
 
 export type RoutingRuleUncheckedCreateInput = {
   id?: string
-  categoryId: string
+  categoryId?: string | null
   userId: string
+  level?: number
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -264,17 +327,21 @@ export type RoutingRuleUncheckedCreateInput = {
 
 export type RoutingRuleUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  category?: Prisma.CategoryUpdateOneRequiredWithoutRoutingRulesNestedInput
+  category?: Prisma.CategoryUpdateOneWithoutRoutingRulesNestedInput
   user?: Prisma.UserUpdateOneRequiredWithoutRoutingRulesNestedInput
 }
 
 export type RoutingRuleUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  categoryId?: Prisma.StringFieldUpdateOperationsInput | string
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -282,8 +349,10 @@ export type RoutingRuleUncheckedUpdateInput = {
 
 export type RoutingRuleCreateManyInput = {
   id?: string
-  categoryId: string
+  categoryId?: string | null
   userId: string
+  level?: number
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -291,6 +360,8 @@ export type RoutingRuleCreateManyInput = {
 
 export type RoutingRuleUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -298,8 +369,10 @@ export type RoutingRuleUpdateManyMutationInput = {
 
 export type RoutingRuleUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  categoryId?: Prisma.StringFieldUpdateOperationsInput | string
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -315,24 +388,27 @@ export type RoutingRuleOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
-export type RoutingRuleCategoryIdUserIdCompoundUniqueInput = {
-  categoryId: string
-  userId: string
-}
-
 export type RoutingRuleCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  level?: Prisma.SortOrder
+  isCentral?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type RoutingRuleAvgOrderByAggregateInput = {
+  level?: Prisma.SortOrder
 }
 
 export type RoutingRuleMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  level?: Prisma.SortOrder
+  isCentral?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -342,9 +418,15 @@ export type RoutingRuleMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  level?: Prisma.SortOrder
+  isCentral?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type RoutingRuleSumOrderByAggregateInput = {
+  level?: Prisma.SortOrder
 }
 
 export type RoutingRuleCreateNestedManyWithoutUserInput = {
@@ -433,15 +515,19 @@ export type RoutingRuleUncheckedUpdateManyWithoutCategoryNestedInput = {
 
 export type RoutingRuleCreateWithoutUserInput = {
   id?: string
+  level?: number
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
-  category: Prisma.CategoryCreateNestedOneWithoutRoutingRulesInput
+  category?: Prisma.CategoryCreateNestedOneWithoutRoutingRulesInput
 }
 
 export type RoutingRuleUncheckedCreateWithoutUserInput = {
   id?: string
-  categoryId: string
+  categoryId?: string | null
+  level?: number
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -478,8 +564,10 @@ export type RoutingRuleScalarWhereInput = {
   OR?: Prisma.RoutingRuleScalarWhereInput[]
   NOT?: Prisma.RoutingRuleScalarWhereInput | Prisma.RoutingRuleScalarWhereInput[]
   id?: Prisma.StringFilter<"RoutingRule"> | string
-  categoryId?: Prisma.StringFilter<"RoutingRule"> | string
+  categoryId?: Prisma.StringNullableFilter<"RoutingRule"> | string | null
   userId?: Prisma.StringFilter<"RoutingRule"> | string
+  level?: Prisma.IntFilter<"RoutingRule"> | number
+  isCentral?: Prisma.BoolFilter<"RoutingRule"> | boolean
   isActive?: Prisma.BoolFilter<"RoutingRule"> | boolean
   createdAt?: Prisma.DateTimeFilter<"RoutingRule"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"RoutingRule"> | Date | string
@@ -487,6 +575,8 @@ export type RoutingRuleScalarWhereInput = {
 
 export type RoutingRuleCreateWithoutCategoryInput = {
   id?: string
+  level?: number
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -496,6 +586,8 @@ export type RoutingRuleCreateWithoutCategoryInput = {
 export type RoutingRuleUncheckedCreateWithoutCategoryInput = {
   id?: string
   userId: string
+  level?: number
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -529,7 +621,9 @@ export type RoutingRuleUpdateManyWithWhereWithoutCategoryInput = {
 
 export type RoutingRuleCreateManyUserInput = {
   id?: string
-  categoryId: string
+  categoryId?: string | null
+  level?: number
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -537,15 +631,19 @@ export type RoutingRuleCreateManyUserInput = {
 
 export type RoutingRuleUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  category?: Prisma.CategoryUpdateOneRequiredWithoutRoutingRulesNestedInput
+  category?: Prisma.CategoryUpdateOneWithoutRoutingRulesNestedInput
 }
 
 export type RoutingRuleUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  categoryId?: Prisma.StringFieldUpdateOperationsInput | string
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -553,7 +651,9 @@ export type RoutingRuleUncheckedUpdateWithoutUserInput = {
 
 export type RoutingRuleUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  categoryId?: Prisma.StringFieldUpdateOperationsInput | string
+  categoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -562,6 +662,8 @@ export type RoutingRuleUncheckedUpdateManyWithoutUserInput = {
 export type RoutingRuleCreateManyCategoryInput = {
   id?: string
   userId: string
+  level?: number
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -569,6 +671,8 @@ export type RoutingRuleCreateManyCategoryInput = {
 
 export type RoutingRuleUpdateWithoutCategoryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -578,6 +682,8 @@ export type RoutingRuleUpdateWithoutCategoryInput = {
 export type RoutingRuleUncheckedUpdateWithoutCategoryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -586,6 +692,8 @@ export type RoutingRuleUncheckedUpdateWithoutCategoryInput = {
 export type RoutingRuleUncheckedUpdateManyWithoutCategoryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  isCentral?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -597,10 +705,12 @@ export type RoutingRuleSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   id?: boolean
   categoryId?: boolean
   userId?: boolean
+  level?: boolean
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  category?: boolean | Prisma.CategoryDefaultArgs<ExtArgs>
+  category?: boolean | Prisma.RoutingRule$categoryArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["routingRule"]>
 
@@ -608,10 +718,12 @@ export type RoutingRuleSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   id?: boolean
   categoryId?: boolean
   userId?: boolean
+  level?: boolean
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  category?: boolean | Prisma.CategoryDefaultArgs<ExtArgs>
+  category?: boolean | Prisma.RoutingRule$categoryArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["routingRule"]>
 
@@ -619,10 +731,12 @@ export type RoutingRuleSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   id?: boolean
   categoryId?: boolean
   userId?: boolean
+  level?: boolean
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
-  category?: boolean | Prisma.CategoryDefaultArgs<ExtArgs>
+  category?: boolean | Prisma.RoutingRule$categoryArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["routingRule"]>
 
@@ -630,35 +744,39 @@ export type RoutingRuleSelectScalar = {
   id?: boolean
   categoryId?: boolean
   userId?: boolean
+  level?: boolean
+  isCentral?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type RoutingRuleOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "categoryId" | "userId" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["routingRule"]>
+export type RoutingRuleOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "categoryId" | "userId" | "level" | "isCentral" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["routingRule"]>
 export type RoutingRuleInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  category?: boolean | Prisma.CategoryDefaultArgs<ExtArgs>
+  category?: boolean | Prisma.RoutingRule$categoryArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
 export type RoutingRuleIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  category?: boolean | Prisma.CategoryDefaultArgs<ExtArgs>
+  category?: boolean | Prisma.RoutingRule$categoryArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
 export type RoutingRuleIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  category?: boolean | Prisma.CategoryDefaultArgs<ExtArgs>
+  category?: boolean | Prisma.RoutingRule$categoryArgs<ExtArgs>
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
 
 export type $RoutingRulePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "RoutingRule"
   objects: {
-    category: Prisma.$CategoryPayload<ExtArgs>
+    category: Prisma.$CategoryPayload<ExtArgs> | null
     user: Prisma.$UserPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
-    categoryId: string
+    categoryId: string | null
     userId: string
+    level: number
+    isCentral: boolean
     isActive: boolean
     createdAt: Date
     updatedAt: Date
@@ -1056,7 +1174,7 @@ readonly fields: RoutingRuleFieldRefs;
  */
 export interface Prisma__RoutingRuleClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  category<T extends Prisma.CategoryDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.CategoryDefaultArgs<ExtArgs>>): Prisma.Prisma__CategoryClient<runtime.Types.Result.GetResult<Prisma.$CategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  category<T extends Prisma.RoutingRule$categoryArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RoutingRule$categoryArgs<ExtArgs>>): Prisma.Prisma__CategoryClient<runtime.Types.Result.GetResult<Prisma.$CategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1090,6 +1208,8 @@ export interface RoutingRuleFieldRefs {
   readonly id: Prisma.FieldRef<"RoutingRule", 'String'>
   readonly categoryId: Prisma.FieldRef<"RoutingRule", 'String'>
   readonly userId: Prisma.FieldRef<"RoutingRule", 'String'>
+  readonly level: Prisma.FieldRef<"RoutingRule", 'Int'>
+  readonly isCentral: Prisma.FieldRef<"RoutingRule", 'Boolean'>
   readonly isActive: Prisma.FieldRef<"RoutingRule", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"RoutingRule", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"RoutingRule", 'DateTime'>
@@ -1491,6 +1611,25 @@ export type RoutingRuleDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Limit how many RoutingRules to delete.
    */
   limit?: number
+}
+
+/**
+ * RoutingRule.category
+ */
+export type RoutingRule$categoryArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Category
+   */
+  select?: Prisma.CategorySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Category
+   */
+  omit?: Prisma.CategoryOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CategoryInclude<ExtArgs> | null
+  where?: Prisma.CategoryWhereInput
 }
 
 /**

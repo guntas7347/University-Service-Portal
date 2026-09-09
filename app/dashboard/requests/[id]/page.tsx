@@ -22,6 +22,11 @@ import {
   Calendar,
   AlertCircle,
   Trash2,
+  ArrowUpRight,
+  ShieldAlert,
+  Layers,
+  Flame,
+  X,
 } from "lucide-react";
 import {
   getRequestDetails,
@@ -33,6 +38,7 @@ import {
   addRequestComment,
   updateRequestTarget,
   forwardRequest,
+  escalateRequest,
 } from "@/lib/prisma/actions/requests";
 import { getStaffUsers } from "@/lib/prisma/actions/staff";
 import { getCategories } from "@/lib/prisma/actions/categories";
@@ -77,6 +83,11 @@ export default function RequestDetailsPage() {
 
   const [userDeptId, setUserDeptId] = useState("");
   const [forwardStaffId, setForwardStaffId] = useState("");
+
+  // Escalation state
+  const [isEscalateModalOpen, setIsEscalateModalOpen] = useState(false);
+  const [escalationReason, setEscalationReason] = useState("");
+  const [isSubmittingEscalation, setIsSubmittingEscalation] = useState(false);
 
   // Success messages for form actions
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -424,6 +435,30 @@ export default function RequestDetailsPage() {
     );
   }
 
+  // Handle student manual escalation
+  const handleEscalateSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingEscalation(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const response = await escalateRequest(id, escalationReason);
+      if (response.success) {
+        setActionSuccess(response.message);
+        setIsEscalateModalOpen(false);
+        setEscalationReason("");
+        await loadDetails();
+      } else {
+        setActionError(response.message);
+      }
+    } catch (err: any) {
+      setActionError("Failed to escalate request.");
+    } finally {
+      setIsSubmittingEscalation(false);
+    }
+  };
+
   // Combine Activities and Comments in unified chronological order (ascending)
   const timelineItems = [
     ...request.activities.map((a: any) => ({
@@ -452,15 +487,19 @@ export default function RequestDetailsPage() {
   const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
   const hasRoutingRight = userRights.includes("MANAGE_ROUTING");
   const isDepartmentHod =
-    userRole === "HOD" && (
-      (request?.departmentId && request?.departmentHodId === userId) ||
+    userRole === "HOD" &&
+    ((request?.departmentId && request?.departmentHodId === userId) ||
       (request?.departmentId && userDeptId === request.departmentId) ||
-      (request?.creator?.departmentId && userDeptId === request.creator.departmentId)
-    );
+      (request?.creator?.departmentId &&
+        userDeptId === request.creator.departmentId) ||
+      (request?.student?.departmentId &&
+        userDeptId === request.student.departmentId));
   const canAssign = isAdmin || hasRoutingRight || isDepartmentHod;
   const canChangeTarget = isAdmin || userRole === "HOD";
   const isStudent = userRole === "STUDENT";
-  const isAssignedToMe = request?.assignments?.some((a: any) => a.user.id === userId);
+  const isAssignedToMe = request?.assignments?.some(
+    (a: any) => a.userId === userId || a.user?.id === userId,
+  );
 
   return (
     <div className="space-y-6">
@@ -572,10 +611,24 @@ export default function RequestDetailsPage() {
             ) : (
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="inline-flex px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold tracking-wider uppercase">
                       {request.categoryName}
                     </span>
+                    {request.isEscalated && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-50 dark:bg-red-955/35 text-red-700 dark:text-red-300 border border-red-200/50 uppercase tracking-wider">
+                        <Flame className="h-3 w-3 text-red-500" />
+                        <span>Escalated Level {request.escalationLevel ? request.escalationLevel + 1 : 2}</span>
+                      </span>
+                    )}
+                    {request.tags && request.tags.map((tag: string) => (
+                      <span
+                        key={tag}
+                        className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/50 font-mono"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
                     {canChangeTarget && (
                       <button
                         type="button"
@@ -598,7 +651,7 @@ export default function RequestDetailsPage() {
                     {request.subject}
                   </h1>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {getStatusBadge(request.status)}
                   <span
                     className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(request.priority)}`}
@@ -634,6 +687,68 @@ export default function RequestDetailsPage() {
             </div>
           </div>
 
+          {/* Card: Escalation Banner & Actions */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-primary" />
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider">
+                  Escalation & Hierarchy Tier
+                </h3>
+              </div>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Current: <strong className="text-primary font-bold">Level {request.escalationLevel ? request.escalationLevel + 1 : 1}</strong>
+              </span>
+            </div>
+
+            {/* Escalation Condition Message & Button */}
+            {!["RESOLVED", "CLOSED", "REJECTED", "CANCELLED"].includes(request.status) ? (
+              request.canEscalate ? (
+                <div className="p-3.5 bg-red-50/70 dark:bg-red-955/25 border border-red-200/70 dark:border-red-850 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold text-red-900 dark:text-red-300 flex items-center gap-1.5">
+                      <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
+                      Eligible for Escalation
+                    </h4>
+                    <p className="text-[11px] text-red-750 dark:text-red-400 leading-normal">
+                      This grievance has been unresolved for 7+ days. You can escalate it to the next authority tier (Level {(request.escalationLevel || 0) + 2}).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEscalateModalOpen(true)}
+                    className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-all active:scale-95 shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    <span>Escalate Ticket</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 dark:bg-slate-955/40 border border-slate-200/60 dark:border-slate-800 rounded-xl text-xs text-slate-600 dark:text-slate-400 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-slate-400 shrink-0" />
+                    <span>
+                      Next escalation unlock in <strong>{request.daysUntilEscalation || 0} day(s)</strong> (7-day resolution window per level).
+                    </span>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEscalateModalOpen(true)}
+                      className="text-[11px] text-primary hover:underline font-semibold cursor-pointer shrink-0"
+                    >
+                      Admin Force Escalate
+                    </button>
+                  )}
+                </div>
+              )
+            ) : (
+              <div className="p-3 bg-slate-50 dark:bg-slate-955/20 border border-slate-200/50 dark:border-slate-800 rounded-xl text-xs text-slate-400 italic">
+                This grievance is currently marked as {request.status} and does not require further escalation.
+              </div>
+            )}
+          </div>
+
           {/* Card 2: Student Identity Card (only detail values visible based on anonymity) */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
@@ -658,7 +773,11 @@ export default function RequestDetailsPage() {
                     Student Name
                   </span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {request.creator.name}
+                    {request.creator?.fullName ||
+                      request.creator?.name ||
+                      request.student?.fullName ||
+                      request.student?.name ||
+                      "N/A"}
                   </span>
                 </div>
                 <div>
@@ -666,7 +785,7 @@ export default function RequestDetailsPage() {
                     Email Address
                   </span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {request.creator.email}
+                    {request.creator?.email || request.student?.email || "N/A"}
                   </span>
                 </div>
                 <div>
@@ -674,7 +793,9 @@ export default function RequestDetailsPage() {
                     Mobile Contact
                   </span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {request.creator.mobileNumber}
+                    {request.creator?.mobileNumber ||
+                      request.student?.mobileNumber ||
+                      "N/A"}
                   </span>
                 </div>
                 <div>
@@ -682,7 +803,9 @@ export default function RequestDetailsPage() {
                     Enrolled Course
                   </span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">
-                    {request.creator.courseName}
+                    {request.creator?.courseName ||
+                      request.student?.courseName ||
+                      "N/A"}
                   </span>
                 </div>
               </div>
@@ -697,44 +820,60 @@ export default function RequestDetailsPage() {
 
             {request.assignments && request.assignments.length > 0 ? (
               <div className="space-y-3">
-                {request.assignments.map((assignment: any) => (
-                  <div
-                    key={assignment.id}
-                    className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                        {assignment.user.name
-                          .split(" ")
-                          .map((n: string) => n[0])
-                          .join("")
-                          .toUpperCase()
-                          .slice(0, 2)}
+                {request.assignments.map((assignment: any) => {
+                  const assigneeName =
+                    assignment.user?.name ||
+                    assignment.name ||
+                    assignment.user?.fullName ||
+                    "Assigned User";
+                  const assigneeRole =
+                    assignment.user?.role || assignment.role || "STAFF";
+                  const assigneeDesignation =
+                    assignment.user?.designation ||
+                    assignment.designation ||
+                    "";
+                  const assigneeId =
+                    assignment.user?.id || assignment.userId || assignment.id;
+
+                  return (
+                    <div
+                      key={assignment.id || assigneeId}
+                      className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                          {assigneeName
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2)}
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="font-bold text-slate-850 dark:text-slate-100 text-xs">
+                            {assigneeName}
+                          </h4>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            {assigneeRole.replace("_", " ")}{" "}
+                            {assigneeDesignation
+                              ? `• ${assigneeDesignation}`
+                              : ""}
+                          </p>
+                        </div>
                       </div>
-                      <div className="space-y-0.5">
-                        <h4 className="font-bold text-slate-850 dark:text-slate-100 text-xs">
-                          {assignment.user.name}
-                        </h4>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                          {assignment.user.role.replace("_", " ")}{" "}
-                          {assignment.user.designation
-                            ? `• ${assignment.user.designation}`
-                            : ""}
-                        </p>
-                      </div>
+                      {canAssign && (
+                        <button
+                          type="button"
+                          onClick={() => handleUnassign(assigneeId)}
+                          className="p-1 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors cursor-pointer shrink-0"
+                          title="Remove Assignee"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
-                    {canAssign && (
-                      <button
-                        type="button"
-                        onClick={() => handleUnassign(assignment.user.id)}
-                        className="p-1 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors cursor-pointer shrink-0"
-                        title="Remove Assignee"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="flex items-center gap-2.5 p-3.5 bg-slate-50 dark:bg-slate-955/20 border border-slate-150 dark:border-slate-800/50 rounded-xl text-slate-500 dark:text-slate-400 text-xs">
@@ -755,41 +894,53 @@ export default function RequestDetailsPage() {
 
             {request.watchers && request.watchers.length > 0 ? (
               <div className="space-y-3">
-                {request.watchers.map((watcher: any) => (
-                  <div
-                    key={watcher.user.id}
-                    className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-550 dark:text-slate-350 flex items-center justify-center font-bold text-xs shrink-0">
-                        {watcher.user.name
-                          .split(" ")
-                          .map((n: string) => n[0])
-                          .join("")
-                          .toUpperCase()
-                          .slice(0, 2)}
+                {request.watchers.map((watcher: any) => {
+                  const watcherName =
+                    watcher.user?.name ||
+                    watcher.name ||
+                    watcher.user?.fullName ||
+                    "Watcher";
+                  const watcherRole =
+                    watcher.user?.role || watcher.role || "STAFF";
+                  const watcherId =
+                    watcher.user?.id || watcher.userId || watcher.id;
+
+                  return (
+                    <div
+                      key={watcherId}
+                      className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-550 dark:text-slate-350 flex items-center justify-center font-bold text-xs shrink-0">
+                          {watcherName
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2)}
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="font-bold text-slate-805 dark:text-slate-100 text-xs">
+                            {watcherName}
+                          </h4>
+                          <p className="text-[10px] text-slate-400">
+                            {watcherRole.replace("_", " ")}
+                          </p>
+                        </div>
                       </div>
-                      <div className="space-y-0.5">
-                        <h4 className="font-bold text-slate-805 dark:text-slate-100 text-xs">
-                          {watcher.user.name}
-                        </h4>
-                        <p className="text-[10px] text-slate-400">
-                          {watcher.user.role.replace("_", " ")}
-                        </p>
-                      </div>
+                      {!isStudent && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveWatcher(watcherId)}
+                          className="p-1 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors cursor-pointer shrink-0"
+                          title="Remove Watcher"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
-                    {!isStudent && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveWatcher(watcher.user.id)}
-                        className="p-1 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors cursor-pointer shrink-0"
-                        title="Remove Watcher"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-slate-450 italic text-xs py-1 select-none">
@@ -1065,6 +1216,76 @@ export default function RequestDetailsPage() {
           <TimeLine timelineItems={timelineItems} />
         </div>
       </div>
+
+      {/* Escalation Modal Dialog */}
+      {isEscalateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                <ShieldAlert className="h-5 w-5" />
+                <h3 className="font-extrabold text-sm text-slate-900 dark:text-slate-50">
+                  Escalate Grievance Ticket
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEscalateModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Escalating will automatically forward this ticket from <strong>Level {(request.escalationLevel || 0) + 1}</strong> to <strong>Level {(request.escalationLevel || 0) + 2}</strong> (or central escalation authority) and elevate its priority.
+            </p>
+
+            <form onSubmit={handleEscalateSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Reason / Remarks for Escalation (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={escalationReason}
+                  onChange={(e) => setEscalationReason(e.target.value)}
+                  placeholder="Explain why current resolution is unsatisfactory or delayed..."
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-850 dark:text-slate-200 focus:outline-none focus:border-primary transition-all resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  disabled={isSubmittingEscalation}
+                  onClick={() => setIsEscalateModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEscalation}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingEscalation ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Escalating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      <span>Confirm Escalation</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

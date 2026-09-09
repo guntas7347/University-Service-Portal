@@ -49,6 +49,7 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
       <div className="flex-1 relative pl-6 border-l-2 border-slate-100 dark:border-slate-800 space-y-6">
         {timelineItems.map((item: any) => {
           const isComment = item.timelineType === "COMMENT";
+          const isEscalated = !isComment && item.type === "ESCALATED";
 
           return (
             <div key={item.id} className="relative group select-none">
@@ -59,6 +60,8 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
                     ? item.internal
                       ? "border-amber-450"
                       : "border-primary"
+                    : isEscalated
+                    ? "border-red-500 bg-red-50"
                     : "border-slate-350 dark:border-slate-600"
                 }`}
               />
@@ -70,6 +73,8 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
                     ? item.internal
                       ? "bg-amber-50/40 dark:bg-amber-955/15 border-amber-200/50 dark:border-amber-850"
                       : "bg-primary/5 border-primary/20"
+                    : isEscalated
+                    ? "bg-red-50/60 dark:bg-red-955/20 border-red-200 dark:border-red-850"
                     : "bg-slate-50/50 dark:bg-slate-955/20 border-slate-200/50 dark:border-slate-800/80"
                 }`}
               >
@@ -86,6 +91,11 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
                     ) : (
                       <>
                         <span>{item.actorName}</span>
+                        {isEscalated && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 uppercase tracking-wider">
+                            Escalated
+                          </span>
+                        )}
                       </>
                     )}
                   </div>
@@ -111,7 +121,7 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
                   <div className="space-y-1 text-slate-500 dark:text-slate-400 leading-relaxed pt-0.5">
                     {/* Activity Specific text representations */}
                     <div className="flex items-center gap-1">
-                      <span className="font-semibold text-slate-750 dark:text-slate-300">
+                      <span className={`font-semibold ${isEscalated ? "text-red-700 dark:text-red-300 font-bold" : "text-slate-750 dark:text-slate-300"}`}>
                         {item.type.replace("_", " ")}
                       </span>
                       {item.oldValue && item.newValue && (
@@ -121,7 +131,7 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
                       )}
                     </div>
                     {item.message && (
-                      <p className="text-[11px] text-slate-400 font-medium">
+                      <p className={`text-[11px] font-medium ${isEscalated ? "text-red-800 dark:text-red-200 font-semibold" : "text-slate-400"}`}>
                         {item.message}
                       </p>
                     )}

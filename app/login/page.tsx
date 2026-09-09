@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CheckCircle2, GraduationCap, Loader2, Sun, Moon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/hooks/useTheme";
-import { fetchSSOToken, loginWithSSO } from "@/lib/auth/auth";
+import { fetchSSOToken, handleLoginInit, loginWithSSO } from "@/lib/auth/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,31 +17,80 @@ export default function LoginPage() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationSuccess, setVerificationSuccess] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("");
+  const [statusMessage, setStatusMessage] = useState("Connecting to portal...");
+
+  const processedCodeRef = useRef<string | null>(null);
+  const initTriggeredRef = useRef(false);
 
   useEffect(() => {
-    // Check if there is an SSO auth code in query parameters
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
 
     if (code) {
+      if (processedCodeRef.current === code) return;
+      processedCodeRef.current = code;
+
       setIsVerifying(true);
+      setStatusMessage("Verifying SSO authorization code...");
 
-      fetchSSOToken(code);
-
-      setStatusMessage(
-        "Initializing verification of SSO authorization code...",
-      );
-      router.push("/dashboard");
+      fetchSSOToken(code)
+        .then((result) => {
+          if (result && result.success) {
+            setVerificationSuccess(true);
+            setStatusMessage(
+              "Authentication successful! Loading your dashboard...",
+            );
+            setTimeout(() => {
+              router.push("/dashboard");
+            }, 300);
+          } else {
+            setIsVerifying(false);
+            setIsRedirecting(true);
+            setStatusMessage(
+              (result?.message || "Verification failed") +
+                ". Redirecting to SSO portal...",
+            );
+            setTimeout(async () => {
+              const ssoUrl = await loginWithSSO();
+              window.location.href = ssoUrl;
+            }, 1200);
+          }
+        })
+        .catch((err) => {
+          console.error("SSO token exchange failed:", err);
+          setIsVerifying(false);
+          setIsRedirecting(true);
+          setStatusMessage("Verification failed. Redirecting to SSO portal...");
+          loginWithSSO().then((ssoUrl) => {
+            window.location.href = ssoUrl;
+          });
+        });
     } else {
-      setIsRedirecting(true);
-      setStatusMessage(
-        "Connecting to Shaheed Bhagat Singh SSO portal. Please wait...",
-      );
+      if (initTriggeredRef.current) return;
+      initTriggeredRef.current = true;
 
-      setTimeout(async () => {
-        window.location.href = await loginWithSSO();
-      }, 200);
+      setIsRedirecting(true);
+      setStatusMessage("Checking session...");
+
+      handleLoginInit()
+        .then((init) => {
+          if (init.hasSession) {
+            setVerificationSuccess(true);
+            setStatusMessage("Active session found. Redirecting to dashboard...");
+            router.push(init.redirectUrl);
+          } else {
+            setStatusMessage(
+              "Connecting to Shaheed Bhagat Singh SSO portal. Please wait...",
+            );
+            window.location.href = init.redirectUrl;
+          }
+        })
+        .catch((err) => {
+          console.error("Login init error:", err);
+          loginWithSSO().then((ssoUrl) => {
+            window.location.href = ssoUrl;
+          });
+        });
     }
   }, [router]);
 

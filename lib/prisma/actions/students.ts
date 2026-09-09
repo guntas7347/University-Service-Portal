@@ -4,7 +4,6 @@ import prisma from "../prisma";
 import { cookies } from "next/headers";
 import { Role, Gender, UserStatus } from "@/prisma/generated/prisma/enums";
 import { verifyToken } from "@/lib/auth/auth";
-import crypto from "crypto";
 
 /**
  * Fetch student user records (HODs only see students in their department, Admins see all)
@@ -19,7 +18,7 @@ export async function getStudents() {
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
     const activeUser = await prisma.user.findUnique({
-      where: { ssoId: payload.userId },
+      where: { id: payload.userId },
     });
 
     if (!activeUser) return { success: false, message: "User not found." };
@@ -105,12 +104,12 @@ export async function updateStudent(
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = await await verifyToken(token);
+    const payload = await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
-      where: { ssoId: payload.userId },
+      where: { id: payload.userId },
     });
     if (!activeUser) return { success: false, message: "User not found." };
 
@@ -248,12 +247,12 @@ export async function deleteStudent(id: string) {
     const token = cookieStore.get("token")?.value;
     if (!token) return { success: false, message: "Not authenticated." };
 
-    const payload = await await verifyToken(token);
+    const payload = await verifyToken(token);
     if (!payload || !payload.userId)
       return { success: false, message: "Invalid session." };
 
     const activeUser = await prisma.user.findUnique({
-      where: { ssoId: payload.userId },
+      where: { id: payload.userId },
     });
     if (!activeUser) return { success: false, message: "User not found." };
 

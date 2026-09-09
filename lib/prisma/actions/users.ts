@@ -2,11 +2,11 @@
 
 import prisma from "../prisma";
 import { cookies } from "next/headers";
-import { Gender } from "@/prisma/generated/prisma/enums";
+import { Gender, Role } from "@/prisma/generated/prisma/enums";
 import { verifyToken } from "@/lib/auth/auth";
 
 /**
- * Delete JWT token cookie
+ * Delete session cookie
  */
 export async function logoutUser() {
   try {
@@ -32,27 +32,18 @@ export async function getProfile() {
     if (!token) {
       return {
         success: false,
-        message: "Not authenticated. Token cookie missing.",
+        message: "Not authenticated. Session cookie missing.",
       };
     }
 
-    const payload = await await verifyToken(token);
+    const payload = await verifyToken(token);
 
     if (!payload || !payload.userId) {
       return { success: false, message: "Invalid or expired session token." };
     }
 
-    const roleMap: Record<string, "STUDENT" | "FACULTY" | "HOD" | "ADMIN"> = {
-      student: "STUDENT",
-      faculty: "FACULTY",
-      hod: "HOD",
-      admin: "ADMIN",
-    };
-
-    const role = roleMap[payload.role?.toLowerCase()] ?? "UNKNOWN";
-
-    let user = await prisma.user.findUnique({
-      where: { ssoId: payload.userId },
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
       include: {
         course: true,
         department: true,
@@ -60,38 +51,7 @@ export async function getProfile() {
     });
 
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          ssoId: payload.userId,
-          email: payload.email,
-          fullName: payload.fullName,
-          rollNumber: payload.rollNumber,
-          role,
-        },
-        include: {
-          course: true,
-          department: true,
-        },
-      });
-    } else {
-      const hasChanges =
-        user.email !== payload.email || user.fullName !== payload.fullName;
-
-      if (hasChanges) {
-        user = await prisma.user.update({
-          where: {
-            ssoId: payload.id,
-          },
-          data: {
-            email: payload.email,
-            fullName: payload.fullName,
-          },
-          include: {
-            course: true,
-            department: true,
-          },
-        });
-      }
+      return { success: false, message: "User account could not be found." };
     }
 
     return {
@@ -142,7 +102,7 @@ export async function updateUserProfile(data: {
       return { success: false, message: "Not authenticated." };
     }
 
-    const payload = await await verifyToken(token);
+    const payload = await verifyToken(token);
     if (!payload || !payload.userId) {
       return { success: false, message: "Invalid session." };
     }
@@ -184,7 +144,7 @@ export async function updateUserProfile(data: {
     // 3. Update database record
     const dateOfBirth = data.dob ? new Date(data.dob) : null;
     const updatedUser = await prisma.user.update({
-      where: { ssoId: payload.userId },
+      where: { id: payload.userId },
       data: {
         fullName: data.name,
         email: data.email,
