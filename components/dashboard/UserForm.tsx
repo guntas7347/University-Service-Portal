@@ -10,7 +10,7 @@ interface UserFormProps {
   editingId: string | null;
   handleCancelEdit: () => void;
   departments: { id: string; code: string; name: string }[];
-  currentUser: { role: string; departmentId?: string; departmentName?: string } | null;
+  currentUser: { id?: string; role: string; rights: string[]; departmentId?: string; departmentName?: string } | null;
   selectedRights: string[];
   handleRightCheckboxChange: (value: string, checked: boolean) => void;
   rightsOptions: { value: string; label: string }[];
@@ -30,8 +30,8 @@ export default function UserForm({
   rightsOptions,
   handleSubmit
 }: UserFormProps) {
-  const isHOD = currentUser?.role.toUpperCase() === "HOD";
-  const isAdmin = currentUser?.role.toUpperCase() === "ADMIN" || currentUser?.role.toUpperCase() === "SUPER_ADMIN";
+  const isDeptManager = currentUser?.rights?.includes("MANAGE_DEPARTMENT") && !currentUser?.rights?.includes("ADMIN");
+  const isAdmin = currentUser?.rights?.includes("ADMIN") || currentUser?.rights?.includes("MANAGE_USERS");
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
@@ -42,7 +42,7 @@ export default function UserForm({
         <button 
           type="button" 
           onClick={handleCancelEdit}
-          className="p-1 text-slate-450 hover:text-slate-650 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
+          className="p-1 text-slate-450 hover:text-slate-655 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
           title="Cancel Edit"
         >
           <X className="h-4 w-4" />
@@ -141,10 +141,10 @@ export default function UserForm({
           </div>
         </div>
 
-        {/* Role select (Only Admin can change roles) */}
+        {/* Role title (Informational label) */}
         <div>
           <label htmlFor="role" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
-            Administrative Role
+            Display Role / Title (Informational)
           </label>
           {isAdmin ? (
             <select
@@ -160,19 +160,21 @@ export default function UserForm({
               <option value="HOD">Head of Department (HOD)</option>
               <option value="ADMIN">Administrator</option>
               <option value="SUPER_ADMIN">Super Administrator</option>
+              <option value="DEAN">Dean</option>
+              <option value="STAFF">Staff Member</option>
             </select>
           ) : (
             <div className="w-full h-11 px-4 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-500 dark:text-slate-400 text-sm flex items-center select-none font-medium">
-              Faculty / Staff (Restricted by HOD Role)
+              {form.role || "Faculty / Staff"}
             </div>
           )}
         </div>
 
         {/* Department select */}
-        {((isAdmin && (form.role === "FACULTY" || form.role === "HOD")) || isHOD) && (
+        {(isAdmin || isDeptManager) && (
           <div>
             <label htmlFor="departmentId" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
-              Department {form.role === "HOD" ? "(Required)" : "(Optional)"}
+              Assigned Department
             </label>
             {isAdmin ? (
               <div className="relative group">
@@ -182,7 +184,6 @@ export default function UserForm({
                 <select
                   id="departmentId"
                   name="departmentId"
-                  required={form.role === "HOD"}
                   disabled={isSubmitting}
                   value={form.departmentId}
                   onChange={handleChange}
@@ -197,7 +198,7 @@ export default function UserForm({
                 </select>
               </div>
             ) : (
-              // HOD role department is locked to their own department
+              // Department manager department is locked to their own department
               <div className="w-full h-11 px-4 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-550 dark:text-slate-350 text-sm flex items-center select-none font-semibold">
                 {currentUser?.departmentName || "My Department"} (Locked)
               </div>

@@ -292,8 +292,8 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Section: Academic Details (Read-Only, Students Only) */}
-          {fullProfile?.role === "STUDENT" && (
+          {/* Section: Academic Details (Read-Only, if student enrollment exists) */}
+          {(fullProfile?.rollNumber || fullProfile?.enrolledCourse) && (
             <div className="space-y-4 pt-2">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2">
                 Academic Details (Read-Only)
@@ -302,7 +302,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
                 {/* Roll Number */}
                 <div>
-                  <span className="block text-xs font-semibold text-slate-500 dark:text-slate-450 mb-1.5">
+                  <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
                     Roll Number
                   </span>
                   <div className="px-4 py-3 bg-slate-100 dark:bg-slate-855 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-semibold select-none flex items-center gap-2">
@@ -334,8 +334,8 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
               {/* Role */}
               <div>
-                <span className="block text-xs font-semibold text-slate-500 dark:text-slate-450 mb-1.5">
-                  System Role
+                <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
+                  System Role (Display Title)
                 </span>
                 <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-semibold select-none">
                   {fullProfile?.role?.replace("_", " ") || "Loading..."}
@@ -353,40 +353,38 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Department (If staff) */}
-              {fullProfile?.role !== "STUDENT" && (
+              {/* Department (If assigned) */}
+              {fullProfile?.departmentName && (
                 <div>
                   <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
                     Department
                   </span>
                   <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-semibold select-none flex items-center gap-2">
                     <Landmark className="h-4 w-4 text-slate-400 shrink-0" />
-                    <span>{fullProfile?.departmentName || "General Staff / No Department"}</span>
+                    <span>{fullProfile?.departmentName}</span>
                   </div>
                 </div>
               )}
 
-              {/* Assigned Rights (If staff) */}
-              {fullProfile?.role !== "STUDENT" && (
-                <div>
-                  <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
-                    Assigned Rights
-                  </span>
-                  <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-medium select-none">
-                    {!fullProfile?.rights || fullProfile.rights.length === 0 ? (
-                      <span className="text-slate-450 italic text-xs">No special administrative rights</span>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {fullProfile.rights.map((right: string) => (
-                          <span key={right} className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider font-mono">
-                            {right.replace("_", " ")}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+              {/* Assigned Rights */}
+              <div>
+                <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
+                  Assigned Rights
+                </span>
+                <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-medium select-none">
+                  {!fullProfile?.rights || fullProfile.rights.length === 0 ? (
+                    <span className="text-slate-455 italic text-xs">No administrative rights (Standard Student / User Access)</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {fullProfile.rights.map((right: string) => (
+                        <span key={right} className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider font-mono">
+                          {right.replace("_", " ")}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
 

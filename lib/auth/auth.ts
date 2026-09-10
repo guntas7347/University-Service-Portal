@@ -4,7 +4,6 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { generateCodeChallenge, generateCodeVerifier } from "./pkce";
 import prisma from "../prisma/prisma";
-import { Role } from "@/prisma/generated/prisma/enums";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -133,16 +132,23 @@ export const fetchSSOToken = async (code: string) => {
       throw new Error("Invalid SSO user payload: missing user ID");
     }
 
-    const roleMap: Record<string, Role> = {
-      student: Role.STUDENT,
-      faculty: Role.FACULTY,
-      hod: Role.HOD,
-      admin: Role.ADMIN,
-      super_admin: Role.SUPER_ADMIN,
-    };
+    const ssoRole = ssoUser.role ? String(ssoUser.role).toUpperCase() : "STUDENT";
+    const role: string = ssoRole || "STUDENT";
 
-    const ssoRole = ssoUser.role ? String(ssoUser.role).toLowerCase() : "";
-    const role: Role = roleMap[ssoRole] || Role.STUDENT;
+    // Initial rights if new administrator
+    const initialRights =
+      role === "ADMIN" || role === "SUPER_ADMIN"
+        ? [
+            "ADMIN",
+            "MANAGE_CONFIGS",
+            "MANAGE_DEPARTMENT",
+            "MANAGE_USERS",
+            "MANAGE_STUDENTS",
+            "MANAGE_ROUTING",
+            "RESOLVE_GRIEVANCES",
+            "VIEW_ALL_REQUESTS",
+          ]
+        : [];
 
     // Find existing user by ssoId or email
     let user = await prisma.user.findFirst({
@@ -163,6 +169,7 @@ export const fetchSSOToken = async (code: string) => {
           rollNumber: ssoUser.rollNumber || null,
           mobileNumber: ssoUser.mobileNumber || null,
           role: role,
+          rights: initialRights,
         },
       });
     } else {

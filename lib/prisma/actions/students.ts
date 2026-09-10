@@ -1,44 +1,25 @@
 "use server";
 
 import prisma from "../prisma";
-import { cookies } from "next/headers";
-import { Role, Gender, UserStatus } from "@/prisma/generated/prisma/enums";
-import { verifyToken } from "@/lib/auth/auth";
+import { Gender, UserStatus } from "@/prisma/generated/prisma/enums";
+import { requireRights } from "./auth";
 
 /**
- * Fetch student user records (HODs only see students in their department, Admins see all)
+ * Fetch student user records (Department managers see students in their department, Admins see all)
  */
 export async function getStudents() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
+    const activeUser = await requireRights(["MANAGE_STUDENTS", "MANAGE_DEPARTMENT"]);
 
-    const payload = await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
-    const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
-
-    if (!activeUser) return { success: false, message: "User not found." };
-
-    const isAdmin =
-      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
-    const isHod = activeUser.role === Role.HOD;
-
-    if (!isAdmin && !isHod) {
-      return {
-        success: false,
-        message: "Access Denied. Insufficient permissions.",
-      };
-    }
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
+    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
     let whereClause: any = {
-      role: Role.STUDENT,
+      role: "STUDENT",
     };
 
-    if (isHod && activeUser.departmentId) {
+    if (isDeptManager && !isAdmin && activeUser.departmentId) {
       whereClause.departmentId = activeUser.departmentId;
     }
 
@@ -69,13 +50,14 @@ export async function getStudents() {
         courseName: u.course?.name || "",
       })),
       userRole: activeUser.role,
+      userRights: activeUser.rights || [],
       userDeptId: activeUser.departmentId || "",
     };
   } catch (error: any) {
     console.error("Error fetching students:", error);
     return {
       success: false,
-      message: "Failed to retrieve student records from database.",
+      message: error.message || "Failed to retrieve student records from database.",
     };
   }
 }
@@ -100,40 +82,21 @@ export async function updateStudent(
   try {
     if (!id) return { success: false, message: "Student ID is required." };
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
+    const activeUser = await requireRights(["MANAGE_STUDENTS", "MANAGE_DEPARTMENT"]);
 
-    const payload = await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
-
-    const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
-    if (!activeUser) return { success: false, message: "User not found." };
-
-    const isAdmin =
-      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
-    const isHod = activeUser.role === Role.HOD;
-
-    if (!isAdmin && !isHod) {
-      return {
-        success: false,
-        message:
-          "Access Denied. You do not have permission to edit student accounts.",
-      };
-    }
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
+    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
     const existingStudent = await prisma.user.findUnique({
       where: { id },
     });
-    if (!existingStudent || existingStudent.role !== Role.STUDENT) {
+    if (!existingStudent || existingStudent.role !== "STUDENT") {
       return { success: false, message: "Student account not found." };
     }
 
-    // HODs can only update students belonging to their department
-    if (isHod) {
+    // Department managers can only update students belonging to their department
+    if (isDeptManager && !isAdmin) {
       if (
         !activeUser.departmentId ||
         existingStudent.departmentId !== activeUser.departmentId
@@ -205,9 +168,9 @@ export async function updateStudent(
       else if (s === "DELETED") statusEnum = UserStatus.DELETED;
     }
 
-    // Target department: HOD can transition students out or lock them to their department
-    const targetDeptId = isHod
-      ? data.departmentId || activeUser.departmentId
+    // Target department: Department managers can assign to their department
+    const targetDeptId = isDeptManager && !isAdmin
+      ? activeUser.departmentId
       : data.departmentId;
 
     const updatedStudent = await prisma.user.update({
@@ -231,7 +194,7 @@ export async function updateStudent(
     console.error("Error updating student:", error);
     return {
       success: false,
-      message: "Failed to update student account due to database error.",
+      message: error.message || "Failed to update student account due to database error.",
     };
   }
 }
@@ -243,41 +206,22 @@ export async function deleteStudent(id: string) {
   try {
     if (!id) return { success: false, message: "Student ID is required." };
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
+    const activeUser = await requireRights(["MANAGE_STUDENTS", "MANAGE_DEPARTMENT"]);
 
-    const payload = await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
-
-    const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
-    if (!activeUser) return { success: false, message: "User not found." };
-
-    const isAdmin =
-      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
-    const isHod = activeUser.role === Role.HOD;
-
-    if (!isAdmin && !isHod) {
-      return {
-        success: false,
-        message:
-          "Access Denied. You do not have permission to delete student accounts.",
-      };
-    }
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
+    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
     const student = await prisma.user.findUnique({
       where: { id },
       include: { requests: { take: 1 } },
     });
 
-    if (!student || student.role !== Role.STUDENT) {
+    if (!student || student.role !== "STUDENT") {
       return { success: false, message: "Student record not found." };
     }
 
-    if (isHod) {
+    if (isDeptManager && !isAdmin) {
       if (
         !activeUser.departmentId ||
         student.departmentId !== activeUser.departmentId
@@ -307,6 +251,9 @@ export async function deleteStudent(id: string) {
     return { success: true, message: "Student account deleted successfully!" };
   } catch (error: any) {
     console.error("Error deleting student account:", error);
-    return { success: false, message: "Failed to delete student account." };
+    return {
+      success: false,
+      message: error.message || "Failed to delete student account.",
+    };
   }
 }

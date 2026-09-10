@@ -12,7 +12,8 @@ import {
   CheckCircle,
   Info,
   XCircle,
-  ChevronRight
+  ChevronRight,
+  Eye
 } from "lucide-react";
 import { getAllRequests } from "@/lib/prisma/actions/requests";
 import { getCategories } from "@/lib/prisma/actions/categories";
@@ -31,6 +32,7 @@ interface RequestRow {
   escalationLevel?: number;
   isEscalated?: boolean;
   tags?: string[];
+  isWatcher?: boolean;
 }
 
 interface CategoryOption {
@@ -51,6 +53,7 @@ export default function RequestsPage() {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [scopeFilter, setScopeFilter] = useState("ALL");
 
   useEffect(() => {
     const loadData = async () => {
@@ -166,6 +169,10 @@ export default function RequestsPage() {
       priorityFilter === "ALL" || 
       r.priority.toUpperCase() === priorityFilter.toUpperCase();
 
+    const matchesScope = 
+      scopeFilter === "ALL" || 
+      (scopeFilter === "WATCHING" && r.isWatcher);
+
     const matchesStatus = () => {
       if (statusFilter === "ALL") return true;
       const s = r.status.toUpperCase();
@@ -175,7 +182,7 @@ export default function RequestsPage() {
       return s === "REJECTED" || s === "CANCELLED";
     };
 
-    return matchesSearch && matchesCategory && matchesPriority && matchesStatus();
+    return matchesSearch && matchesCategory && matchesPriority && matchesScope && matchesStatus();
   });
 
   const isStudent = userRole === "STUDENT";
@@ -190,7 +197,7 @@ export default function RequestsPage() {
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
           {isStudent 
-            ? "Track resolution stages and timeline history of complaints filed by you" 
+            ? "Track resolution stages and timeline history of complaints filed by you or watched by you" 
             : "Review, assign, and address student complaints and query requests"
           }
         </p>
@@ -199,21 +206,37 @@ export default function RequestsPage() {
       {/* Main card panel */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm flex flex-col min-h-[450px]">
         
-        {/* Table Controls (Search & Filters) */}
+        {/* Controls Bar: Search and Dynamic Filters */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Search query input */}
-            <div className="relative group flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            
+            {/* Search Input */}
+            <div className="relative lg:col-span-1 group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
               </div>
               <input
                 type="text"
-                placeholder="Search ticket code or subject..."
+                placeholder="Search ticket or title..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-850 dark:text-slate-200 placeholder-slate-405 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="w-full h-10 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-850 dark:text-slate-200 placeholder-slate-455 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               />
+            </div>
+
+            {/* Scope / Watching filter */}
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Eye className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+              </div>
+              <select
+                value={scopeFilter}
+                onChange={(e) => setScopeFilter(e.target.value)}
+                className="w-full h-10 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              >
+                <option value="ALL">All Requests</option>
+                <option value="WATCHING">Watched by Me (👁️)</option>
+              </select>
             </div>
 
             {/* Category filter */}
@@ -326,6 +349,12 @@ export default function RequestsPage() {
                         {item.isEscalated && (
                           <span className="inline-flex px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-red-100 dark:bg-red-955/40 text-red-700 dark:text-red-300 border border-red-200/50 uppercase">
                             L{(item.escalationLevel || 0) + 1}
+                          </span>
+                        )}
+                        {item.isWatcher && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200/50 uppercase">
+                            <Eye className="h-2.5 w-2.5" />
+                            <span>Watching</span>
                           </span>
                         )}
                       </div>

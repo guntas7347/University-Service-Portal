@@ -28,11 +28,14 @@ interface StaffUserType {
 }
 
 const RIGHTS_OPTIONS = [
-  { value: "RESOLVE_GRIEVANCES", label: "Resolve Grievances" },
-  { value: "MANAGE_COURSES", label: "Manage Courses" },
-  { value: "MANAGE_CATEGORIES", label: "Manage Categories" },
-  { value: "MANAGE_USERS", label: "Manage Users" },
+  { value: "ADMIN", label: "Full Administrator Access (ADMIN)" },
+  { value: "MANAGE_CONFIGS", label: "Manage Configs (Departments, Courses, Categories)" },
+  { value: "MANAGE_DEPARTMENT", label: "Manage Department (Department Users & Scoped Ops)" },
+  { value: "MANAGE_USERS", label: "Manage Staff Users" },
+  { value: "MANAGE_STUDENTS", label: "Manage Students" },
   { value: "MANAGE_ROUTING", label: "Manage Routing Rules" },
+  { value: "RESOLVE_GRIEVANCES", label: "Resolve Grievances" },
+  { value: "VIEW_ALL_REQUESTS", label: "View All Tickets (Across Departments)" },
 ];
 
 export default function UsersPage() {
@@ -43,6 +46,7 @@ export default function UsersPage() {
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     role: string;
+    rights: string[];
     departmentId?: string;
     departmentName?: string;
   } | null>(null);
@@ -126,17 +130,16 @@ export default function UsersPage() {
       return;
     }
 
-    const targetRole =
-      currentUser?.role.toUpperCase() === "HOD" ? "FACULTY" : form.role;
-    const targetDeptId =
-      currentUser?.role.toUpperCase() === "HOD"
-        ? currentUser.departmentId
-        : form.departmentId;
+    const isAdmin =
+      currentUser?.rights?.includes("ADMIN") ||
+      currentUser?.rights?.includes("MANAGE_USERS");
+    const isDeptManager = currentUser?.rights?.includes("MANAGE_DEPARTMENT");
 
-    if (targetRole === "HOD" && !targetDeptId) {
-      setErrorMsg("Department is a required field for the HOD role.");
-      return;
-    }
+    const targetRole = form.role || "FACULTY";
+    const targetDeptId =
+      isDeptManager && !isAdmin
+        ? currentUser?.departmentId
+        : form.departmentId;
 
     if (!editingId) {
       setErrorMsg("No active user account selected for editing.");
@@ -228,8 +231,13 @@ export default function UsersPage() {
 
   // Local state search & filter routing computations
   const filteredStaff = staff.filter((u) => {
-    // If logged in as HOD, only see users in HOD's department
-    if (currentUser?.role.toUpperCase() === "HOD") {
+    const isAdmin =
+      currentUser?.rights?.includes("ADMIN") ||
+      currentUser?.rights?.includes("MANAGE_USERS");
+    const isDeptManager = currentUser?.rights?.includes("MANAGE_DEPARTMENT");
+
+    // If department manager without global admin rights, only see users in their department
+    if (isDeptManager && !isAdmin && currentUser?.departmentId) {
       if (u.departmentId !== currentUser.departmentId) return false;
     }
 
@@ -268,10 +276,12 @@ export default function UsersPage() {
     }
     return (
       <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-350 border border-slate-200/50">
-        Faculty / Staff
+        {role.replace("_", " ")}
       </span>
     );
   };
+
+  const isDeptManager = currentUser?.rights?.includes("MANAGE_DEPARTMENT") && !currentUser?.rights?.includes("ADMIN");
 
   return (
     <div className="space-y-6">
@@ -281,7 +291,7 @@ export default function UsersPage() {
           Manage Users
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          {currentUser?.role.toUpperCase() === "HOD"
+          {isDeptManager
             ? `Manage faculty members inside the ${currentUser?.departmentName || ""} Department`
             : "Configure access permissions and edit profile details for university administrative staff and faculty"}
         </p>

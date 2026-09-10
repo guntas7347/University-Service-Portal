@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "../prisma";
+import { requireRights } from "./auth";
 
 /**
  * Fetch all category records sorted by creation date
@@ -15,7 +16,7 @@ export async function getCategories() {
     console.error("Error fetching categories:", error);
     return {
       success: false,
-      message: "Failed to retrieve categories from database.",
+      message: error.message || "Failed to retrieve categories from database.",
     };
   }
 }
@@ -28,6 +29,8 @@ export async function createCategory(data: {
   description?: string;
 }) {
   try {
+    await requireRights(["MANAGE_CONFIGS"]);
+
     if (!data.name.trim()) {
       return { success: false, message: "Category name is required." };
     }
@@ -56,7 +59,7 @@ export async function createCategory(data: {
     console.error("Error creating category:", error);
     return {
       success: false,
-      message: "Failed to create category due to database error.",
+      message: error.message || "Failed to create category due to database error.",
     };
   }
 }
@@ -75,6 +78,9 @@ export async function updateCategory(
         message: "Category ID is required for updates.",
       };
     }
+
+    await requireRights(["MANAGE_CONFIGS"]);
+
     if (!data.name.trim()) {
       return { success: false, message: "Category name is required." };
     }
@@ -104,7 +110,7 @@ export async function updateCategory(
     console.error("Error updating category:", error);
     return {
       success: false,
-      message: "Failed to update category due to database error.",
+      message: error.message || "Failed to update category due to database error.",
     };
   }
 }
@@ -117,6 +123,8 @@ export async function deleteCategory(id: string) {
     if (!id) {
       return { success: false, message: "Category ID is required." };
     }
+
+    await requireRights(["MANAGE_CONFIGS"]);
 
     // Verify if there are active requests under this category
     const categoryWithRequests = await prisma.category.findUnique({
@@ -142,7 +150,7 @@ export async function deleteCategory(id: string) {
     console.error("Error deleting category:", error);
     return {
       success: false,
-      message: "Failed to delete category due to database error.",
+      message: error.message || "Failed to delete category due to database error.",
     };
   }
 }

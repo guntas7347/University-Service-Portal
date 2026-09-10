@@ -27,6 +27,7 @@ import {
   Layers,
   Flame,
   X,
+  Eye,
 } from "lucide-react";
 import {
   getRequestDetails,
@@ -484,22 +485,35 @@ export default function RequestDetailsPage() {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
-  const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
+  const isAdmin = userRights.includes("ADMIN") || userRole === "ADMIN" || userRole === "SUPER_ADMIN";
   const hasRoutingRight = userRights.includes("MANAGE_ROUTING");
   const isDepartmentHod =
-    userRole === "HOD" &&
+    (userRights.includes("MANAGE_DEPARTMENT") || userRole === "HOD") &&
     ((request?.departmentId && request?.departmentHodId === userId) ||
       (request?.departmentId && userDeptId === request.departmentId) ||
       (request?.creator?.departmentId &&
         userDeptId === request.creator.departmentId) ||
       (request?.student?.departmentId &&
         userDeptId === request.student.departmentId));
-  const canAssign = isAdmin || hasRoutingRight || isDepartmentHod;
-  const canChangeTarget = isAdmin || userRole === "HOD";
-  const isStudent = userRole === "STUDENT";
+  const isCreator =
+    request?.creator?.id === userId ||
+    request?.student?.id === userId ||
+    request?.createdById === userId;
   const isAssignedToMe = request?.assignments?.some(
     (a: any) => a.userId === userId || a.user?.id === userId,
   );
+  const isWatcher = request?.watchers?.some(
+    (w: any) =>
+      w.userId === userId || w.id === userId || w.user?.id === userId,
+  );
+  const isPureWatcher =
+    isWatcher && !isAdmin && !isDepartmentHod && !isAssignedToMe && !isCreator;
+
+  const canAssign =
+    (isAdmin || hasRoutingRight || isDepartmentHod) && !isPureWatcher;
+  const canChangeTarget =
+    (isAdmin || isDepartmentHod || userRole === "HOD") && !isPureWatcher;
+  const isStudent = userRole === "STUDENT";
 
   return (
     <div className="space-y-6">
@@ -516,6 +530,33 @@ export default function RequestDetailsPage() {
           Ticket: {request.ticketId}
         </span>
       </div>
+
+      {/* Observer Mode Active Banner */}
+      {isPureWatcher && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-amber-500/10 border border-amber-500/30 dark:bg-amber-950/20 dark:border-amber-800/40 rounded-login-radius text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+              <Eye className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                Observer Mode Active
+              </h4>
+              <p className="text-xs text-amber-750/80 dark:text-amber-400/80">
+                You are watching this grievance in read-only mode. You cannot comment, forward, or update ticket status.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => handleRemoveWatcher(userId)}
+            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
+          >
+            Stop Watching
+          </button>
+        </div>
+      )}
 
       {/* Main Grid: Management details card on left, Timeline on right */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-login-gap">
@@ -703,7 +744,7 @@ export default function RequestDetailsPage() {
 
             {/* Escalation Condition Message & Button */}
             {!["RESOLVED", "CLOSED", "REJECTED", "CANCELLED"].includes(request.status) ? (
-              request.canEscalate ? (
+              (!isPureWatcher && request.canEscalate) ? (
                 <div className="p-3.5 bg-red-50/70 dark:bg-red-955/25 border border-red-200/70 dark:border-red-850 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-0.5">
                     <h4 className="text-xs font-bold text-red-900 dark:text-red-300 flex items-center gap-1.5">
@@ -928,12 +969,12 @@ export default function RequestDetailsPage() {
                           </p>
                         </div>
                       </div>
-                      {!isStudent && (
+                      {(canAssign || watcherId === userId) && (
                         <button
                           type="button"
                           onClick={() => handleRemoveWatcher(watcherId)}
                           className="p-1 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors cursor-pointer shrink-0"
-                          title="Remove Watcher"
+                          title={watcherId === userId ? "Stop Watching" : "Remove Watcher"}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -949,7 +990,7 @@ export default function RequestDetailsPage() {
             )}
 
             {/* Add Watcher */}
-            {!isStudent && (
+            {canAssign && (
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex gap-2">
                 <select
                   id="addWatcherSelect"
@@ -992,8 +1033,8 @@ export default function RequestDetailsPage() {
             </div>
           )}
 
-          {/* Card 4: Staff Resolution Panel (hidden for students) */}
-          {!isStudent && (
+          {/* Card 4: Staff Resolution Panel (hidden for students and pure watchers) */}
+          {!isStudent && !isPureWatcher && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-6">
               <h3 className="text-sm font-bold text-slate-950 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
                 Administrative Resolution actions
@@ -1175,8 +1216,8 @@ export default function RequestDetailsPage() {
             </div>
           )}
 
-          {/* Action Comment form for students (if student, they can only write public comments/feedback notes!) */}
-          {isStudent && (
+          {/* Action Comment form for students (if student and not pure watcher) */}
+          {isStudent && !isPureWatcher && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
               <h3 className="text-sm font-bold text-slate-950 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
                 Write a Response Note
@@ -1207,6 +1248,35 @@ export default function RequestDetailsPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {/* Observer Read-Only Panel for Pure Watchers */}
+          {isPureWatcher && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                    <Eye className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                      Read-Only Timeline Access
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      You are an observer on this grievance. Commenting, forwarding, and status updates are disabled.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => handleRemoveWatcher(userId)}
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-all active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
+                >
+                  Leave Watchlist
+                </button>
+              </div>
             </div>
           )}
         </div>

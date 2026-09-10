@@ -40,7 +40,7 @@ interface CourseType {
 export default function CoursesPage() {
   const [courses, setCourses] = useState<CourseType[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
-  const [userRole, setUserRole] = useState("STUDENT");
+  const [userRights, setUserRights] = useState<string[]>([]);
   const [userDeptId, setUserDeptId] = useState("");
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,6 +49,10 @@ export default function CoursesPage() {
   // Alerts feedback
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const isAdmin = userRights.includes("ADMIN") || userRights.includes("MANAGE_CONFIGS");
+  const isDeptManager = userRights.includes("MANAGE_DEPARTMENT");
+  const canManage = isAdmin || isDeptManager;
 
   // Form management hook
   const { form, handleChange, setFields, resetFormFields } = useForm({
@@ -66,14 +70,14 @@ export default function CoursesPage() {
       getDepartments()
     ]);
 
-    let role = "STUDENT";
+    let rights: string[] = [];
     let deptId = "";
 
     if (coursesRes.success && coursesRes.courses) {
       setCourses(coursesRes.courses as any);
-      role = coursesRes.userRole || "STUDENT";
+      rights = coursesRes.userRights || [];
       deptId = coursesRes.userDeptId || "";
-      setUserRole(role);
+      setUserRights(rights);
       setUserDeptId(deptId);
     }
 
@@ -81,8 +85,8 @@ export default function CoursesPage() {
       setDepartments(deptRes.departments as any[]);
     }
 
-    // Auto-set HOD department and preselect it
-    if (role === "HOD" && deptId) {
+    // Auto-set department manager's department and preselect it
+    if (rights.includes("MANAGE_DEPARTMENT") && !rights.includes("ADMIN") && deptId) {
       setFields({ departmentId: deptId });
     }
 
@@ -104,15 +108,15 @@ export default function CoursesPage() {
       return;
     }
 
-    const isHod = userRole === "HOD";
-    if (!isHod && !form.departmentId) {
+    const lockToDept = isDeptManager && !isAdmin;
+    if (!lockToDept && !form.departmentId) {
       setErrorMsg("Department is required.");
       return;
     }
 
     setIsSubmitting(true);
     const durationNum = form.duration ? Number(form.duration) : undefined;
-    const departmentIdVal = isHod ? userDeptId : form.departmentId;
+    const departmentIdVal = lockToDept ? userDeptId : form.departmentId;
 
     try {
       let response;
@@ -137,7 +141,7 @@ export default function CoursesPage() {
       if (response.success) {
         setSuccessMsg(response.message);
         resetFormFields();
-        if (isHod && userDeptId) {
+        if (lockToDept && userDeptId) {
           setFields({ departmentId: userDeptId });
         }
         setEditingId(null);
@@ -169,7 +173,7 @@ export default function CoursesPage() {
   const handleCancelEdit = () => {
     setEditingId(null);
     resetFormFields();
-    if (userRole === "HOD" && userDeptId) {
+    if (isDeptManager && !isAdmin && userDeptId) {
       setFields({ departmentId: userDeptId });
     }
     setSuccessMsg(null);
@@ -308,8 +312,8 @@ export default function CoursesPage() {
                   id="departmentId"
                   name="departmentId"
                   required
-                  disabled={isSubmitting || userRole === "HOD"}
-                  value={userRole === "HOD" ? userDeptId : form.departmentId}
+                  disabled={isSubmitting || (isDeptManager && !isAdmin)}
+                  value={(isDeptManager && !isAdmin) ? userDeptId : form.departmentId}
                   onChange={handleChange}
                   className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
                 >
@@ -419,7 +423,7 @@ export default function CoursesPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-155 dark:divide-slate-850">
                   {courses.map((item) => {
-                    const canManage = userRole === "ADMIN" || userRole === "SUPER_ADMIN" || (userRole === "HOD" && item.departmentId === userDeptId);
+                    const canManageItem = isAdmin || (isDeptManager && item.departmentId === userDeptId);
 
                     return (
                       <tr key={item.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm">
@@ -436,7 +440,7 @@ export default function CoursesPage() {
                           {item.duration ? `${item.duration} Months` : "Flexible"}
                         </td>
                         <td className="py-4 px-6 text-right">
-                          {canManage ? (
+                          {canManageItem ? (
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 type="button"

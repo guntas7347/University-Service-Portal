@@ -2,7 +2,7 @@
 
 import prisma from "../prisma";
 import { cookies } from "next/headers";
-import { Gender, Role } from "@/prisma/generated/prisma/enums";
+import { Gender } from "@/prisma/generated/prisma/enums";
 import { verifyToken } from "@/lib/auth/auth";
 
 /**

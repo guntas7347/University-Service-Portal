@@ -7,6 +7,16 @@ const main = async () => {
         fullName: "SUPER ADMIN",
         email: "admin@gmail.com",
         role: "SUPER_ADMIN",
+        rights: [
+          "ADMIN",
+          "MANAGE_CONFIGS",
+          "MANAGE_DEPARTMENT",
+          "MANAGE_USERS",
+          "MANAGE_STUDENTS",
+          "MANAGE_ROUTING",
+          "RESOLVE_GRIEVANCES",
+          "VIEW_ALL_REQUESTS",
+        ],
       },
     });
 

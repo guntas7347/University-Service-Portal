@@ -1,9 +1,7 @@
 "use server";
 
 import prisma from "../prisma";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/auth/auth";
-import { Role } from "@/prisma/generated/prisma/enums";
+import { requireRights } from "./auth";
 
 /**
  * Fetch all routing rules in the system (both category-based and central escalation)
@@ -48,7 +46,10 @@ export async function getRoutingRules() {
     };
   } catch (error: any) {
     console.error("Error fetching routing rules:", error);
-    return { success: false, message: "Failed to load routing rules." };
+    return {
+      success: false,
+      message: error.message || "Failed to load routing rules.",
+    };
   }
 }
 
@@ -62,6 +63,8 @@ export async function createRoutingRule(data: {
   isCentral?: boolean;
 }) {
   try {
+    await requireRights(["MANAGE_ROUTING"]);
+
     const isCentral = !!data.isCentral;
     const level = data.level && Number(data.level) > 0 ? Number(data.level) : 1;
 
@@ -109,7 +112,10 @@ export async function createRoutingRule(data: {
     };
   } catch (error: any) {
     console.error("Error creating routing rule:", error);
-    return { success: false, message: "Failed to create routing rule." };
+    return {
+      success: false,
+      message: error.message || "Failed to create routing rule.",
+    };
   }
 }
 
@@ -122,6 +128,8 @@ export async function toggleRoutingRule(id: string, isActive: boolean) {
       return { success: false, message: "Rule ID is required." };
     }
 
+    await requireRights(["MANAGE_ROUTING"]);
+
     await prisma.routingRule.update({
       where: { id },
       data: { isActive },
@@ -133,7 +141,10 @@ export async function toggleRoutingRule(id: string, isActive: boolean) {
     };
   } catch (error: any) {
     console.error("Error toggling routing rule:", error);
-    return { success: false, message: "Failed to update routing rule." };
+    return {
+      success: false,
+      message: error.message || "Failed to update routing rule.",
+    };
   }
 }
 
@@ -146,6 +157,8 @@ export async function deleteRoutingRule(id: string) {
       return { success: false, message: "Rule ID is required." };
     }
 
+    await requireRights(["MANAGE_ROUTING"]);
+
     await prisma.routingRule.delete({
       where: { id },
     });
@@ -153,6 +166,9 @@ export async function deleteRoutingRule(id: string) {
     return { success: true, message: "Routing rule deleted successfully!" };
   } catch (error: any) {
     console.error("Error deleting routing rule:", error);
-    return { success: false, message: "Failed to delete routing rule." };
+    return {
+      success: false,
+      message: error.message || "Failed to delete routing rule.",
+    };
   }
 }

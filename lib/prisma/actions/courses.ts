@@ -1,34 +1,19 @@
 "use server";
 
 import prisma from "../prisma";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/auth/auth";
-import { Role } from "@/prisma/generated/prisma/enums";
+import { requireRights, getAuthenticatedUser } from "./auth";
 
 /**
  * Fetch all course records sorted by creation date with department info and user context
  */
 export async function getCourses() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) {
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) {
       return {
         success: false,
         message: "Not authenticated.",
       };
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload || !payload.userId) {
-      return { success: false, message: "Invalid session." };
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
-    if (!user) {
-      return { success: false, message: "User profile not found." };
     }
 
     const courses = await prisma.course.findMany({
@@ -46,14 +31,15 @@ export async function getCourses() {
     return {
       success: true,
       courses,
-      userRole: user.role,
-      userDeptId: user.departmentId || "",
+      userRole: activeUser.role,
+      userRights: activeUser.rights || [],
+      userDeptId: activeUser.departmentId || "",
     };
   } catch (error: any) {
     console.error("Error fetching courses:", error);
     return {
       success: false,
-      message: "Failed to retrieve courses from database.",
+      message: error.message || "Failed to retrieve courses from database.",
     };
   }
 }
@@ -68,31 +54,11 @@ export async function createCourse(data: {
   departmentId?: string;
 }) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
+    const activeUser = await requireRights(["MANAGE_CONFIGS", "MANAGE_DEPARTMENT"]);
 
-    const payload = await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
-
-    const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
-    if (!activeUser) return { success: false, message: "User not found." };
-
-    // Authorization
-    const isAdmin =
-      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
-    const isHod = activeUser.role === Role.HOD;
-    const hasRights = activeUser.rights?.includes("MANAGE_COURSES");
-
-    if (!isAdmin && !isHod && !hasRights) {
-      return {
-        success: false,
-        message: "Access Denied. You do not have permission to create courses.",
-      };
-    }
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_CONFIGS");
+    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
     if (!data.code.trim() || !data.name.trim()) {
       return {
@@ -103,12 +69,12 @@ export async function createCourse(data: {
 
     // Determine target department
     let targetDeptId: string | null = null;
-    if (isHod) {
+    if (isDeptManager && !isAdmin) {
       if (!activeUser.departmentId) {
         return {
           success: false,
           message:
-            "Access Denied. HOD must belong to a department to create courses.",
+            "Access Denied. Department manager must belong to a department to create courses.",
         };
       }
       targetDeptId = activeUser.departmentId;
@@ -145,7 +111,7 @@ export async function createCourse(data: {
     console.error("Error creating course:", error);
     return {
       success: false,
-      message: "Failed to create course due to database error.",
+      message: error.message || "Failed to create course due to database error.",
     };
   }
 }
@@ -167,18 +133,7 @@ export async function updateCourse(
       return { success: false, message: "Course ID is required for updates." };
     }
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
-
-    const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
-    if (!activeUser) return { success: false, message: "User not found." };
+    const activeUser = await requireRights(["MANAGE_CONFIGS", "MANAGE_DEPARTMENT"]);
 
     const existingCourse = await prisma.course.findUnique({
       where: { id },
@@ -187,20 +142,11 @@ export async function updateCourse(
       return { success: false, message: "Course not found." };
     }
 
-    // Authorization
-    const isAdmin =
-      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
-    const isHod = activeUser.role === Role.HOD;
-    const hasRights = activeUser.rights?.includes("MANAGE_COURSES");
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_CONFIGS");
+    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
-    if (!isAdmin && !isHod && !hasRights) {
-      return {
-        success: false,
-        message: "Access Denied. You do not have permission to update courses.",
-      };
-    }
-
-    if (isHod) {
+    if (isDeptManager && !isAdmin) {
       if (
         !activeUser.departmentId ||
         existingCourse.departmentId !== activeUser.departmentId
@@ -228,8 +174,8 @@ export async function updateCourse(
       };
     }
 
-    // Target department: HOD can't change department, Admin can
-    const targetDeptId = isHod
+    // Target department: Department manager can't change department outside their own
+    const targetDeptId = isDeptManager && !isAdmin
       ? activeUser.departmentId
       : data.departmentId || existingCourse.departmentId;
 
@@ -249,7 +195,7 @@ export async function updateCourse(
     console.error("Error updating course:", error);
     return {
       success: false,
-      message: "Failed to update course due to database error.",
+      message: error.message || "Failed to update course due to database error.",
     };
   }
 }
@@ -263,18 +209,7 @@ export async function deleteCourse(id: string) {
       return { success: false, message: "Course ID is required." };
     }
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) return { success: false, message: "Not authenticated." };
-
-    const payload = await verifyToken(token);
-    if (!payload || !payload.userId)
-      return { success: false, message: "Invalid session." };
-
-    const activeUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
-    if (!activeUser) return { success: false, message: "User not found." };
+    const activeUser = await requireRights(["MANAGE_CONFIGS", "MANAGE_DEPARTMENT"]);
 
     const course = await prisma.course.findUnique({
       where: { id },
@@ -285,20 +220,11 @@ export async function deleteCourse(id: string) {
       return { success: false, message: "Course not found." };
     }
 
-    // Authorization
-    const isAdmin =
-      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
-    const isHod = activeUser.role === Role.HOD;
-    const hasRights = activeUser.rights?.includes("MANAGE_COURSES");
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_CONFIGS");
+    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
-    if (!isAdmin && !isHod && !hasRights) {
-      return {
-        success: false,
-        message: "Access Denied. You do not have permission to delete courses.",
-      };
-    }
-
-    if (isHod) {
+    if (isDeptManager && !isAdmin) {
       if (
         !activeUser.departmentId ||
         course.departmentId !== activeUser.departmentId
@@ -329,7 +255,7 @@ export async function deleteCourse(id: string) {
     console.error("Error deleting course:", error);
     return {
       success: false,
-      message: "Failed to delete course due to database error.",
+      message: error.message || "Failed to delete course due to database error.",
     };
   }
 }

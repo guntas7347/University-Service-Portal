@@ -7,15 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  STUDENT
-  FACULTY
-  HOD
-  ADMIN
-  SUPER_ADMIN
-  UNKNOWN
-}
-
 enum Gender {
   MALE
   FEMALE
@@ -73,7 +64,7 @@ model User {
   dateOfBirth DateTime?
   gender      Gender?
 
-  role        Role       @default(STUDENT)
+  role        String     @default("STUDENT")
   status      UserStatus @default(PENDING)
   designation String?
 

@@ -1,32 +1,13 @@
 "use server";
 
 import prisma from "../prisma";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/auth/auth";
-
+import { getAuthenticatedUser, requireUser, requireRights } from "./auth";
 import {
   RequestType,
   Priority,
   RequestStatus,
   ActivityType,
-  Role,
 } from "@/prisma/generated/prisma/enums";
-
-/**
- * Helper to fetch the authenticated User record from session JWT
- */
-async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-  if (!token) return null;
-
-  const payload = await verifyToken(token);
-  if (!payload || !payload.userId) return null;
-
-  return prisma.user.findUnique({
-    where: { id: payload.userId },
-  });
-}
 
 /**
  * File a new grievance or query request in the database
@@ -330,49 +311,40 @@ export async function getAllRequests() {
     }
 
     let requests;
-    if (user.role === Role.STUDENT) {
-      requests = await prisma.request.findMany({
-        where: { createdById: user.id },
-        include: {
-          category: { select: { name: true } },
-          department: { select: { name: true } },
-          createdBy: { select: { fullName: true, rollNumber: true } },
-          assignments: {
-            include: {
-              user: { select: { id: true, fullName: true, role: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    } else if (user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN) {
-      requests = await prisma.request.findMany({
-        include: {
-          category: { select: { name: true } },
-          department: { select: { name: true } },
-          createdBy: { select: { fullName: true, rollNumber: true } },
-          assignments: {
-            include: {
-              user: { select: { id: true, fullName: true, role: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    } else if (user.role === Role.HOD) {
-      const managedDept = user.departmentId
-        ? await prisma.department.findUnique({
-            where: { id: user.departmentId },
-          })
-        : null;
+    const rights = user.rights || [];
+    const isAdmin = rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
+    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
+    const hasStaffRights =
+      rights.includes("RESOLVE_GRIEVANCES") ||
+      rights.includes("MANAGE_ROUTING") ||
+      rights.includes("MANAGE_CONFIGS") ||
+      rights.includes("MANAGE_USERS") ||
+      rights.includes("MANAGE_STUDENTS") ||
+      rights.includes("MANAGE_DEPARTMENT");
 
+    if (isAdmin) {
+      requests = await prisma.request.findMany({
+        include: {
+          category: { select: { name: true } },
+          department: { select: { name: true } },
+          createdBy: { select: { fullName: true, rollNumber: true } },
+          assignments: {
+            include: {
+              user: { select: { id: true, fullName: true, role: true } },
+            },
+          },
+          watchers: { select: { userId: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    } else if (isDeptManager && user.departmentId) {
       requests = await prisma.request.findMany({
         where: {
           OR: [
-            { departmentId: user.departmentId || "" },
+            { departmentId: user.departmentId },
             {
               createdBy: {
-                departmentId: user.departmentId || "",
+                departmentId: user.departmentId,
               },
             },
             {
@@ -397,25 +369,52 @@ export async function getAllRequests() {
               user: { select: { id: true, fullName: true, role: true } },
             },
           },
+          watchers: { select: { userId: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    } else if (hasStaffRights) {
+      // Staff with resolution/assignment rights
+      requests = await prisma.request.findMany({
+        where: {
+          OR: [
+            {
+              assignments: {
+                some: { userId: user.id },
+              },
+            },
+            {
+              watchers: {
+                some: { userId: user.id },
+              },
+            },
+            { createdById: user.id },
+          ],
+        },
+        include: {
+          category: { select: { name: true } },
+          department: { select: { name: true } },
+          createdBy: { select: { fullName: true, rollNumber: true } },
+          assignments: {
+            include: {
+              user: { select: { id: true, fullName: true, role: true } },
+            },
+          },
+          watchers: { select: { userId: true } },
         },
         orderBy: { createdAt: "desc" },
       });
     } else {
-      // Faculty / Staff
+      // Regular user / student: view self-created requests and requests where they are watching
       requests = await prisma.request.findMany({
         where: {
           OR: [
-            {
-              assignments: {
-                some: { userId: user.id },
-              },
-            },
+            { createdById: user.id },
             {
               watchers: {
                 some: { userId: user.id },
               },
             },
-            { createdById: user.id },
           ],
         },
         include: {
@@ -427,6 +426,7 @@ export async function getAllRequests() {
               user: { select: { id: true, fullName: true, role: true } },
             },
           },
+          watchers: { select: { userId: true } },
         },
         orderBy: { createdAt: "desc" },
       });
@@ -434,13 +434,14 @@ export async function getAllRequests() {
 
     return {
       success: true,
-      requests: requests.map((r) => {
+      requests: requests.map((r: any) => {
         const primaryAssignee = r.assignments.find(
-          (a) => a.role === "PRIMARY",
+          (a: any) => a.role === "PRIMARY",
         )?.user;
         const assignedNames = r.assignments
-          .map((a) => a.user.fullName)
+          .map((a: any) => a.user.fullName)
           .join(", ");
+        const isWatcher = r.watchers?.some((w: any) => w.userId === user.id) || false;
 
         return {
           id: r.id,
@@ -462,9 +463,12 @@ export async function getAllRequests() {
           escalationLevel: r.escalationLevel || 0,
           isEscalated: r.isEscalated || false,
           tags: r.tags || [],
+          isWatcher,
         };
       }),
       userRole: user.role,
+      userRights: user.rights || [],
+      userId: user.id,
       userDeptId: user.departmentId || "",
     };
   } catch (error: any) {
@@ -576,19 +580,16 @@ export async function getRequestDetails(requestId: string) {
       (w) => w.userId === activeUser.id,
     );
 
-    if (
-      activeUser.role === Role.ADMIN ||
-      activeUser.role === Role.SUPER_ADMIN ||
-      activeUser.rights.includes("VIEW_ALL_REQUESTS")
-    ) {
-      hasAccess = true;
-    } else if (activeUser.role === Role.HOD) {
-      const isRelatedDept =
-        reqDetails.departmentId === activeUser.departmentId ||
-        (reqDetails.createdBy.departmentId === activeUser.departmentId &&
-          reqDetails.createdBy.role === Role.STUDENT);
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
+    const isDeptManager =
+      rights.includes("MANAGE_DEPARTMENT") &&
+      activeUser.departmentId &&
+      (reqDetails.departmentId === activeUser.departmentId ||
+        reqDetails.createdBy.departmentId === activeUser.departmentId);
 
-      hasAccess = isCreator || isAssigned || isWatcher || isRelatedDept;
+    if (isAdmin || isDeptManager) {
+      hasAccess = true;
     } else {
       hasAccess = isCreator || isAssigned || isWatcher;
     }
@@ -601,9 +602,12 @@ export async function getRequestDetails(requestId: string) {
       };
     }
 
+    const hasStaffRights =
+      rights.length > 0 || isAssigned || isWatcher || isDeptManager || isAdmin;
+
     const visibleComments = reqDetails.comments.filter((c) => {
       if (!c.internal) return true;
-      return activeUser.role !== Role.STUDENT;
+      return hasStaffRights;
     });
 
     const mappedDetails = {
@@ -738,7 +742,7 @@ export async function getRequestDetails(requestId: string) {
           ] as RequestStatus[]
         ).includes(reqDetails.status);
         if (isTerminal) return false;
-        const isCreatorOrAdmin = isCreator || activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
+        const isCreatorOrAdmin = isCreator || rights.includes("ADMIN");
         if (!isCreatorOrAdmin) return false;
         const baseDate = reqDetails.lastEscalatedAt || reqDetails.createdAt;
         const msPassed = Date.now() - new Date(baseDate).getTime();
@@ -798,15 +802,13 @@ export async function escalateRequest(requestId: string, reason?: string) {
       return { success: false, message: "Request not found." };
     }
 
+    const isAdmin = activeUser.rights?.includes("ADMIN");
+
     // Must be the creator of the request (or admin)
-    if (
-      req.createdById !== activeUser.id &&
-      activeUser.role !== Role.ADMIN &&
-      activeUser.role !== Role.SUPER_ADMIN
-    ) {
+    if (req.createdById !== activeUser.id && !isAdmin) {
       return {
         success: false,
-        message: "Only the creator of this request can escalate it.",
+        message: "Only the creator of this request or an administrator can escalate it.",
       };
     }
 
@@ -832,11 +834,7 @@ export async function escalateRequest(requestId: string, reason?: string) {
     const msPassed = Date.now() - new Date(baseDate).getTime();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
-    if (
-      msPassed < sevenDaysMs &&
-      activeUser.role !== Role.ADMIN &&
-      activeUser.role !== Role.SUPER_ADMIN
-    ) {
+    if (msPassed < sevenDaysMs && !isAdmin) {
       const daysLeft = Math.ceil(
         (sevenDaysMs - msPassed) / (24 * 60 * 60 * 1000),
       );
@@ -912,10 +910,10 @@ export async function escalateRequest(requestId: string, reason?: string) {
         nextAssigneeIds = [targetCentral.userId];
         nextTargetLabel = `Central Authority Level ${targetCentral.level} (${targetCentral.user.fullName})`;
       } else {
-        // Fallback: If no central rules configured, find super admin or admin
+        // Fallback: If no central rules configured, find administrator
         const adminUsers = await prisma.user.findMany({
           where: {
-            role: { in: [Role.SUPER_ADMIN, Role.ADMIN] },
+            rights: { has: "ADMIN" },
             status: "ACTIVE",
           },
           take: 1,
@@ -1047,9 +1045,30 @@ export async function updateRequestStatus(
 
     const request = await prisma.request.findUnique({
       where: { id: requestId },
+      include: {
+        assignments: true,
+        watchers: true,
+      },
     });
     if (!request)
       return { success: false, message: "Request ticket not found." };
+
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN") || rights.includes("RESOLVE_GRIEVANCES");
+    const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
+    const isDeptManager =
+      rights.includes("MANAGE_DEPARTMENT") &&
+      activeUser.departmentId &&
+      (request.departmentId === activeUser.departmentId);
+    const isWatcher = request.watchers.some((w) => w.userId === activeUser.id);
+
+    // Watchers who are not admin, assigned handler, or dept manager have read-only access
+    if (isWatcher && !isAdmin && !isAssigned && !isDeptManager) {
+      return {
+        success: false,
+        message: "Access Denied. Watchers have read-only access and cannot update ticket status.",
+      };
+    }
 
     // Map status string to RequestStatus enum
     let statusEnum = newStatus.toUpperCase() as RequestStatus;
@@ -1100,35 +1119,16 @@ export async function assignRequest(
     if (!request) return { success: false, message: "Request not found." };
 
     // Authorization checks
-    const role = activeUser.role;
     const rights = activeUser.rights || [];
-    const isAdmin = role === Role.ADMIN || role === Role.SUPER_ADMIN;
+    const isAdmin = rights.includes("ADMIN");
     const hasRoutingRight = rights.includes("MANAGE_ROUTING");
+    const hasDeptRight =
+      rights.includes("MANAGE_DEPARTMENT") &&
+      activeUser.departmentId &&
+      (request.departmentId === activeUser.departmentId ||
+        request.createdBy.departmentId === activeUser.departmentId);
 
-    let isHodOfDept = false;
-    if (role === Role.HOD) {
-      const isRequestDeptHod = request.departmentId === activeUser.departmentId;
-      const isStudentDeptHod =
-        request.createdBy.role === Role.STUDENT &&
-        request.createdBy.departmentId === activeUser.departmentId;
-
-      let isExplicitHod = false;
-      if (request.departmentId) {
-        const dept = await prisma.department.findUnique({
-          where: { id: request.departmentId },
-          select: { hodId: true },
-        });
-        if (dept?.hodId === activeUser.id) {
-          isExplicitHod = true;
-        }
-      }
-
-      if (isRequestDeptHod || isStudentDeptHod || isExplicitHod) {
-        isHodOfDept = true;
-      }
-    }
-
-    if (!isAdmin && !hasRoutingRight && !isHodOfDept) {
+    if (!isAdmin && !hasRoutingRight && !hasDeptRight) {
       return {
         success: false,
         message:
@@ -1140,7 +1140,7 @@ export async function assignRequest(
     const staff = await prisma.user.findUnique({
       where: { id: assignedToId },
     });
-    if (!staff || staff.role === Role.STUDENT) {
+    if (!staff || (staff.role === "STUDENT" && staff.rights.length === 0)) {
       return {
         success: false,
         message: "Cannot assign: Assigned user is not a valid staff member.",
@@ -1232,6 +1232,34 @@ export async function addRequestComment(
 
     if (!message.trim()) {
       return { success: false, message: "Comment message cannot be empty." };
+    }
+
+    const request = await prisma.request.findUnique({
+      where: { id: requestId },
+      include: {
+        assignments: true,
+        watchers: true,
+      },
+    });
+
+    if (!request) return { success: false, message: "Request not found." };
+
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN");
+    const isCreator = request.createdById === activeUser.id;
+    const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
+    const isDeptManager =
+      rights.includes("MANAGE_DEPARTMENT") &&
+      activeUser.departmentId &&
+      (request.departmentId === activeUser.departmentId);
+    const isWatcher = request.watchers.some((w) => w.userId === activeUser.id);
+
+    // Watchers who are not admin, creator, assigned handler, or dept manager have read-only access
+    if (isWatcher && !isAdmin && !isCreator && !isAssigned && !isDeptManager) {
+      return {
+        success: false,
+        message: "Access Denied. Watchers have read-only access to this grievance timeline.",
+      };
     }
 
     // Insert comment
@@ -1342,35 +1370,16 @@ export async function unassignRequest(requestId: string, userId: string) {
     });
     if (!request) return { success: false, message: "Request not found." };
 
-    const role = activeUser.role;
     const rights = activeUser.rights || [];
-    const isAdmin = role === Role.ADMIN || role === Role.SUPER_ADMIN;
+    const isAdmin = rights.includes("ADMIN");
     const hasRoutingRight = rights.includes("MANAGE_ROUTING");
+    const hasDeptRight =
+      rights.includes("MANAGE_DEPARTMENT") &&
+      activeUser.departmentId &&
+      (request.departmentId === activeUser.departmentId ||
+        request.createdBy.departmentId === activeUser.departmentId);
 
-    let isHodOfDept = false;
-    if (role === Role.HOD) {
-      const isRequestDeptHod = request.departmentId === activeUser.departmentId;
-      const isStudentDeptHod =
-        request.createdBy.role === Role.STUDENT &&
-        request.createdBy.departmentId === activeUser.departmentId;
-
-      let isExplicitHod = false;
-      if (request.departmentId) {
-        const dept = await prisma.department.findUnique({
-          where: { id: request.departmentId },
-          select: { hodId: true },
-        });
-        if (dept?.hodId === activeUser.id) {
-          isExplicitHod = true;
-        }
-      }
-
-      if (isRequestDeptHod || isStudentDeptHod || isExplicitHod) {
-        isHodOfDept = true;
-      }
-    }
-
-    if (!isAdmin && !hasRoutingRight && !isHodOfDept) {
+    if (!isAdmin && !hasRoutingRight && !hasDeptRight) {
       return {
         success: false,
         message:
@@ -1487,7 +1496,32 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
     });
 
     if (!watcher) {
-      return { success: false, message: "Watcher not found." };
+      return { success: false, message: "Watcher not found on this request." };
+    }
+
+    const isSelf = activeUser.id === userId;
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN");
+    const hasRoutingRight = rights.includes("MANAGE_ROUTING");
+
+    if (!isSelf && !isAdmin && !hasRoutingRight) {
+      // Check if caller is department manager
+      const req = await prisma.request.findUnique({
+        where: { id: requestId },
+        select: { departmentId: true, createdBy: { select: { departmentId: true } } },
+      });
+      const isDeptManager =
+        rights.includes("MANAGE_DEPARTMENT") &&
+        activeUser.departmentId &&
+        (req?.departmentId === activeUser.departmentId ||
+          req?.createdBy?.departmentId === activeUser.departmentId);
+
+      if (!isDeptManager) {
+        return {
+          success: false,
+          message: "Access Denied. You do not have permission to remove this watcher.",
+        };
+      }
     }
 
     await prisma.requestWatcher.delete({
@@ -1499,19 +1533,25 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
       },
     });
 
+    const activityMsg = isSelf
+      ? `${watcher.user.fullName} stopped watching this ticket.`
+      : `Removed ${watcher.user.fullName} from watchers list.`;
+
     // Log Activity
     await prisma.requestActivity.create({
       data: {
         requestId,
         actorId: activeUser.id,
         type: ActivityType.COMMENTED,
-        message: `Removed ${watcher.user.fullName} from watchers list.`,
+        message: activityMsg,
       },
     });
 
     return {
       success: true,
-      message: `Removed ${watcher.user.fullName} from watchers list.`,
+      message: isSelf
+        ? "You have stopped watching this request."
+        : `Removed ${watcher.user.fullName} from watchers list.`,
     };
   } catch (error: any) {
     console.error("Error removing watcher:", error);
@@ -1531,16 +1571,16 @@ export async function updateRequestTarget(
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    // Authorization Gate: admin or HOD
-    const isAdmin =
-      activeUser.role === Role.ADMIN || activeUser.role === Role.SUPER_ADMIN;
-    const isHod = activeUser.role === Role.HOD;
+    // Authorization Gate: admin or department manager
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN");
+    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
-    if (!isAdmin && !isHod) {
+    if (!isAdmin && !isDeptManager) {
       return {
         success: false,
         message:
-          "Access Denied. Only Admins or HODs can change request category/department.",
+          "Access Denied. Only Admins or Department Managers can change request category/department.",
       };
     }
 
@@ -1658,7 +1698,7 @@ export async function forwardRequest(
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
     });
-    if (!targetUser || targetUser.role === Role.STUDENT) {
+    if (!targetUser || (targetUser.role === "STUDENT" && targetUser.rights.length === 0)) {
       return {
         success: false,
         message: "Cannot forward: Target user is not a valid staff member.",

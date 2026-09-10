@@ -44,7 +44,7 @@ export type UserMinAggregateOutputType = {
   batch: number | null
   dateOfBirth: Date | null
   gender: $Enums.Gender | null
-  role: $Enums.Role | null
+  role: string | null
   status: $Enums.UserStatus | null
   designation: string | null
   departmentId: string | null
@@ -66,7 +66,7 @@ export type UserMaxAggregateOutputType = {
   batch: number | null
   dateOfBirth: Date | null
   gender: $Enums.Gender | null
-  role: $Enums.Role | null
+  role: string | null
   status: $Enums.UserStatus | null
   designation: string | null
   departmentId: string | null
@@ -275,7 +275,7 @@ export type UserGroupByOutputType = {
   batch: number | null
   dateOfBirth: Date | null
   gender: $Enums.Gender | null
-  role: $Enums.Role
+  role: string
   status: $Enums.UserStatus
   designation: string | null
   rights: string[]
@@ -321,7 +321,7 @@ export type UserWhereInput = {
   batch?: Prisma.IntNullableFilter<"User"> | number | null
   dateOfBirth?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   gender?: Prisma.EnumGenderNullableFilter<"User"> | $Enums.Gender | null
-  role?: Prisma.EnumRoleFilter<"User"> | $Enums.Role
+  role?: Prisma.StringFilter<"User"> | string
   status?: Prisma.EnumUserStatusFilter<"User"> | $Enums.UserStatus
   designation?: Prisma.StringNullableFilter<"User"> | string | null
   rights?: Prisma.StringNullableListFilter<"User">
@@ -394,7 +394,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   batch?: Prisma.IntNullableFilter<"User"> | number | null
   dateOfBirth?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   gender?: Prisma.EnumGenderNullableFilter<"User"> | $Enums.Gender | null
-  role?: Prisma.EnumRoleFilter<"User"> | $Enums.Role
+  role?: Prisma.StringFilter<"User"> | string
   status?: Prisma.EnumUserStatusFilter<"User"> | $Enums.UserStatus
   designation?: Prisma.StringNullableFilter<"User"> | string | null
   rights?: Prisma.StringNullableListFilter<"User">
@@ -460,7 +460,7 @@ export type UserScalarWhereWithAggregatesInput = {
   batch?: Prisma.IntNullableWithAggregatesFilter<"User"> | number | null
   dateOfBirth?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   gender?: Prisma.EnumGenderNullableWithAggregatesFilter<"User"> | $Enums.Gender | null
-  role?: Prisma.EnumRoleWithAggregatesFilter<"User"> | $Enums.Role
+  role?: Prisma.StringWithAggregatesFilter<"User"> | string
   status?: Prisma.EnumUserStatusWithAggregatesFilter<"User"> | $Enums.UserStatus
   designation?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   rights?: Prisma.StringNullableListFilter<"User">
@@ -483,7 +483,7 @@ export type UserCreateInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -516,7 +516,7 @@ export type UserUncheckedCreateInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -549,7 +549,7 @@ export type UserUpdateInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -582,7 +582,7 @@ export type UserUncheckedUpdateInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -615,7 +615,7 @@ export type UserCreateManyInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -638,7 +638,7 @@ export type UserUpdateManyMutationInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -659,7 +659,7 @@ export type UserUncheckedUpdateManyInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -801,10 +801,6 @@ export type NullableDateTimeFieldUpdateOperationsInput = {
 
 export type NullableEnumGenderFieldUpdateOperationsInput = {
   set?: $Enums.Gender | null
-}
-
-export type EnumRoleFieldUpdateOperationsInput = {
-  set?: $Enums.Role
 }
 
 export type EnumUserStatusFieldUpdateOperationsInput = {
@@ -1066,7 +1062,7 @@ export type UserCreateWithoutManagedDepartmentInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1098,7 +1094,7 @@ export type UserUncheckedCreateWithoutManagedDepartmentInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1135,7 +1131,7 @@ export type UserCreateWithoutDepartmentInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1167,7 +1163,7 @@ export type UserUncheckedCreateWithoutDepartmentInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1220,7 +1216,7 @@ export type UserUpdateWithoutManagedDepartmentInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1252,7 +1248,7 @@ export type UserUncheckedUpdateWithoutManagedDepartmentInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1303,7 +1299,7 @@ export type UserScalarWhereInput = {
   batch?: Prisma.IntNullableFilter<"User"> | number | null
   dateOfBirth?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   gender?: Prisma.EnumGenderNullableFilter<"User"> | $Enums.Gender | null
-  role?: Prisma.EnumRoleFilter<"User"> | $Enums.Role
+  role?: Prisma.StringFilter<"User"> | string
   status?: Prisma.EnumUserStatusFilter<"User"> | $Enums.UserStatus
   designation?: Prisma.StringNullableFilter<"User"> | string | null
   rights?: Prisma.StringNullableListFilter<"User">
@@ -1326,7 +1322,7 @@ export type UserCreateWithoutCourseInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1358,7 +1354,7 @@ export type UserUncheckedCreateWithoutCourseInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1416,7 +1412,7 @@ export type UserCreateWithoutRequestsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1448,7 +1444,7 @@ export type UserUncheckedCreateWithoutRequestsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1496,7 +1492,7 @@ export type UserUpdateWithoutRequestsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1528,7 +1524,7 @@ export type UserUncheckedUpdateWithoutRequestsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1560,7 +1556,7 @@ export type UserCreateWithoutRequestActivitiesInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1592,7 +1588,7 @@ export type UserUncheckedCreateWithoutRequestActivitiesInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1640,7 +1636,7 @@ export type UserUpdateWithoutRequestActivitiesInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1672,7 +1668,7 @@ export type UserUncheckedUpdateWithoutRequestActivitiesInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1704,7 +1700,7 @@ export type UserCreateWithoutRequestCommentsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1736,7 +1732,7 @@ export type UserUncheckedCreateWithoutRequestCommentsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1784,7 +1780,7 @@ export type UserUpdateWithoutRequestCommentsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1816,7 +1812,7 @@ export type UserUncheckedUpdateWithoutRequestCommentsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1848,7 +1844,7 @@ export type UserCreateWithoutRequestAttachmentsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1880,7 +1876,7 @@ export type UserUncheckedCreateWithoutRequestAttachmentsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -1928,7 +1924,7 @@ export type UserUpdateWithoutRequestAttachmentsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1960,7 +1956,7 @@ export type UserUncheckedUpdateWithoutRequestAttachmentsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -1992,7 +1988,7 @@ export type UserCreateWithoutRoutingRulesInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2024,7 +2020,7 @@ export type UserUncheckedCreateWithoutRoutingRulesInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2072,7 +2068,7 @@ export type UserUpdateWithoutRoutingRulesInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2104,7 +2100,7 @@ export type UserUncheckedUpdateWithoutRoutingRulesInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2136,7 +2132,7 @@ export type UserCreateWithoutAssignmentsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2168,7 +2164,7 @@ export type UserUncheckedCreateWithoutAssignmentsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2205,7 +2201,7 @@ export type UserCreateWithoutCreatedAssignmentsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2237,7 +2233,7 @@ export type UserUncheckedCreateWithoutCreatedAssignmentsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2285,7 +2281,7 @@ export type UserUpdateWithoutAssignmentsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2317,7 +2313,7 @@ export type UserUncheckedUpdateWithoutAssignmentsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2360,7 +2356,7 @@ export type UserUpdateWithoutCreatedAssignmentsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2392,7 +2388,7 @@ export type UserUncheckedUpdateWithoutCreatedAssignmentsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2424,7 +2420,7 @@ export type UserCreateWithoutWatchedRequestsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2456,7 +2452,7 @@ export type UserUncheckedCreateWithoutWatchedRequestsInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2493,7 +2489,7 @@ export type UserCreateWithoutCreatedWatchersInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2525,7 +2521,7 @@ export type UserUncheckedCreateWithoutCreatedWatchersInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2573,7 +2569,7 @@ export type UserUpdateWithoutWatchedRequestsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2605,7 +2601,7 @@ export type UserUncheckedUpdateWithoutWatchedRequestsInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2648,7 +2644,7 @@ export type UserUpdateWithoutCreatedWatchersInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2680,7 +2676,7 @@ export type UserUncheckedUpdateWithoutCreatedWatchersInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2712,7 +2708,7 @@ export type UserCreateManyDepartmentInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2734,7 +2730,7 @@ export type UserUpdateWithoutDepartmentInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2766,7 +2762,7 @@ export type UserUncheckedUpdateWithoutDepartmentInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2798,7 +2794,7 @@ export type UserUncheckedUpdateManyWithoutDepartmentInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2820,7 +2816,7 @@ export type UserCreateManyCourseInput = {
   batch?: number | null
   dateOfBirth?: Date | string | null
   gender?: $Enums.Gender | null
-  role?: $Enums.Role
+  role?: string
   status?: $Enums.UserStatus
   designation?: string | null
   rights?: Prisma.UserCreaterightsInput | string[]
@@ -2842,7 +2838,7 @@ export type UserUpdateWithoutCourseInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2874,7 +2870,7 @@ export type UserUncheckedUpdateWithoutCourseInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -2906,7 +2902,7 @@ export type UserUncheckedUpdateManyWithoutCourseInput = {
   batch?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dateOfBirth?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   gender?: Prisma.NullableEnumGenderFieldUpdateOperationsInput | $Enums.Gender | null
-  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  role?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumUserStatusFieldUpdateOperationsInput | $Enums.UserStatus
   designation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rights?: Prisma.UserUpdaterightsInput | string[]
@@ -3184,7 +3180,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     batch: number | null
     dateOfBirth: Date | null
     gender: $Enums.Gender | null
-    role: $Enums.Role
+    role: string
     status: $Enums.UserStatus
     designation: string | null
     rights: string[]
@@ -3639,7 +3635,7 @@ export interface UserFieldRefs {
   readonly batch: Prisma.FieldRef<"User", 'Int'>
   readonly dateOfBirth: Prisma.FieldRef<"User", 'DateTime'>
   readonly gender: Prisma.FieldRef<"User", 'Gender'>
-  readonly role: Prisma.FieldRef<"User", 'Role'>
+  readonly role: Prisma.FieldRef<"User", 'String'>
   readonly status: Prisma.FieldRef<"User", 'UserStatus'>
   readonly designation: Prisma.FieldRef<"User", 'String'>
   readonly rights: Prisma.FieldRef<"User", 'String[]'>

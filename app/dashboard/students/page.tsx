@@ -57,7 +57,7 @@ export default function StudentsPage() {
   const [courses, setCourses] = useState<
     { id: string; name: string; departmentId?: string | null }[]
   >([]);
-  const [userRole, setUserRole] = useState("STUDENT");
+  const [userRights, setUserRights] = useState<string[]>([]);
   const [userDeptId, setUserDeptId] = useState("");
 
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -70,6 +70,10 @@ export default function StudentsPage() {
   // Alerts feedback
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const isAdmin = userRights.includes("ADMIN") || userRights.includes("MANAGE_STUDENTS");
+  const isDeptManager = userRights.includes("MANAGE_DEPARTMENT");
+  const isDeptLocked = isDeptManager && !isAdmin;
 
   // Form management hook
   const { form, handleChange, setFields, resetFormFields } = useForm({
@@ -94,14 +98,14 @@ export default function StudentsPage() {
         getCourses(),
       ]);
 
-      let role = "STUDENT";
+      let rights: string[] = [];
       let deptId = "";
 
       if (studentRes.success && studentRes.students) {
         setStudents(studentRes.students as any[]);
-        role = studentRes.userRole || "STUDENT";
+        rights = studentRes.userRights || [];
         deptId = studentRes.userDeptId || "";
-        setUserRole(role);
+        setUserRights(rights);
         setUserDeptId(deptId);
       }
 
@@ -113,8 +117,8 @@ export default function StudentsPage() {
         setCourses(coursesRes.courses as any[]);
       }
 
-      // If HOD, default and lock department
-      if (role === "HOD" && deptId) {
+      // If department manager, default and lock department
+      if (rights.includes("MANAGE_DEPARTMENT") && !rights.includes("ADMIN") && deptId) {
         setFields({ departmentId: deptId });
       }
     } catch (err) {
@@ -129,7 +133,7 @@ export default function StudentsPage() {
   }, []);
 
   // Filter courses based on department selection (especially useful for HOD or during department choice)
-  const selectedDeptId = userRole === "HOD" ? userDeptId : form.departmentId;
+  const selectedDeptId = isDeptLocked ? userDeptId : form.departmentId;
   const filteredCourses = selectedDeptId
     ? courses.filter((c) => c.departmentId === selectedDeptId)
     : courses;
@@ -145,8 +149,7 @@ export default function StudentsPage() {
       return;
     }
 
-    const isHod = userRole === "HOD";
-    const finalDeptId = isHod ? userDeptId : form.departmentId;
+    const finalDeptId = isDeptLocked ? userDeptId : form.departmentId;
 
     if (!finalDeptId) {
       setErrorMsg("Department is required.");
@@ -178,7 +181,7 @@ export default function StudentsPage() {
       if (response.success) {
         setSuccessMsg(response.message);
         resetFormFields();
-        if (isHod && userDeptId) {
+        if (isDeptLocked && userDeptId) {
           setFields({ departmentId: userDeptId });
         }
         setEditingId(null);
@@ -219,7 +222,7 @@ export default function StudentsPage() {
   const handleCancelEdit = () => {
     setEditingId(null);
     resetFormFields();
-    if (userRole === "HOD" && userDeptId) {
+    if (isDeptLocked && userDeptId) {
       setFields({ departmentId: userDeptId });
     }
     setSuccessMsg(null);
@@ -299,7 +302,7 @@ export default function StudentsPage() {
           Manage Students
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          {userRole === "HOD"
+          {isDeptLocked
             ? "Configure student profiles and course transitions within your department"
             : "University-wide administration and editing of student user accounts, batch details, and program enrollments"}
         </p>
@@ -460,8 +463,8 @@ export default function StudentsPage() {
                   id="departmentId"
                   name="departmentId"
                   required
-                  disabled={isSubmitting || userRole === "HOD"}
-                  value={userRole === "HOD" ? userDeptId : form.departmentId}
+                  disabled={isSubmitting || !editingId || isDeptLocked}
+                  value={isDeptLocked ? userDeptId : form.departmentId}
                   onChange={handleChange}
                   className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
                 >
@@ -680,10 +683,9 @@ export default function StudentsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-155 dark:divide-slate-850">
                   {filteredStudents.map((student) => {
-                    const isOwnDept =
-                      userRole === "ADMIN" ||
-                      userRole === "SUPER_ADMIN" ||
-                      student.departmentId === userDeptId;
+                    const canManageStudent =
+                      isAdmin ||
+                      (isDeptManager && student.departmentId === userDeptId);
 
                     return (
                       <tr
@@ -734,7 +736,7 @@ export default function StudentsPage() {
 
                         {/* Actions */}
                         <td className="py-4 px-6 text-right">
-                          {isOwnDept ? (
+                          {canManageStudent ? (
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 type="button"

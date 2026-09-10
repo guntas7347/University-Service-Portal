@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "../prisma";
+import { requireRights } from "./auth";
 
 /**
  * Fetch all departments (with HOD details) and auto-seed defaults if empty
@@ -42,7 +43,10 @@ export async function getDepartments() {
     };
   } catch (error: any) {
     console.error("Error fetching departments:", error);
-    return { success: false, message: "Failed to retrieve departments." };
+    return {
+      success: false,
+      message: error.message || "Failed to retrieve departments.",
+    };
   }
 }
 
@@ -51,6 +55,8 @@ export async function getDepartments() {
  */
 export async function createDepartment(data: { code: string; name: string }) {
   try {
+    await requireRights(["MANAGE_CONFIGS"]);
+
     if (!data.code.trim() || !data.name.trim()) {
       return {
         success: false,
@@ -80,7 +86,10 @@ export async function createDepartment(data: { code: string; name: string }) {
     return { success: true, message: "Department created successfully!" };
   } catch (error: any) {
     console.error("Error creating department:", error);
-    return { success: false, message: "Failed to create department." };
+    return {
+      success: false,
+      message: error.message || "Failed to create department.",
+    };
   }
 }
 
@@ -95,6 +104,9 @@ export async function updateDepartment(
     if (!id) {
       return { success: false, message: "Department ID is required." };
     }
+
+    await requireRights(["MANAGE_CONFIGS"]);
+
     if (!data.code.trim() || !data.name.trim()) {
       return {
         success: false,
@@ -125,7 +137,10 @@ export async function updateDepartment(
     return { success: true, message: "Department updated successfully!" };
   } catch (error: any) {
     console.error("Error updating department:", error);
-    return { success: false, message: "Failed to update department." };
+    return {
+      success: false,
+      message: error.message || "Failed to update department.",
+    };
   }
 }
 
@@ -137,6 +152,8 @@ export async function deleteDepartment(id: string) {
     if (!id) {
       return { success: false, message: "Department ID is required." };
     }
+
+    await requireRights(["MANAGE_CONFIGS"]);
 
     // Safety: check if there are users in this department
     const usersCount = await prisma.user.count({
@@ -157,6 +174,9 @@ export async function deleteDepartment(id: string) {
     return { success: true, message: "Department deleted successfully!" };
   } catch (error: any) {
     console.error("Error deleting department:", error);
-    return { success: false, message: "Failed to delete department." };
+    return {
+      success: false,
+      message: error.message || "Failed to delete department.",
+    };
   }
 }

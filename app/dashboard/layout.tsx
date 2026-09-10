@@ -54,58 +54,54 @@ export default function DashboardLayout({
   const isAuthorized = () => {
     if (!user) return true;
 
-    const role = user.role.toUpperCase();
     const rights = user.rights || [];
+    const isAdmin = rights.includes("ADMIN");
 
     if (pathname === "/dashboard/users") {
       return (
-        role === "ADMIN" ||
-        role === "SUPER_ADMIN" ||
-        role === "HOD" ||
-        rights.includes("MANAGE_USERS")
+        isAdmin ||
+        rights.includes("MANAGE_USERS") ||
+        rights.includes("MANAGE_DEPARTMENT")
       );
     }
 
     if (pathname === "/dashboard/students") {
       return (
-        role === "ADMIN" ||
-        role === "SUPER_ADMIN" ||
-        role === "HOD" ||
-        rights.includes("MANAGE_USERS")
+        isAdmin ||
+        rights.includes("MANAGE_STUDENTS") ||
+        rights.includes("MANAGE_USERS") ||
+        rights.includes("MANAGE_DEPARTMENT")
       );
     }
 
     if (pathname === "/dashboard/courses") {
       return (
-        role === "ADMIN" ||
-        role === "SUPER_ADMIN" ||
-        role === "HOD" ||
-        rights.includes("MANAGE_COURSES")
+        isAdmin ||
+        rights.includes("MANAGE_CONFIGS") ||
+        rights.includes("MANAGE_DEPARTMENT")
       );
     }
 
     if (pathname === "/dashboard/category") {
       return (
-        role === "ADMIN" ||
-        role === "SUPER_ADMIN" ||
-        rights.includes("MANAGE_CATEGORIES")
+        isAdmin ||
+        rights.includes("MANAGE_CONFIGS")
       );
     }
 
     if (pathname === "/dashboard/departments") {
-      return role === "ADMIN" || role === "SUPER_ADMIN";
+      return isAdmin || rights.includes("MANAGE_CONFIGS");
     }
 
     if (pathname === "/dashboard/routing") {
       return (
-        role === "ADMIN" ||
-        role === "SUPER_ADMIN" ||
+        isAdmin ||
         rights.includes("MANAGE_ROUTING")
       );
     }
 
     if (pathname === "/dashboard/create-request") {
-      return role === "STUDENT" || role === "FACULTY" || role === "HOD";
+      return true;
     }
 
     return true;
@@ -239,10 +235,9 @@ export default function DashboardLayout({
             onClick={() => setIsSidebarOpen(false)}
           />
           {user &&
-            (user.role === "ADMIN" ||
-              user.role === "SUPER_ADMIN" ||
-              user.role === "HOD" ||
-              user.rights?.includes("MANAGE_COURSES")) && (
+            (user.rights?.includes("ADMIN") ||
+              user.rights?.includes("MANAGE_CONFIGS") ||
+              user.rights?.includes("MANAGE_DEPARTMENT")) && (
               <SidebarLink
                 href="/dashboard/courses"
                 icon={<BookOpen className="h-4 w-4" />}
@@ -251,9 +246,8 @@ export default function DashboardLayout({
               />
             )}
           {user &&
-            (user.role === "ADMIN" ||
-              user.role === "SUPER_ADMIN" ||
-              user.rights?.includes("MANAGE_CATEGORIES")) && (
+            (user.rights?.includes("ADMIN") ||
+              user.rights?.includes("MANAGE_CONFIGS")) && (
               <SidebarLink
                 href="/dashboard/category"
                 icon={<Grid className="h-4 w-4" />}
@@ -261,7 +255,9 @@ export default function DashboardLayout({
                 onClick={() => setIsSidebarOpen(false)}
               />
             )}
-          {user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN") && (
+          {user &&
+            (user.rights?.includes("ADMIN") ||
+              user.rights?.includes("MANAGE_CONFIGS")) && (
             <SidebarLink
               href="/dashboard/departments"
               icon={<Landmark className="h-4 w-4" />}
@@ -270,8 +266,7 @@ export default function DashboardLayout({
             />
           )}
           {user &&
-            (user.role === "ADMIN" ||
-              user.role === "SUPER_ADMIN" ||
+            (user.rights?.includes("ADMIN") ||
               user.rights?.includes("MANAGE_ROUTING")) && (
               <SidebarLink
                 href="/dashboard/routing"
@@ -280,22 +275,18 @@ export default function DashboardLayout({
                 onClick={() => setIsSidebarOpen(false)}
               />
             )}
+          {user && (
+            <SidebarLink
+              href="/dashboard/create-request"
+              icon={<PlusCircle className="h-4 w-4" />}
+              label="Submit Request"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
           {user &&
-            (user.role === "STUDENT" ||
-              user.role === "FACULTY" ||
-              user.role === "HOD") && (
-              <SidebarLink
-                href="/dashboard/create-request"
-                icon={<PlusCircle className="h-4 w-4" />}
-                label="Submit Request"
-                onClick={() => setIsSidebarOpen(false)}
-              />
-            )}
-          {user &&
-            (user.role === "ADMIN" ||
-              user.role === "SUPER_ADMIN" ||
-              user.role === "HOD" ||
-              user.rights?.includes("MANAGE_USERS")) && (
+            (user.rights?.includes("ADMIN") ||
+              user.rights?.includes("MANAGE_USERS") ||
+              user.rights?.includes("MANAGE_DEPARTMENT")) && (
               <SidebarLink
                 href="/dashboard/users"
                 icon={<Users className="h-4 w-4" />}
@@ -304,10 +295,10 @@ export default function DashboardLayout({
               />
             )}
           {user &&
-            (user.role === "ADMIN" ||
-              user.role === "SUPER_ADMIN" ||
-              user.role === "HOD" ||
-              user.rights?.includes("MANAGE_USERS")) && (
+            (user.rights?.includes("ADMIN") ||
+              user.rights?.includes("MANAGE_STUDENTS") ||
+              user.rights?.includes("MANAGE_USERS") ||
+              user.rights?.includes("MANAGE_DEPARTMENT")) && (
               <SidebarLink
                 href="/dashboard/students"
                 icon={<GraduationCap className="h-4 w-4" />}
@@ -554,10 +545,8 @@ export default function DashboardLayout({
                   </>
                 )}
 
-                {/* System Permissions (Only show if not STUDENT and has rights) */}
-                {user?.role !== "STUDENT" &&
-                  user?.rights &&
-                  user.rights.length > 0 && (
+                {/* System Permissions (Only show if user has rights) */}
+                {user?.rights && user.rights.length > 0 && (
                     <div className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 mt-2">
                       <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
                         System Permissions

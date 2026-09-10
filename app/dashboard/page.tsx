@@ -9,6 +9,7 @@ interface ProfileUser {
   name: string;
   email: string;
   role: string;
+  rights?: string[];
 }
 
 export default function DashboardPage() {
@@ -46,10 +47,11 @@ export default function DashboardPage() {
     );
   }
 
-  // Route layouts based on active user role
-  const isStudent = user.role.toUpperCase() === "STUDENT";
+  // Check if user has any administrative or staff rights
+  const userRights = user.rights || [];
+  const hasStaffRights = userRights.length > 0;
   
-  if (isStudent) {
+  if (!hasStaffRights) {
     return (
       <div className="space-y-6">
         {/* Welcome Section */}
@@ -87,7 +89,7 @@ export default function DashboardPage() {
         <div className="space-y-1 max-w-sm">
           <h3 className="font-bold text-slate-850 dark:text-slate-200">Administrative Dashboard</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            You are signed in as an {user.role.toUpperCase()}. The administrator/officer resolution panels are currently under development.
+            Role: <span className="font-semibold">{user.role}</span>. Use the navigation sidebar to access modules according to your assigned rights.
           </p>
         </div>
       </div>

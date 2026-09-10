@@ -12,7 +12,7 @@ interface UserTableProps {
   setRoleFilter: (val: string) => void;
   handleEditClick: (u: any) => void;
   handleDeleteClick: (id: string) => void;
-  currentUser: { id?: string; role: string; departmentId?: string } | null;
+  currentUser: { id?: string; role?: string; rights?: string[]; departmentId?: string } | null;
   getRoleBadge: (role: string) => React.ReactNode;
   className?: string;
 }
@@ -30,20 +30,21 @@ export default function UserTable({
   getRoleBadge,
   className = "",
 }: UserTableProps) {
-  const isHOD = currentUser?.role.toUpperCase() === "HOD";
-  const isAdmin = currentUser?.role.toUpperCase() === "ADMIN" || currentUser?.role.toUpperCase() === "SUPER_ADMIN";
+  const userRights = currentUser?.rights || [];
+  const isAdmin = userRights.includes("ADMIN") || userRights.includes("MANAGE_USERS");
+  const isDeptManager = userRights.includes("MANAGE_DEPARTMENT");
 
   // Helper check to determine if a staff row can be edited/deleted by the current user
   const canManageUser = (u: any) => {
     // Cannot manage self
     if (u.id === currentUser?.id) return false;
 
-    // Admin can manage everyone (except self, handled above)
+    // Admin / User manager can manage everyone (except self, handled above)
     if (isAdmin) return true;
 
-    // HOD can only manage FACULTY members in their own department
-    if (isHOD) {
-      return u.role.toUpperCase() === "FACULTY" && u.departmentId === currentUser?.departmentId;
+    // Department manager can only manage staff members in their own department
+    if (isDeptManager) {
+      return u.departmentId === currentUser?.departmentId;
     }
 
     return false;
@@ -60,7 +61,7 @@ export default function UserTable({
               Staff Members
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {isHOD 
+              {isDeptManager && !isAdmin
                 ? "Manage faculty members under your department" 
                 : "University administrative officers and academic faculty members"}
             </p>
