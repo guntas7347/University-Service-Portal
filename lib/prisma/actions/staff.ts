@@ -9,21 +9,20 @@ import { requireRights, getAuthenticatedUser } from "./auth";
  */
 export async function getStaffUsers() {
   try {
-    const activeUser = await requireRights(["MANAGE_USERS", "MANAGE_DEPARTMENT"]);
+    const activeUser = await getAuthenticatedUser();
+    if (!activeUser) {
+      return { success: false, message: "Not authenticated." };
+    }
 
     const rights = activeUser.rights || [];
-    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_USERS");
-    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
+    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_USERS") || rights.includes("MANAGE_ROUTING");
+    const isDeptManager = rights.includes("MANAGE_DEPARTMENT") || activeUser.role === "HOD";
 
     let whereClause: any = {
       role: {
         not: "STUDENT",
       },
     };
-
-    if (isDeptManager && !isAdmin && activeUser.departmentId) {
-      whereClause.departmentId = activeUser.departmentId;
-    }
 
     const staff = await prisma.user.findMany({
       where: whereClause,

@@ -21,6 +21,7 @@ export async function getAuthenticatedUser() {
       include: {
         department: true,
         course: true,
+        managedDepartment: true,
       },
     });
   } catch (err) {

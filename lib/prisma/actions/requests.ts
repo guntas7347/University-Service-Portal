@@ -10,6 +10,80 @@ import {
 } from "@/prisma/generated/prisma/enums";
 
 /**
+ * Helper to fetch all department IDs an HOD manages or belongs to
+ */
+async function getHodDepartmentIds(user: any): Promise<string[]> {
+  const deptIds = new Set<string>();
+  if (user.departmentId) {
+    deptIds.add(user.departmentId);
+  }
+  if (user.managedDepartment?.id) {
+    deptIds.add(user.managedDepartment.id);
+  }
+  // Also check if any department in the DB has this user configured as hodId
+  const depts = await prisma.department.findMany({
+    where: { hodId: user.id },
+    select: { id: true },
+  });
+  depts.forEach((d) => deptIds.add(d.id));
+  return Array.from(deptIds);
+}
+
+/**
+ * Check if user is an HOD / Department Manager
+ */
+function isUserHod(user: any, managedDeptIds: string[]): boolean {
+  const rights = user.rights || [];
+  return (
+    rights.includes("MANAGE_DEPARTMENT") ||
+    user.role === "HOD" ||
+    managedDeptIds.length > 0 ||
+    !!user.managedDepartment
+  );
+}
+
+/**
+ * Check if an HOD manages the department of a request or the student who filed it
+ */
+function isHodForRequest(
+  user: any,
+  managedDeptIds: string[],
+  request: {
+    departmentId?: string | null;
+    department?: { id: string; hodId?: string | null } | null;
+    createdBy?: {
+      id?: string;
+      departmentId?: string | null;
+      department?: { id: string; hodId?: string | null } | null;
+      course?: { departmentId?: string | null } | null;
+    } | null;
+  },
+): boolean {
+  if (!isUserHod(user, managedDeptIds)) return false;
+
+  // 1. Direct match on target department of request
+  if (request.departmentId && managedDeptIds.includes(request.departmentId)) return true;
+  if (request.department?.id && managedDeptIds.includes(request.department.id)) return true;
+  if (request.department?.hodId === user.id) return true;
+
+  // 2. Direct match on student's department who raised the grievance
+  const studentDeptId =
+    request.createdBy?.departmentId ||
+    request.createdBy?.course?.departmentId;
+
+  if (studentDeptId && managedDeptIds.includes(studentDeptId)) return true;
+  if (
+    request.createdBy?.department?.id &&
+    managedDeptIds.includes(request.createdBy.department.id)
+  ) {
+    return true;
+  }
+  if (request.createdBy?.department?.hodId === user.id) return true;
+
+  return false;
+}
+
+/**
  * File a new grievance or query request in the database
  */
 export async function createRequest(data: {
@@ -141,7 +215,7 @@ export async function createRequest(data: {
         },
       });
 
-      // 6. Automatically resolve assignments
+      // 6. Automatically resolve assignments (multiple faculty can be assigned at creation)
       const assignedIds = new Set<string>();
 
       if (data.raiseMode === "CATEGORY" && data.categoryId) {
@@ -212,11 +286,13 @@ export async function createRequest(data: {
       // Create RequestWatcher records
       if (data.watcherUserIds && data.watcherUserIds.length > 0) {
         await tx.requestWatcher.createMany({
-          data: data.watcherUserIds.map((userId) => ({
-            requestId: req.id,
-            userId: userId,
-            addedById: activeUser.id,
-          })),
+          data: data.watcherUserIds
+            .filter((userId) => !assignedIds.has(userId))
+            .map((userId) => ({
+              requestId: req.id,
+              userId: userId,
+              addedById: activeUser.id,
+            })),
         });
       }
 
@@ -301,7 +377,7 @@ export async function getStudentRequests() {
 }
 
 /**
- * Fetch all requests (Staff get all, Students get only their own)
+ * Fetch all requests based on role, department management, assignments, and watchlists
  */
 export async function getAllRequests() {
   try {
@@ -310,19 +386,15 @@ export async function getAllRequests() {
       return { success: false, message: "Not authenticated." };
     }
 
-    let requests;
     const rights = user.rights || [];
     const isAdmin = rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
-    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
-    const hasStaffRights =
-      rights.includes("RESOLVE_GRIEVANCES") ||
-      rights.includes("MANAGE_ROUTING") ||
-      rights.includes("MANAGE_CONFIGS") ||
-      rights.includes("MANAGE_USERS") ||
-      rights.includes("MANAGE_STUDENTS") ||
-      rights.includes("MANAGE_DEPARTMENT");
+    const managedDeptIds = await getHodDepartmentIds(user);
+    const isDeptManager = isUserHod(user, managedDeptIds);
+
+    let requests;
 
     if (isAdmin) {
+      // Admins see all requests
       requests = await prisma.request.findMany({
         include: {
           category: { select: { name: true } },
@@ -337,47 +409,36 @@ export async function getAllRequests() {
         },
         orderBy: { createdAt: "desc" },
       });
-    } else if (isDeptManager && user.departmentId) {
+    } else if (isDeptManager && managedDeptIds.length > 0) {
+      // HOD sees:
+      // 1. Requests targeted to their department
+      // 2. Requests where department's hodId is this user
+      // 3. Requests created by students/users of their department (via departmentId, course, or department.hodId)
+      // 4. Requests assigned to this HOD
+      // 5. Requests watched by this HOD
+      // 6. Requests created by this HOD
       requests = await prisma.request.findMany({
         where: {
           OR: [
-            { departmentId: user.departmentId },
+            { departmentId: { in: managedDeptIds } },
+            { department: { hodId: user.id } },
             {
               createdBy: {
-                departmentId: user.departmentId,
+                departmentId: { in: managedDeptIds },
               },
             },
             {
-              assignments: {
-                some: { userId: user.id },
+              createdBy: {
+                department: { hodId: user.id },
               },
             },
             {
-              watchers: {
-                some: { userId: user.id },
+              createdBy: {
+                course: {
+                  departmentId: { in: managedDeptIds },
+                },
               },
             },
-            { createdById: user.id },
-          ],
-        },
-        include: {
-          category: { select: { name: true } },
-          department: { select: { name: true } },
-          createdBy: { select: { fullName: true, rollNumber: true } },
-          assignments: {
-            include: {
-              user: { select: { id: true, fullName: true, role: true } },
-            },
-          },
-          watchers: { select: { userId: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    } else if (hasStaffRights) {
-      // Staff with resolution/assignment rights
-      requests = await prisma.request.findMany({
-        where: {
-          OR: [
             {
               assignments: {
                 some: { userId: user.id },
@@ -405,16 +466,22 @@ export async function getAllRequests() {
         orderBy: { createdAt: "desc" },
       });
     } else {
-      // Regular user / student: view self-created requests and requests where they are watching
+      // All other faculty, staff, students, and watchers:
+      // Can ALWAYS see requests assigned to them, watched by them, or created by them!
       requests = await prisma.request.findMany({
         where: {
           OR: [
-            { createdById: user.id },
+            {
+              assignments: {
+                some: { userId: user.id },
+              },
+            },
             {
               watchers: {
                 some: { userId: user.id },
               },
             },
+            { createdById: user.id },
           ],
         },
         include: {
@@ -442,6 +509,7 @@ export async function getAllRequests() {
           .map((a: any) => a.user.fullName)
           .join(", ");
         const isWatcher = r.watchers?.some((w: any) => w.userId === user.id) || false;
+        const isAssigned = r.assignments?.some((a: any) => a.userId === user.id) || false;
 
         return {
           id: r.id,
@@ -464,12 +532,13 @@ export async function getAllRequests() {
           isEscalated: r.isEscalated || false,
           tags: r.tags || [],
           isWatcher,
+          isAssigned,
         };
       }),
       userRole: user.role,
       userRights: user.rights || [],
       userId: user.id,
-      userDeptId: user.departmentId || "",
+      userDeptId: user.departmentId || user.managedDepartment?.id || (managedDeptIds[0] || ""),
     };
   } catch (error: any) {
     console.error("Error fetching all requests:", error);
@@ -571,7 +640,6 @@ export async function getRequestDetails(requestId: string) {
     }
 
     // Access control evaluation
-    let hasAccess = false;
     const isCreator = reqDetails.createdById === activeUser.id;
     const isAssigned = reqDetails.assignments.some(
       (a) => a.userId === activeUser.id,
@@ -582,17 +650,10 @@ export async function getRequestDetails(requestId: string) {
 
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
-    const isDeptManager =
-      rights.includes("MANAGE_DEPARTMENT") &&
-      activeUser.departmentId &&
-      (reqDetails.departmentId === activeUser.departmentId ||
-        reqDetails.createdBy.departmentId === activeUser.departmentId);
+    const managedDeptIds = await getHodDepartmentIds(activeUser);
+    const isDeptManager = isHodForRequest(activeUser, managedDeptIds, reqDetails);
 
-    if (isAdmin || isDeptManager) {
-      hasAccess = true;
-    } else {
-      hasAccess = isCreator || isAssigned || isWatcher;
-    }
+    const hasAccess = isAdmin || isDeptManager || isCreator || isAssigned || isWatcher;
 
     if (!hasAccess) {
       return {
@@ -602,12 +663,20 @@ export async function getRequestDetails(requestId: string) {
       };
     }
 
-    const hasStaffRights =
-      rights.length > 0 || isAssigned || isWatcher || isDeptManager || isAdmin;
+    // Pure watcher: in watchers list, but NOT an admin, NOT department HOD, NOT assigned handler, NOT creator
+    const isPureWatcher =
+      isWatcher && !isAdmin && !isDeptManager && !isAssigned && !isCreator;
+
+    // Internal comments visibility: Staff, HOD, Admin, and Assignees can view internal notes; students cannot
+    const canViewInternalComments =
+      isAdmin ||
+      isDeptManager ||
+      isAssigned ||
+      (activeUser.role !== "STUDENT" && (rights.length > 0 || isWatcher));
 
     const visibleComments = reqDetails.comments.filter((c) => {
       if (!c.internal) return true;
-      return hasStaffRights;
+      return canViewInternalComments;
     });
 
     const mappedDetails = {
@@ -732,6 +801,7 @@ export async function getRequestDetails(requestId: string) {
       lastEscalatedAt: reqDetails.lastEscalatedAt ? reqDetails.lastEscalatedAt.toISOString() : null,
       isEscalated: reqDetails.isEscalated || false,
       tags: reqDetails.tags || [],
+      isPureWatcher,
       canEscalate: (() => {
         const isTerminal = (
           [
@@ -763,7 +833,7 @@ export async function getRequestDetails(requestId: string) {
       userRole: activeUser.role,
       userRights: activeUser.rights,
       userId: activeUser.id,
-      userDeptId: activeUser.departmentId || "",
+      userDeptId: activeUser.departmentId || activeUser.managedDepartment?.id || (managedDeptIds[0] || ""),
     };
   } catch (error: any) {
     console.error("Error retrieving request details:", error);
@@ -998,6 +1068,14 @@ export async function escalateRequest(requestId: string, reason?: string) {
             },
           });
         }
+
+        // If newly escalated user was a watcher, remove them from watchers
+        await tx.requestWatcher.deleteMany({
+          where: {
+            requestId: req.id,
+            userId: newUserId,
+          },
+        });
       }
 
       // Add timeline log activity
@@ -1018,15 +1096,16 @@ export async function escalateRequest(requestId: string, reason?: string) {
       });
     });
 
+    console.log(`Successfully escalated request ${req.ticketId} to Level ${nextEscalation}`);
     return {
       success: true,
-      message: `Request successfully escalated to Level ${nextEscalation} (${nextTargetLabel}).`,
+      message: `Request successfully escalated to Level ${nextEscalation}!`,
     };
   } catch (error: any) {
     console.error("Error escalating request:", error);
     return {
       success: false,
-      message: "Failed to escalate request due to an internal error.",
+      message: "Database error during escalation.",
     };
   }
 }
@@ -1048,25 +1127,34 @@ export async function updateRequestStatus(
       include: {
         assignments: true,
         watchers: true,
+        createdBy: { include: { course: true } },
+        department: true,
       },
     });
-    if (!request)
+    if (!request) {
       return { success: false, message: "Request ticket not found." };
+    }
 
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN") || rights.includes("RESOLVE_GRIEVANCES");
     const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
-    const isDeptManager =
-      rights.includes("MANAGE_DEPARTMENT") &&
-      activeUser.departmentId &&
-      (request.departmentId === activeUser.departmentId);
+    const managedDeptIds = await getHodDepartmentIds(activeUser);
+    const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
     const isWatcher = request.watchers.some((w) => w.userId === activeUser.id);
 
-    // Watchers who are not admin, assigned handler, or dept manager have read-only access
+    // Watchers have strictly read-only access
     if (isWatcher && !isAdmin && !isAssigned && !isDeptManager) {
       return {
         success: false,
         message: "Access Denied. Watchers have read-only access and cannot update ticket status.",
+      };
+    }
+
+    // Must have assignment, HOD, or resolution authority
+    if (!isAdmin && !isAssigned && !isDeptManager) {
+      return {
+        success: false,
+        message: "Access Denied. You do not have permission to update ticket status.",
       };
     }
 
@@ -1101,7 +1189,8 @@ export async function updateRequestStatus(
 }
 
 /**
- * Assign / Forward request to another staff member
+ * Assign request to a staff handler.
+ * Any other current assignees on this request are converted into watchers!
  */
 export async function assignRequest(
   requestId: string,
@@ -1114,21 +1203,29 @@ export async function assignRequest(
 
     const request = await prisma.request.findUnique({
       where: { id: requestId },
-      include: { assignments: true, createdBy: true },
+      include: {
+        assignments: {
+          include: {
+            user: { select: { id: true, fullName: true, role: true } },
+          },
+        },
+        watchers: true,
+        createdBy: {
+          include: { department: true, course: true },
+        },
+        department: true,
+      },
     });
     if (!request) return { success: false, message: "Request not found." };
 
-    // Authorization checks
+    // Authorization checks: Admin, Routing right, or Department HOD
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN");
     const hasRoutingRight = rights.includes("MANAGE_ROUTING");
-    const hasDeptRight =
-      rights.includes("MANAGE_DEPARTMENT") &&
-      activeUser.departmentId &&
-      (request.departmentId === activeUser.departmentId ||
-        request.createdBy.departmentId === activeUser.departmentId);
+    const managedDeptIds = await getHodDepartmentIds(activeUser);
+    const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
 
-    if (!isAdmin && !hasRoutingRight && !hasDeptRight) {
+    if (!isAdmin && !hasRoutingRight && !isDeptManager) {
       return {
         success: false,
         message:
@@ -1147,14 +1244,9 @@ export async function assignRequest(
       };
     }
 
-    // Check if duplicate assignment exists
-    const existing = request.assignments.find((a) => a.userId === assignedToId);
-    if (existing) {
-      return {
-        success: false,
-        message: `${staff.fullName} is already assigned to this request.`,
-      };
-    }
+    // Other current assignees to convert to watchers
+    const otherAssignees = request.assignments.filter((a) => a.userId !== assignedToId);
+    const existingWatcherUserIds = new Set(request.watchers.map((w) => w.userId));
 
     // Update request status to ASSIGNED if SUBMITTED
     const nextStatus =
@@ -1163,18 +1255,59 @@ export async function assignRequest(
         : request.status;
 
     await prisma.$transaction(async (tx) => {
-      // Create request assignment
-      await tx.requestAssignment.create({
-        data: {
+      // 1. Remove other assignees from assignments
+      if (otherAssignees.length > 0) {
+        await tx.requestAssignment.deleteMany({
+          where: {
+            requestId,
+            userId: { in: otherAssignees.map((a) => a.userId) },
+          },
+        });
+
+        // 2. Convert them to watchers if not already watching
+        const watchersToCreate = otherAssignees
+          .filter((a) => !existingWatcherUserIds.has(a.userId))
+          .map((a) => ({
+            requestId,
+            userId: a.userId,
+            addedById: activeUser.id,
+          }));
+
+        if (watchersToCreate.length > 0) {
+          await tx.requestWatcher.createMany({
+            data: watchersToCreate,
+          });
+        }
+      }
+
+      // 3. Remove assignedToId from watchers if they were watching
+      await tx.requestWatcher.deleteMany({
+        where: {
           requestId,
           userId: assignedToId,
-          assignedById: activeUser.id,
-          role: "PRIMARY",
-          status: "PENDING",
         },
       });
 
-      // Update request status
+      // 4. Assign new handler as PRIMARY
+      const existingAssignment = request.assignments.find((a) => a.userId === assignedToId);
+      if (!existingAssignment) {
+        await tx.requestAssignment.create({
+          data: {
+            requestId,
+            userId: assignedToId,
+            assignedById: activeUser.id,
+            role: "PRIMARY",
+            status: "PENDING",
+          },
+        });
+      } else {
+        await tx.requestAssignment.update({
+          where: { requestId_userId: { requestId, userId: assignedToId } },
+          data: { role: "PRIMARY", status: "PENDING" },
+        });
+      }
+
+      // 5. Update request status if needed
       if (nextStatus !== request.status) {
         await tx.request.update({
           where: { id: requestId },
@@ -1184,17 +1317,22 @@ export async function assignRequest(
     });
 
     // Log Assignment Activity
+    const otherNames = otherAssignees.map((a) => a.user?.fullName || "staff").join(", ");
+    const conversionNote =
+      otherAssignees.length > 0
+        ? ` Previous assignee(s) (${otherNames}) converted to watchers.`
+        : "";
+
     await prisma.requestActivity.create({
       data: {
         requestId,
         actorId: activeUser.id,
         type: ActivityType.ASSIGNED,
         newValue: staff.fullName,
-        message: message || `Request assigned to ${staff.fullName}.`,
+        message: message || `Request assigned to ${staff.fullName}.${conversionNote}`,
       },
     });
 
-    // If status changes to ASSIGNED, log that as well
     if (nextStatus !== request.status) {
       await prisma.requestActivity.create({
         data: {
@@ -1210,7 +1348,7 @@ export async function assignRequest(
 
     return {
       success: true,
-      message: `Request successfully assigned to ${staff.fullName}!`,
+      message: `Request successfully assigned to ${staff.fullName}!${conversionNote}`,
     };
   } catch (error: any) {
     console.error("Error assigning request:", error);
@@ -1239,6 +1377,8 @@ export async function addRequestComment(
       include: {
         assignments: true,
         watchers: true,
+        createdBy: { include: { course: true } },
+        department: true,
       },
     });
 
@@ -1248,17 +1388,31 @@ export async function addRequestComment(
     const isAdmin = rights.includes("ADMIN");
     const isCreator = request.createdById === activeUser.id;
     const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
-    const isDeptManager =
-      rights.includes("MANAGE_DEPARTMENT") &&
-      activeUser.departmentId &&
-      (request.departmentId === activeUser.departmentId);
+    const managedDeptIds = await getHodDepartmentIds(activeUser);
+    const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
     const isWatcher = request.watchers.some((w) => w.userId === activeUser.id);
 
-    // Watchers who are not admin, creator, assigned handler, or dept manager have read-only access
+    // Watchers have strictly read-only access
     if (isWatcher && !isAdmin && !isCreator && !isAssigned && !isDeptManager) {
       return {
         success: false,
         message: "Access Denied. Watchers have read-only access to this grievance timeline.",
+      };
+    }
+
+    // Must be authorized to comment
+    if (!isAdmin && !isCreator && !isAssigned && !isDeptManager) {
+      return {
+        success: false,
+        message: "Access Denied. You do not have permission to comment on this request.",
+      };
+    }
+
+    // Disallow regular students from posting internal comments
+    if (internal && activeUser.role === "STUDENT" && !isAdmin && !isDeptManager && !isAssigned) {
+      return {
+        success: false,
+        message: "Students cannot post internal comments.",
       };
     }
 
@@ -1306,6 +1460,41 @@ export async function addRequestAttachment(
 
     if (!fileName.trim() || !fileUrl.trim()) {
       return { success: false, message: "File name and URL are required." };
+    }
+
+    const request = await prisma.request.findUnique({
+      where: { id: requestId },
+      include: {
+        assignments: true,
+        watchers: true,
+        createdBy: { include: { course: true } },
+        department: true,
+      },
+    });
+    if (!request) return { success: false, message: "Request not found." };
+
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN");
+    const isCreator = request.createdById === activeUser.id;
+    const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
+    const managedDeptIds = await getHodDepartmentIds(activeUser);
+    const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
+    const isWatcher = request.watchers.some((w) => w.userId === activeUser.id);
+
+    // Watchers have read-only access
+    if (isWatcher && !isAdmin && !isCreator && !isAssigned && !isDeptManager) {
+      return {
+        success: false,
+        message: "Access Denied. Watchers have read-only access and cannot upload attachments.",
+      };
+    }
+
+    // Must be authorized to attach files
+    if (!isAdmin && !isCreator && !isAssigned && !isDeptManager) {
+      return {
+        success: false,
+        message: "Access Denied. You do not have permission to attach files to this request.",
+      };
     }
 
     const mime = fileName.split(".").pop() || "txt";
@@ -1366,20 +1555,17 @@ export async function unassignRequest(requestId: string, userId: string) {
 
     const request = await prisma.request.findUnique({
       where: { id: requestId },
-      include: { createdBy: true },
+      include: { createdBy: { include: { course: true } }, department: true },
     });
     if (!request) return { success: false, message: "Request not found." };
 
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN");
     const hasRoutingRight = rights.includes("MANAGE_ROUTING");
-    const hasDeptRight =
-      rights.includes("MANAGE_DEPARTMENT") &&
-      activeUser.departmentId &&
-      (request.departmentId === activeUser.departmentId ||
-        request.createdBy.departmentId === activeUser.departmentId);
+    const managedDeptIds = await getHodDepartmentIds(activeUser);
+    const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
 
-    if (!isAdmin && !hasRoutingRight && !hasDeptRight) {
+    if (!isAdmin && !hasRoutingRight && !isDeptManager) {
       return {
         success: false,
         message:
@@ -1425,15 +1611,32 @@ export async function addRequestWatcher(requestId: string, userId: string) {
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    const existing = await prisma.requestWatcher.findUnique({
-      where: {
-        requestId_userId: {
-          requestId,
-          userId,
-        },
+    const request = await prisma.request.findUnique({
+      where: { id: requestId },
+      include: {
+        assignments: true,
+        watchers: true,
+        createdBy: { include: { course: true } },
+        department: true,
       },
     });
+    if (!request) return { success: false, message: "Request not found." };
 
+    const rights = activeUser.rights || [];
+    const isAdmin = rights.includes("ADMIN");
+    const hasRoutingRight = rights.includes("MANAGE_ROUTING");
+    const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
+    const managedDeptIds = await getHodDepartmentIds(activeUser);
+    const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
+
+    if (!isAdmin && !hasRoutingRight && !isDeptManager && !isAssigned) {
+      return {
+        success: false,
+        message: "Access Denied. You do not have permission to add watchers to this request.",
+      };
+    }
+
+    const existing = request.watchers.find((w) => w.userId === userId);
     if (existing) {
       return {
         success: false,
@@ -1445,7 +1648,6 @@ export async function addRequestWatcher(requestId: string, userId: string) {
       where: { id: userId },
       select: { fullName: true },
     });
-
     if (!staff) {
       return { success: false, message: "Staff user not found." };
     }
@@ -1476,7 +1678,8 @@ export async function addRequestWatcher(requestId: string, userId: string) {
 }
 
 /**
- * Remove a watcher from a request
+ * Remove a watcher from a request.
+ * Watchers can always remove themselves without requiring admin privileges!
  */
 export async function removeRequestWatcher(requestId: string, userId: string) {
   try {
@@ -1508,13 +1711,10 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
       // Check if caller is department manager
       const req = await prisma.request.findUnique({
         where: { id: requestId },
-        select: { departmentId: true, createdBy: { select: { departmentId: true } } },
+        include: { createdBy: { include: { course: true } }, department: true },
       });
-      const isDeptManager =
-        rights.includes("MANAGE_DEPARTMENT") &&
-        activeUser.departmentId &&
-        (req?.departmentId === activeUser.departmentId ||
-          req?.createdBy?.departmentId === activeUser.departmentId);
+      const managedDeptIds = await getHodDepartmentIds(activeUser);
+      const isDeptManager = req ? isHodForRequest(activeUser, managedDeptIds, req) : false;
 
       if (!isDeptManager) {
         return {
@@ -1571,10 +1771,20 @@ export async function updateRequestTarget(
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    // Authorization Gate: admin or department manager
+    const request = await prisma.request.findUnique({
+      where: { id: requestId },
+      include: {
+        category: true,
+        department: true,
+        createdBy: { include: { course: true } },
+      },
+    });
+    if (!request) return { success: false, message: "Request not found." };
+
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN");
-    const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
+    const managedDeptIds = await getHodDepartmentIds(activeUser);
+    const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
 
     if (!isAdmin && !isDeptManager) {
       return {
@@ -1583,12 +1793,6 @@ export async function updateRequestTarget(
           "Access Denied. Only Admins or Department Managers can change request category/department.",
       };
     }
-
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: { category: true, department: true },
-    });
-    if (!request) return { success: false, message: "Request not found." };
 
     // Log Activity and Update
     let oldTargetName = "";
@@ -1661,7 +1865,8 @@ export async function updateRequestTarget(
 }
 
 /**
- * Forward request from currently assigned faculty member to another staff member
+ * Forward request from currently assigned faculty member to another staff member.
+ * Active handler (and other assignees) are converted to watchers.
  */
 export async function forwardRequest(
   requestId: string,
@@ -1675,7 +1880,11 @@ export async function forwardRequest(
     const request = await prisma.request.findUnique({
       where: { id: requestId },
       include: {
-        assignments: true,
+        assignments: {
+          include: {
+            user: { select: { id: true, fullName: true, role: true } },
+          },
+        },
         watchers: true,
       },
     });
@@ -1705,53 +1914,65 @@ export async function forwardRequest(
       };
     }
 
-    // Verify duplicate assignment
-    const existing = request.assignments.find((a) => a.userId === targetUserId);
-    if (existing) {
-      return {
-        success: false,
-        message: `${targetUser.fullName} is already assigned to this request.`,
-      };
-    }
+    // Current assignees other than target user to be converted to watchers
+    const assigneesToConvert = request.assignments.filter((a) => a.userId !== targetUserId);
+    const existingWatcherUserIds = new Set(request.watchers.map((w) => w.userId));
 
     await prisma.$transaction(async (tx) => {
-      // 1. Remove active user from assignees
-      await tx.requestAssignment.delete({
-        where: {
-          requestId_userId: {
+      // 1. Remove all current assignees from assignments
+      if (assigneesToConvert.length > 0) {
+        await tx.requestAssignment.deleteMany({
+          where: {
             requestId,
-            userId: activeUser.id,
-          },
-        },
-      });
-
-      // 2. Add active user as watcher (if not already watching)
-      const isAlreadyWatcher = request.watchers.some(
-        (w) => w.userId === activeUser.id,
-      );
-      if (!isAlreadyWatcher) {
-        await tx.requestWatcher.create({
-          data: {
-            requestId,
-            userId: activeUser.id,
-            addedById: activeUser.id,
+            userId: { in: assigneesToConvert.map((a) => a.userId) },
           },
         });
+
+        // 2. Convert them to watchers
+        const watchersToCreate = assigneesToConvert
+          .filter((a) => !existingWatcherUserIds.has(a.userId))
+          .map((a) => ({
+            requestId,
+            userId: a.userId,
+            addedById: activeUser.id,
+          }));
+
+        if (watchersToCreate.length > 0) {
+          await tx.requestWatcher.createMany({
+            data: watchersToCreate,
+          });
+        }
       }
 
-      // 3. Add target user as assignee
-      await tx.requestAssignment.create({
-        data: {
+      // 3. Remove target user from watchers if they were watching
+      await tx.requestWatcher.deleteMany({
+        where: {
           requestId,
           userId: targetUserId,
-          assignedById: activeUser.id,
-          role: "PRIMARY",
-          status: "PENDING",
         },
       });
+
+      // 4. Add target user as assignee
+      const existingTargetAssign = request.assignments.find((a) => a.userId === targetUserId);
+      if (!existingTargetAssign) {
+        await tx.requestAssignment.create({
+          data: {
+            requestId,
+            userId: targetUserId,
+            assignedById: activeUser.id,
+            role: "PRIMARY",
+            status: "PENDING",
+          },
+        });
+      } else {
+        await tx.requestAssignment.update({
+          where: { requestId_userId: { requestId, userId: targetUserId } },
+          data: { role: "PRIMARY", status: "PENDING" },
+        });
+      }
     });
 
-    // 4. Log Forward Activity
+    // 5. Log Forward Activity
     await prisma.requestActivity.create({
       data: {
         requestId,
@@ -1761,13 +1982,13 @@ export async function forwardRequest(
         newValue: targetUser.fullName,
         message:
           message ||
-          `Request forwarded from ${activeUser.fullName} to ${targetUser.fullName}.`,
+          `Request forwarded from ${activeUser.fullName} to ${targetUser.fullName}. Active handler converted to watcher.`,
       },
     });
 
     return {
       success: true,
-      message: `Request forwarded to ${targetUser.fullName} successfully!`,
+      message: `Request forwarded to ${targetUser.fullName} successfully! You are now watching this request.`,
     };
   } catch (error: any) {
     console.error("Error forwarding request:", error);
