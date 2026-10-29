@@ -108,7 +108,7 @@ export const fetchSSOToken = async (code: string) => {
       };
     }
 
-    const res = await fetch(`${process.env.SSO_URL}/api/token`, {
+    const res = await fetch(`${process.env.SSO_URL}/api/auth/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -132,7 +132,9 @@ export const fetchSSOToken = async (code: string) => {
       throw new Error("Invalid SSO user payload: missing user ID");
     }
 
-    const ssoRole = ssoUser.role ? String(ssoUser.role).toUpperCase() : "STUDENT";
+    const ssoRole = ssoUser.role
+      ? String(ssoUser.role).toUpperCase()
+      : "STUDENT";
     const role: string = ssoRole || "STUDENT";
 
     // Initial rights if new administrator
@@ -182,7 +184,9 @@ export const fetchSSOToken = async (code: string) => {
             : {}),
           ...(ssoUser.email ? { email: ssoUser.email } : {}),
           ...(ssoUser.rollNumber ? { rollNumber: ssoUser.rollNumber } : {}),
-          ...(ssoUser.mobileNumber ? { mobileNumber: ssoUser.mobileNumber } : {}),
+          ...(ssoUser.mobileNumber
+            ? { mobileNumber: ssoUser.mobileNumber }
+            : {}),
         },
       });
     }
@@ -206,7 +210,11 @@ export const fetchSSOToken = async (code: string) => {
       maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
     });
 
-    console.log("SSO LOGIN: Authenticated user", user.id, "(internal ID saved to JWT)");
+    console.log(
+      "SSO LOGIN: Authenticated user",
+      user.id,
+      "(internal ID saved to JWT)",
+    );
 
     return { success: true, user };
   } catch (error: any) {
@@ -217,4 +225,3 @@ export const fetchSSOToken = async (code: string) => {
     };
   }
 };
-

@@ -76,7 +76,9 @@ export default function LoginPage() {
         .then((init) => {
           if (init.hasSession) {
             setVerificationSuccess(true);
-            setStatusMessage("Active session found. Redirecting to dashboard...");
+            setStatusMessage(
+              "Active session found. Redirecting to dashboard...",
+            );
             router.push(init.redirectUrl);
           } else {
             setStatusMessage(
