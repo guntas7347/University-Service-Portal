@@ -3,6 +3,7 @@
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { generateCodeChallenge, generateCodeVerifier } from "./pkce";
+import { getSSOUrl } from "./sso";
 import prisma from "../prisma/prisma";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -68,7 +69,7 @@ export async function handleLoginInit(): Promise<{
     console.error("Error checking session in handleLoginInit:", err);
   }
 
-  const ssoUrl = await loginWithSSO();
+  const ssoUrl = getSSOUrl();
   return { hasSession: false, redirectUrl: ssoUrl };
 }
 

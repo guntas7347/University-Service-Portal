@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { CheckCircle2, GraduationCap, Loader2, Sun, Moon } from "lucide-react";
+import { CheckCircle2, GraduationCap, Loader2, Sun, Moon, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/hooks/useTheme";
-import { fetchSSOToken, handleLoginInit, loginWithSSO } from "@/lib/auth/auth";
+import { handleLoginInit } from "@/lib/auth/auth";
+import { getSSOUrl } from "@/lib/auth/sso";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,88 +14,65 @@ export default function LoginPage() {
   const { theme, toggleTheme } = useTheme();
   const isDarkMode = theme === "dark";
 
-  // SSO Redirection & verification states
+  // SSO Redirection states
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const [verificationSuccess, setVerificationSuccess] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Connecting to portal...");
 
-  const processedCodeRef = useRef<string | null>(null);
   const initTriggeredRef = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
+    const error = params.get("error");
 
+    // If an authorization code somehow landed on /login, forward it to callback route
     if (code) {
-      if (processedCodeRef.current === code) return;
-      processedCodeRef.current = code;
-
-      setIsVerifying(true);
-      setStatusMessage("Verifying SSO authorization code...");
-
-      fetchSSOToken(code)
-        .then((result) => {
-          if (result && result.success) {
-            setVerificationSuccess(true);
-            setStatusMessage(
-              "Authentication successful! Loading your dashboard...",
-            );
-            setTimeout(() => {
-              router.push("/dashboard");
-            }, 300);
-          } else {
-            setIsVerifying(false);
-            setIsRedirecting(true);
-            setStatusMessage(
-              (result?.message || "Verification failed") +
-                ". Redirecting to SSO portal...",
-            );
-            setTimeout(async () => {
-              const ssoUrl = await loginWithSSO();
-              window.location.href = ssoUrl;
-            }, 1200);
-          }
-        })
-        .catch((err) => {
-          console.error("SSO token exchange failed:", err);
-          setIsVerifying(false);
-          setIsRedirecting(true);
-          setStatusMessage("Verification failed. Redirecting to SSO portal...");
-          loginWithSSO().then((ssoUrl) => {
-            window.location.href = ssoUrl;
-          });
-        });
-    } else {
-      if (initTriggeredRef.current) return;
-      initTriggeredRef.current = true;
-
-      setIsRedirecting(true);
-      setStatusMessage("Checking session...");
-
-      handleLoginInit()
-        .then((init) => {
-          if (init.hasSession) {
-            setVerificationSuccess(true);
-            setStatusMessage(
-              "Active session found. Redirecting to dashboard...",
-            );
-            router.push(init.redirectUrl);
-          } else {
-            setStatusMessage(
-              "Connecting to Shaheed Bhagat Singh SSO portal. Please wait...",
-            );
-            window.location.href = init.redirectUrl;
-          }
-        })
-        .catch((err) => {
-          console.error("Login init error:", err);
-          loginWithSSO().then((ssoUrl) => {
-            window.location.href = ssoUrl;
-          });
-        });
+      setStatusMessage("Forwarding authorization to portal gateway...");
+      window.location.href = `/api/auth/callback?code=${encodeURIComponent(code)}`;
+      return;
     }
+
+    // If an authentication error was returned, present it to user without auto-redirect loop
+    if (error) {
+      setHasError(true);
+      setStatusMessage(error);
+      return;
+    }
+
+    if (initTriggeredRef.current) return;
+    initTriggeredRef.current = true;
+
+    setIsRedirecting(true);
+    setStatusMessage("Checking session...");
+
+    handleLoginInit()
+      .then((init) => {
+        if (init.hasSession) {
+          setVerificationSuccess(true);
+          setStatusMessage("Active session found. Redirecting to dashboard...");
+          router.push(init.redirectUrl);
+        } else {
+          setStatusMessage(
+            "Connecting to Shaheed Bhagat Singh SSO portal. Please wait...",
+          );
+          window.location.href = init.redirectUrl;
+        }
+      })
+      .catch((err) => {
+        console.error("Login initialization error:", err);
+        const ssoUrl = getSSOUrl();
+        window.location.href = ssoUrl;
+      });
   }, [router]);
+
+  const handleRetry = () => {
+    setHasError(false);
+    setIsRedirecting(true);
+    setStatusMessage("Connecting to Shaheed Bhagat Singh SSO portal. Please wait...");
+    window.location.href = getSSOUrl();
+  };
 
   return (
     <div className="relative min-h-screen flex flex-col justify-center items-center px-4 py-12 overflow-hidden transition-colors duration-300 font-sans bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200">
@@ -138,7 +116,28 @@ export default function LoginPage() {
 
         {/* Card Wrapper */}
         <div className="w-full bg-white dark:bg-slate-900/85 backdrop-blur-xl border border-slate-200 dark:border-slate-800/60 rounded-login-radius p-8 shadow-xl shadow-slate-200/30 dark:shadow-slate-955/40 text-center flex flex-col items-center justify-center min-h-[220px]">
-          {verificationSuccess ? (
+          {hasError ? (
+            <div className="flex flex-col items-center gap-4 animate-in zoom-in duration-300">
+              <div className="p-3.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 rounded-2xl border border-rose-100 dark:border-rose-900/30">
+                <AlertCircle className="h-10 w-10" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+                  Authentication Issue
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs break-words">
+                  {statusMessage}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="mt-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-medium text-xs rounded-xl shadow-md transition-all duration-200 cursor-pointer"
+              >
+                Connect to SSO Portal
+              </button>
+            </div>
+          ) : verificationSuccess ? (
             <div className="flex flex-col items-center gap-4 animate-in zoom-in duration-300">
               <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 animate-bounce">
                 <CheckCircle2 className="h-10 w-10" />
