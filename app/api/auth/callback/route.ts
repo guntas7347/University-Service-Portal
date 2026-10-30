@@ -5,16 +5,55 @@ import prisma from "@/lib/prisma/prisma";
 
 export const runtime = "nodejs";
 
+function getPublicOrigin(req: NextRequest): string {
+  const host = req.headers.get("x-forwarded-host");
+  const proto = req.headers.get("x-forwarded-proto");
+
+  if (!host || !proto) {
+    throw new Error("Missing forwarded host or protocol");
+  }
+
+  // Reject comma-separated values rather than guessing which proxy value
+  // represents the public request.
+  if (host.includes(",") || proto.includes(",") || /[\s/@\\?#]/.test(host)) {
+    throw new Error("Invalid forwarded host or protocol");
+  }
+
+  if (proto !== "https" && proto !== "http") {
+    throw new Error("Invalid forwarded protocol");
+  }
+
+  const url = new URL(`${proto}://${host}`);
+
+  if (
+    url.hostname.length === 0 ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("Invalid forwarded origin");
+  }
+
+  // Configure your reverse proxy to overwrite forwarded headers and
+  // prevent untrusted clients from reaching the app directly.
+  return url.origin;
+}
+
 async function processCallback(req: NextRequest, code: string | null) {
   if (!code) {
     console.warn("SSO Callback: No authorization code received in request.");
-    return NextResponse.redirect(
-      new URL("/login?error=" + encodeURIComponent("Missing authorization code from SSO"), req.url),
-    );
+    const origin = getPublicOrigin(req);
+    const loginUrl = new URL("/login", origin);
+    loginUrl.searchParams.set("error", "Missing authorization code from SSO");
+    return NextResponse.redirect(loginUrl);
   }
 
   try {
-    console.log("SSO Callback: Exchanging authorization code for user profile...");
+    console.log(
+      "SSO Callback: Exchanging authorization code for user profile...",
+    );
     const ssoUser = await exchangeCodeForUser(code);
 
     if (!ssoUser) {
@@ -24,11 +63,11 @@ async function processCallback(req: NextRequest, code: string | null) {
     // Determine unique user identifier from SSO
     const ssoId = String(
       ssoUser.ssoId ||
-      ssoUser.userId ||
-      ssoUser.id ||
-      ssoUser.username ||
-      ssoUser.email ||
-      "",
+        ssoUser.userId ||
+        ssoUser.id ||
+        ssoUser.username ||
+        ssoUser.email ||
+        "",
     ).trim();
 
     if (!ssoId) {
@@ -57,19 +96,22 @@ async function processCallback(req: NextRequest, code: string | null) {
 
     const email = (
       ssoUser.email ||
-      (ssoUser.username ? `${ssoUser.username}@sbsstc.ac.in` : `${ssoId}@sbsstc.ac.in`)
-    ).trim().toLowerCase();
+      (ssoUser.username
+        ? `${ssoUser.username}@sbsstc.ac.in`
+        : `${ssoId}@sbsstc.ac.in`)
+    )
+      .trim()
+      .toLowerCase();
 
     const fullName =
-      ssoUser.fullName ||
-      ssoUser.name ||
-      ssoUser.username ||
-      "User";
+      ssoUser.fullName || ssoUser.name || ssoUser.username || "User";
 
     const rollNumber =
       ssoUser.rollNumber ||
       (role === "STUDENT" && ssoUser.username ? ssoUser.username : null) ||
-      (ssoUser.username && /^\d+$/.test(ssoUser.username) ? ssoUser.username : null);
+      (ssoUser.username && /^\d+$/.test(ssoUser.username)
+        ? ssoUser.username
+        : null);
 
     const mobileNumber = ssoUser.mobileNumber || ssoUser.mobile || null;
     const profileImage = ssoUser.photoUrl || ssoUser.photo || null;
@@ -98,7 +140,11 @@ async function processCallback(req: NextRequest, code: string | null) {
           rights: initialRights,
         },
       });
-      console.log("SSO Callback: Created new user account:", user.id, user.email);
+      console.log(
+        "SSO Callback: Created new user account:",
+        user.id,
+        user.email,
+      );
     } else {
       user = await prisma.user.update({
         where: { id: user.id },
@@ -111,7 +157,11 @@ async function processCallback(req: NextRequest, code: string | null) {
           ...(profileImage ? { profileImage } : {}),
         },
       });
-      console.log("SSO Callback: Updated existing user account:", user.id, user.email);
+      console.log(
+        "SSO Callback: Updated existing user account:",
+        user.id,
+        user.email,
+      );
     }
 
     // Embed internal database user ID (user.id) in session JWT payload
@@ -126,13 +176,17 @@ async function processCallback(req: NextRequest, code: string | null) {
     const token = await createJWT(payload);
 
     // Determine target redirect URL
-    const stateParam = req.nextUrl.searchParams.get("state") || req.nextUrl.searchParams.get("redirect");
+    const stateParam =
+      req.nextUrl.searchParams.get("state") ||
+      req.nextUrl.searchParams.get("redirect");
     const destination =
       stateParam && stateParam.startsWith("/") && !stateParam.startsWith("//")
         ? stateParam
         : "/dashboard";
 
-    const response = NextResponse.redirect(new URL(destination, req.url));
+    const origin = getPublicOrigin(req);
+    const finalRedirectUrl = new URL(destination, origin).toString();
+    const response = NextResponse.redirect(finalRedirectUrl);
 
     // Persist 7-day session token cookie
     response.cookies.set("token", token, {
@@ -143,14 +197,23 @@ async function processCallback(req: NextRequest, code: string | null) {
       maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
     });
 
-    console.log("SSO Callback: Successfully authenticated user", user.id, "- redirecting to", destination);
+    console.log(
+      "SSO Callback: Successfully authenticated user",
+      user.id,
+      "- redirecting to",
+      destination,
+    );
     return response;
   } catch (error: unknown) {
     console.error("SSO Callback error:", error);
-    const message = error instanceof Error ? error.message : "Failed to complete SSO authentication";
-    return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(message)}`, req.url),
-    );
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to complete SSO authentication";
+    const origin = getPublicOrigin(req);
+    const loginUrl = new URL("/login", origin);
+    loginUrl.searchParams.set("error", message);
+    return NextResponse.redirect(loginUrl);
   }
 }
 
