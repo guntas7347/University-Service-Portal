@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "../prisma";
+import { db, Department, User, asc, eq, count } from "@/db/drizzel";
 import { requireRights } from "./auth";
 
 /**
@@ -8,32 +8,30 @@ import { requireRights } from "./auth";
  */
 export async function getDepartments() {
   try {
-    let depts = await prisma.department.findMany({
-      include: {
+    let depts = await db.query.Department.findMany({
+      with: {
         hod: true,
       },
-      orderBy: { name: "asc" },
+      orderBy: [asc(Department.name)],
     });
 
     // Auto-seed default departments if table is empty
     if (depts.length === 0) {
       const defaultDepts = [{ code: "ADMIN", name: "Administration" }];
 
-      await prisma.department.createMany({
-        data: defaultDepts,
-      });
+      await db.insert(Department).values(defaultDepts);
 
-      depts = await prisma.department.findMany({
-        include: {
+      depts = await db.query.Department.findMany({
+        with: {
           hod: true,
         },
-        orderBy: { name: "asc" },
+        orderBy: [asc(Department.name)],
       });
     }
 
     return {
       success: true,
-      departments: depts.map((d) => ({
+      departments: depts.map((d: any) => ({
         id: d.id,
         code: d.code,
         name: d.name,
@@ -65,8 +63,8 @@ export async function createDepartment(data: { code: string; name: string }) {
     }
 
     const upperCode = data.code.trim().toUpperCase();
-    const existing = await prisma.department.findUnique({
-      where: { code: upperCode },
+    const existing = await db.query.Department.findFirst({
+      where: eq(Department.code, upperCode),
     });
 
     if (existing) {
@@ -76,11 +74,9 @@ export async function createDepartment(data: { code: string; name: string }) {
       };
     }
 
-    await prisma.department.create({
-      data: {
-        code: upperCode,
-        name: data.name.trim(),
-      },
+    await db.insert(Department).values({
+      code: upperCode,
+      name: data.name.trim(),
     });
 
     return { success: true, message: "Department created successfully!" };
@@ -115,8 +111,8 @@ export async function updateDepartment(
     }
 
     const upperCode = data.code.trim().toUpperCase();
-    const existing = await prisma.department.findUnique({
-      where: { code: upperCode },
+    const existing = await db.query.Department.findFirst({
+      where: eq(Department.code, upperCode),
     });
 
     if (existing && existing.id !== id) {
@@ -126,13 +122,13 @@ export async function updateDepartment(
       };
     }
 
-    await prisma.department.update({
-      where: { id },
-      data: {
+    await db
+      .update(Department)
+      .set({
         code: upperCode,
         name: data.name.trim(),
-      },
-    });
+      })
+      .where(eq(Department.id, id));
 
     return { success: true, message: "Department updated successfully!" };
   } catch (error: any) {
@@ -156,9 +152,10 @@ export async function deleteDepartment(id: string) {
     await requireRights(["MANAGE_CONFIGS"]);
 
     // Safety: check if there are users in this department
-    const usersCount = await prisma.user.count({
-      where: { departmentId: id },
-    });
+    const [{ value: usersCount }] = await db
+      .select({ value: count() })
+      .from(User)
+      .where(eq(User.departmentId, id));
 
     if (usersCount > 0) {
       return {
@@ -167,9 +164,7 @@ export async function deleteDepartment(id: string) {
       };
     }
 
-    await prisma.department.delete({
-      where: { id },
-    });
+    await db.delete(Department).where(eq(Department.id, id));
 
     return { success: true, message: "Department deleted successfully!" };
   } catch (error: any) {

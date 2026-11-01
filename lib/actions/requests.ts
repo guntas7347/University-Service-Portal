@@ -1,13 +1,32 @@
 "use server";
 
-import prisma from "../prisma";
-import { getAuthenticatedUser, requireUser, requireRights } from "./auth";
 import {
+  db,
+  Request,
+  RequestActivity,
+  RequestComment,
+  RequestAttachment,
+  RequestAssignment,
+  RequestWatcher,
+  RoutingRule,
+  Department,
+  Category,
+  User,
+  Course,
   RequestType,
   Priority,
   RequestStatus,
   ActivityType,
-} from "@/prisma/generated/prisma/enums";
+  eq,
+  and,
+  or,
+  inArray,
+  desc,
+  asc,
+  sql,
+  exists,
+} from "@/db/drizzel";
+import { getAuthenticatedUser } from "./auth";
 
 /**
  * Helper to fetch all department IDs an HOD manages or belongs to
@@ -21,11 +40,11 @@ async function getHodDepartmentIds(user: any): Promise<string[]> {
     deptIds.add(user.managedDepartment.id);
   }
   // Also check if any department in the DB has this user configured as hodId
-  const depts = await prisma.department.findMany({
-    where: { hodId: user.id },
-    select: { id: true },
+  const depts = await db.query.Department.findMany({
+    where: eq(Department.hodId, user.id),
+    columns: { id: true },
   });
-  depts.forEach((d) => deptIds.add(d.id));
+  depts.forEach((d: any) => deptIds.add(d.id));
   return Array.from(deptIds);
 }
 
@@ -176,15 +195,15 @@ export async function createRequest(data: {
 
     // 3. Verify category/department exists in DB
     if (data.raiseMode === "CATEGORY" && data.categoryId) {
-      const category = await prisma.category.findUnique({
-        where: { id: data.categoryId },
+      const category = await db.query.Category.findFirst({
+        where: eq(Category.id, data.categoryId),
       });
       if (!category) {
         return { success: false, message: "Selected category does not exist." };
       }
     } else if (data.raiseMode === "DEPARTMENT" && data.departmentId) {
-      const department = await prisma.department.findUnique({
-        where: { id: data.departmentId },
+      const department = await db.query.Department.findFirst({
+        where: eq(Department.id, data.departmentId),
       });
       if (!department) {
         return {
@@ -198,9 +217,10 @@ export async function createRequest(data: {
     const ticketId = `SBS-REQ-${Date.now().toString().slice(-5)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     // 5. Create Request record in transaction
-    const newRequest = await prisma.$transaction(async (tx) => {
-      const req = await tx.request.create({
-        data: {
+    const newRequest = await db.transaction(async (tx) => {
+      const [req] = await tx
+        .insert(Request)
+        .values({
           ticketId,
           type: typeEnum,
           subject: data.subject.trim(),
@@ -212,45 +232,45 @@ export async function createRequest(data: {
           categoryId: data.raiseMode === "CATEGORY" ? data.categoryId : null,
           departmentId:
             data.raiseMode === "DEPARTMENT" ? data.departmentId : null,
-        },
-      });
+        })
+        .returning();
 
       // 6. Automatically resolve assignments (multiple faculty can be assigned at creation)
       const assignedIds = new Set<string>();
 
       if (data.raiseMode === "CATEGORY" && data.categoryId) {
         // Look up active Level 1 RoutingRules for this category
-        const level1Rules = await tx.routingRule.findMany({
-          where: {
-            categoryId: data.categoryId,
-            level: 1,
-            isActive: true,
-          },
+        const level1Rules = await tx.query.RoutingRule.findMany({
+          where: and(
+            eq(RoutingRule.categoryId, data.categoryId),
+            eq(RoutingRule.level, 1),
+            eq(RoutingRule.isActive, true),
+          ),
         });
 
         if (level1Rules.length > 0) {
           level1Rules.forEach((r) => assignedIds.add(r.userId));
         } else {
           // Fallback to lowest level active rule for this category
-          const fallbackRules = await tx.routingRule.findMany({
-            where: {
-              categoryId: data.categoryId,
-              isActive: true,
-            },
-            orderBy: { level: "asc" },
-            take: 1,
+          const fallbackRules = await tx.query.RoutingRule.findMany({
+            where: and(
+              eq(RoutingRule.categoryId, data.categoryId),
+              eq(RoutingRule.isActive, true),
+            ),
+            orderBy: [asc(RoutingRule.level)],
+            limit: 1,
           });
           fallbackRules.forEach((r) => assignedIds.add(r.userId));
         }
 
         // If no category rules at all, fallback to Central Escalation Level 1
         if (assignedIds.size === 0) {
-          const centralRules = await tx.routingRule.findMany({
-            where: {
-              isCentral: true,
-              level: 1,
-              isActive: true,
-            },
+          const centralRules = await tx.query.RoutingRule.findMany({
+            where: and(
+              eq(RoutingRule.isCentral, true),
+              eq(RoutingRule.level, 1),
+              eq(RoutingRule.isActive, true),
+            ),
           });
           centralRules.forEach((r) => assignedIds.add(r.userId));
         }
@@ -260,9 +280,9 @@ export async function createRequest(data: {
           data.assignedUserIds.forEach((id) => assignedIds.add(id));
         } else {
           // If no specific users are chosen, auto-assign to the HOD of that department
-          const dept = await tx.department.findUnique({
-            where: { id: data.departmentId },
-            select: { hodId: true },
+          const dept = await tx.query.Department.findFirst({
+            where: eq(Department.id, data.departmentId),
+            columns: { hodId: true },
           });
           if (dept?.hodId) {
             assignedIds.add(dept.hodId);
@@ -272,28 +292,30 @@ export async function createRequest(data: {
 
       // Create RequestAssignment records
       if (assignedIds.size > 0) {
-        await tx.requestAssignment.createMany({
-          data: Array.from(assignedIds).map((userId) => ({
+        await tx.insert(RequestAssignment).values(
+          Array.from(assignedIds).map((userId) => ({
             requestId: req.id,
             userId: userId,
             assignedById: activeUser.id,
-            role: "PRIMARY",
-            status: "PENDING",
+            role: "PRIMARY" as const,
+            status: "PENDING" as const,
           })),
-        });
+        );
       }
 
       // Create RequestWatcher records
       if (data.watcherUserIds && data.watcherUserIds.length > 0) {
-        await tx.requestWatcher.createMany({
-          data: data.watcherUserIds
-            .filter((userId) => !assignedIds.has(userId))
-            .map((userId) => ({
-              requestId: req.id,
-              userId: userId,
-              addedById: activeUser.id,
-            })),
-        });
+        const watchersToInsert = data.watcherUserIds
+          .filter((userId) => !assignedIds.has(userId))
+          .map((userId) => ({
+            requestId: req.id,
+            userId: userId,
+            addedById: activeUser.id,
+          }));
+
+        if (watchersToInsert.length > 0) {
+          await tx.insert(RequestWatcher).values(watchersToInsert);
+        }
       }
 
       // Log initial activity
@@ -302,13 +324,11 @@ export async function createRequest(data: {
           ? "Auto-assigned on creation."
           : "Unassigned initially.";
 
-      await tx.requestActivity.create({
-        data: {
-          requestId: req.id,
-          actorId: activeUser.id,
-          type: ActivityType.CREATED,
-          message: `Grievance ticket created successfully. ${assignedUserNames}`,
-        },
+      await tx.insert(RequestActivity).values({
+        requestId: req.id,
+        actorId: activeUser.id,
+        type: ActivityType.CREATED,
+        message: `Grievance ticket created successfully. ${assignedUserNames}`,
       });
 
       return req;
@@ -342,21 +362,21 @@ export async function getStudentRequests() {
       };
     }
 
-    const requests = await prisma.request.findMany({
-      where: { createdById: activeUser.id },
-      include: {
+    const requests = await db.query.Request.findMany({
+      where: eq(Request.createdById, activeUser.id),
+      with: {
         category: {
-          select: {
+          columns: {
             name: true,
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [desc(Request.createdAt)],
     });
 
     return {
       success: true,
-      requests: requests.map((r) => ({
+      requests: requests.map((r: any) => ({
         id: r.id,
         ticketId: r.ticketId,
         type: r.type,
@@ -391,111 +411,118 @@ export async function getAllRequests() {
     const managedDeptIds = await getHodDepartmentIds(user);
     const isDeptManager = isUserHod(user, managedDeptIds);
 
+    const standardWith = {
+      category: { columns: { name: true } },
+      department: { columns: { name: true } },
+      createdBy: { columns: { fullName: true, rollNumber: true } },
+      assignments: {
+        with: {
+          user: { columns: { id: true, fullName: true, role: true } },
+        },
+      },
+      watchers: { columns: { userId: true } },
+    };
+
     let requests;
 
     if (isAdmin) {
       // Admins see all requests
-      requests = await prisma.request.findMany({
-        include: {
-          category: { select: { name: true } },
-          department: { select: { name: true } },
-          createdBy: { select: { fullName: true, rollNumber: true } },
-          assignments: {
-            include: {
-              user: { select: { id: true, fullName: true, role: true } },
-            },
-          },
-          watchers: { select: { userId: true } },
-        },
-        orderBy: { createdAt: "desc" },
+      requests = await db.query.Request.findMany({
+        with: standardWith,
+        orderBy: [desc(Request.createdAt)],
       });
     } else if (isDeptManager && managedDeptIds.length > 0) {
       // HOD sees:
       // 1. Requests targeted to their department
-      // 2. Requests where department's hodId is this user
-      // 3. Requests created by students/users of their department (via departmentId, course, or department.hodId)
-      // 4. Requests assigned to this HOD
-      // 5. Requests watched by this HOD
-      // 6. Requests created by this HOD
-      requests = await prisma.request.findMany({
-        where: {
-          OR: [
-            { departmentId: { in: managedDeptIds } },
-            { department: { hodId: user.id } },
-            {
-              createdBy: {
-                departmentId: { in: managedDeptIds },
-              },
-            },
-            {
-              createdBy: {
-                department: { hodId: user.id },
-              },
-            },
-            {
-              createdBy: {
-                course: {
-                  departmentId: { in: managedDeptIds },
-                },
-              },
-            },
-            {
-              assignments: {
-                some: { userId: user.id },
-              },
-            },
-            {
-              watchers: {
-                some: { userId: user.id },
-              },
-            },
-            { createdById: user.id },
-          ],
-        },
-        include: {
-          category: { select: { name: true } },
-          department: { select: { name: true } },
-          createdBy: { select: { fullName: true, rollNumber: true } },
-          assignments: {
-            include: {
-              user: { select: { id: true, fullName: true, role: true } },
-            },
-          },
-          watchers: { select: { userId: true } },
-        },
-        orderBy: { createdAt: "desc" },
+      // 2. Requests created by students/users of their department
+      // 3. Requests assigned to this HOD
+      // 4. Requests watched by this HOD
+      // 5. Requests created by this HOD
+      const studentInDeptCondition = exists(
+        db
+          .select({ id: User.id })
+          .from(User)
+          .leftJoin(Course, eq(User.courseId, Course.id))
+          .where(
+            and(
+              eq(User.id, Request.createdById),
+              or(
+                inArray(User.departmentId, managedDeptIds),
+                inArray(Course.departmentId, managedDeptIds),
+              ),
+            ),
+          ),
+      );
+
+      const assignedCondition = exists(
+        db
+          .select({ id: RequestAssignment.id })
+          .from(RequestAssignment)
+          .where(
+            and(
+              eq(RequestAssignment.requestId, Request.id),
+              eq(RequestAssignment.userId, user.id),
+            ),
+          ),
+      );
+
+      const watcherCondition = exists(
+        db
+          .select({ requestId: RequestWatcher.requestId })
+          .from(RequestWatcher)
+          .where(
+            and(
+              eq(RequestWatcher.requestId, Request.id),
+              eq(RequestWatcher.userId, user.id),
+            ),
+          ),
+      );
+
+      requests = await db.query.Request.findMany({
+        where: or(
+          inArray(Request.departmentId, managedDeptIds),
+          studentInDeptCondition,
+          assignedCondition,
+          watcherCondition,
+          eq(Request.createdById, user.id),
+        ),
+        with: standardWith,
+        orderBy: [desc(Request.createdAt)],
       });
     } else {
       // All other faculty, staff, students, and watchers:
-      // Can ALWAYS see requests assigned to them, watched by them, or created by them!
-      requests = await prisma.request.findMany({
-        where: {
-          OR: [
-            {
-              assignments: {
-                some: { userId: user.id },
-              },
-            },
-            {
-              watchers: {
-                some: { userId: user.id },
-              },
-            },
-            { createdById: user.id },
-          ],
-        },
-        include: {
-          category: { select: { name: true } },
-          department: { select: { name: true } },
-          createdBy: { select: { fullName: true, rollNumber: true } },
-          assignments: {
-            include: {
-              user: { select: { id: true, fullName: true, role: true } },
-            },
-          },
-          watchers: { select: { userId: true } },
-        },
-        orderBy: { createdAt: "desc" },
+      const assignedCondition = exists(
+        db
+          .select({ id: RequestAssignment.id })
+          .from(RequestAssignment)
+          .where(
+            and(
+              eq(RequestAssignment.requestId, Request.id),
+              eq(RequestAssignment.userId, user.id),
+            ),
+          ),
+      );
+
+      const watcherCondition = exists(
+        db
+          .select({ requestId: RequestWatcher.requestId })
+          .from(RequestWatcher)
+          .where(
+            and(
+              eq(RequestWatcher.requestId, Request.id),
+              eq(RequestWatcher.userId, user.id),
+            ),
+          ),
+      );
+
+      requests = await db.query.Request.findMany({
+        where: or(
+          assignedCondition,
+          watcherCondition,
+          eq(Request.createdById, user.id),
+        ),
+        with: standardWith,
+        orderBy: [desc(Request.createdAt)],
       });
     }
 
@@ -506,7 +533,8 @@ export async function getAllRequests() {
           (a: any) => a.role === "PRIMARY",
         )?.user;
         const assignedNames = r.assignments
-          .map((a: any) => a.user.fullName)
+          .map((a: any) => a.user?.fullName)
+          .filter(Boolean)
           .join(", ");
         const isWatcher = r.watchers?.some((w: any) => w.userId === user.id) || false;
         const isAssigned = r.assignments?.some((a: any) => a.userId === user.id) || false;
@@ -521,9 +549,9 @@ export async function getAllRequests() {
           description: r.description,
           status: r.status,
           priority: r.priority,
-          studentName: r.isAnonymous ? "Anonymous" : r.createdBy.fullName,
-          createdByName: r.isAnonymous ? "Anonymous" : r.createdBy.fullName,
-          studentRoll: r.isAnonymous ? "N/A" : r.createdBy.rollNumber || "N/A",
+          studentName: r.isAnonymous ? "Anonymous" : r.createdBy?.fullName || "Student",
+          createdByName: r.isAnonymous ? "Anonymous" : r.createdBy?.fullName || "Student",
+          studentRoll: r.isAnonymous ? "N/A" : r.createdBy?.rollNumber || "N/A",
           assignedToId: primaryAssignee?.id || null,
           assignedToName: assignedNames || "Unassigned",
           date: r.createdAt.toISOString(),
@@ -559,21 +587,21 @@ export async function getRequestDetails(requestId: string) {
       return { success: false, message: "Not authenticated." };
     }
 
-    const reqDetails = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: {
+    const reqDetails = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: {
         category: true,
         department: true,
         createdBy: {
-          include: {
+          with: {
             department: true,
             course: true,
           },
         },
         assignments: {
-          include: {
+          with: {
             user: {
-              select: {
+              columns: {
                 id: true,
                 fullName: true,
                 role: true,
@@ -584,9 +612,9 @@ export async function getRequestDetails(requestId: string) {
           },
         },
         watchers: {
-          include: {
+          with: {
             user: {
-              select: {
+              columns: {
                 id: true,
                 fullName: true,
                 role: true,
@@ -597,9 +625,9 @@ export async function getRequestDetails(requestId: string) {
           },
         },
         comments: {
-          include: {
+          with: {
             author: {
-              select: {
+              columns: {
                 id: true,
                 fullName: true,
                 role: true,
@@ -607,30 +635,30 @@ export async function getRequestDetails(requestId: string) {
               },
             },
           },
-          orderBy: { createdAt: "asc" },
+          orderBy: [asc(RequestComment.createdAt)],
         },
         activities: {
-          include: {
+          with: {
             actor: {
-              select: {
+              columns: {
                 id: true,
                 fullName: true,
                 role: true,
               },
             },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: [desc(RequestActivity.createdAt)],
         },
         attachments: {
-          include: {
+          with: {
             uploadedBy: {
-              select: {
+              columns: {
                 fullName: true,
                 role: true,
               },
             },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: [desc(RequestAttachment.createdAt)],
         },
       },
     });
@@ -642,10 +670,10 @@ export async function getRequestDetails(requestId: string) {
     // Access control evaluation
     const isCreator = reqDetails.createdById === activeUser.id;
     const isAssigned = reqDetails.assignments.some(
-      (a) => a.userId === activeUser.id,
+      (a: any) => a.userId === activeUser.id,
     );
     const isWatcher = reqDetails.watchers.some(
-      (w) => w.userId === activeUser.id,
+      (w: any) => w.userId === activeUser.id,
     );
 
     const rights = activeUser.rights || [];
@@ -674,7 +702,7 @@ export async function getRequestDetails(requestId: string) {
       isAssigned ||
       (activeUser.role !== "STUDENT" && (rights.length > 0 || isWatcher));
 
-    const visibleComments = reqDetails.comments.filter((c) => {
+    const visibleComments = reqDetails.comments.filter((c: any) => {
       if (!c.internal) return true;
       return canViewInternalComments;
     });
@@ -699,86 +727,86 @@ export async function getRequestDetails(requestId: string) {
         id: reqDetails.createdById,
         name: reqDetails.isAnonymous
           ? "Anonymous Student"
-          : reqDetails.createdBy.fullName,
+          : reqDetails.createdBy?.fullName || "Student",
         fullName: reqDetails.isAnonymous
           ? "Anonymous Student"
-          : reqDetails.createdBy.fullName,
-        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy.email,
+          : reqDetails.createdBy?.fullName || "Student",
+        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.email || "N/A",
         rollNumber: reqDetails.isAnonymous
           ? "N/A"
-          : reqDetails.createdBy.rollNumber || "N/A",
+          : reqDetails.createdBy?.rollNumber || "N/A",
         mobileNumber: reqDetails.isAnonymous
           ? "N/A"
-          : reqDetails.createdBy.mobileNumber || "N/A",
-        courseName: reqDetails.createdBy.course?.name || "N/A",
-        departmentId: reqDetails.createdBy.departmentId || "",
-        departmentName: reqDetails.createdBy.department?.name || "N/A",
+          : reqDetails.createdBy?.mobileNumber || "N/A",
+        courseName: reqDetails.createdBy?.course?.name || "N/A",
+        departmentId: reqDetails.createdBy?.departmentId || "",
+        departmentName: reqDetails.createdBy?.department?.name || "N/A",
       },
       creator: {
         id: reqDetails.createdById,
         name: reqDetails.isAnonymous
           ? "Anonymous Student"
-          : reqDetails.createdBy.fullName,
+          : reqDetails.createdBy?.fullName || "Student",
         fullName: reqDetails.isAnonymous
           ? "Anonymous Student"
-          : reqDetails.createdBy.fullName,
-        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy.email,
+          : reqDetails.createdBy?.fullName || "Student",
+        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.email || "N/A",
         rollNumber: reqDetails.isAnonymous
           ? "N/A"
-          : reqDetails.createdBy.rollNumber || "N/A",
+          : reqDetails.createdBy?.rollNumber || "N/A",
         mobileNumber: reqDetails.isAnonymous
           ? "N/A"
-          : reqDetails.createdBy.mobileNumber || "N/A",
-        courseName: reqDetails.createdBy.course?.name || "N/A",
-        departmentId: reqDetails.createdBy.departmentId || "",
-        departmentName: reqDetails.createdBy.department?.name || "N/A",
+          : reqDetails.createdBy?.mobileNumber || "N/A",
+        courseName: reqDetails.createdBy?.course?.name || "N/A",
+        departmentId: reqDetails.createdBy?.departmentId || "",
+        departmentName: reqDetails.createdBy?.department?.name || "N/A",
       },
-      assignments: reqDetails.assignments.map((a) => ({
+      assignments: reqDetails.assignments.map((a: any) => ({
         id: a.id,
         userId: a.userId,
-        name: a.user.fullName,
-        email: a.user.email,
-        role: a.user.role,
-        designation: a.user.designation || "",
+        name: a.user?.fullName || "",
+        email: a.user?.email || "",
+        role: a.user?.role || "",
+        designation: a.user?.designation || "",
         assignmentRole: a.role,
         status: a.status,
         assignedAt: a.assignedAt.toISOString(),
         user: {
-          id: a.user.id,
-          name: a.user.fullName,
-          fullName: a.user.fullName,
-          email: a.user.email,
-          role: a.user.role,
-          designation: a.user.designation || "",
+          id: a.user?.id,
+          name: a.user?.fullName,
+          fullName: a.user?.fullName,
+          email: a.user?.email,
+          role: a.user?.role,
+          designation: a.user?.designation || "",
         },
       })),
-      watchers: reqDetails.watchers.map((w) => ({
+      watchers: reqDetails.watchers.map((w: any) => ({
         id: w.userId,
         userId: w.userId,
-        name: w.user.fullName,
-        email: w.user.email,
-        role: w.user.role,
-        designation: w.user.designation || "",
+        name: w.user?.fullName || "",
+        email: w.user?.email || "",
+        role: w.user?.role || "",
+        designation: w.user?.designation || "",
         user: {
-          id: w.user.id,
-          name: w.user.fullName,
-          fullName: w.user.fullName,
-          email: w.user.email,
-          role: w.user.role,
-          designation: w.user.designation || "",
+          id: w.user?.id,
+          name: w.user?.fullName,
+          fullName: w.user?.fullName,
+          email: w.user?.email,
+          role: w.user?.role,
+          designation: w.user?.designation || "",
         },
       })),
-      comments: visibleComments.map((c) => ({
+      comments: visibleComments.map((c: any) => ({
         id: c.id,
         message: c.message,
         authorId: c.authorId,
-        authorName: c.author.fullName,
-        authorRole: c.author.role,
-        authorDesignation: c.author.designation || "",
+        authorName: c.author?.fullName || "",
+        authorRole: c.author?.role || "",
+        authorDesignation: c.author?.designation || "",
         createdAt: c.createdAt.toISOString(),
         internal: c.internal,
       })),
-      activities: reqDetails.activities.map((a) => ({
+      activities: reqDetails.activities.map((a: any) => ({
         id: a.id,
         type: a.type,
         oldValue: a.oldValue,
@@ -788,13 +816,13 @@ export async function getRequestDetails(requestId: string) {
         actorName: a.actor?.fullName || "System",
         actorRole: a.actor?.role || "SYSTEM",
       })),
-      attachments: reqDetails.attachments.map((att) => ({
+      attachments: reqDetails.attachments.map((att: any) => ({
         id: att.id,
         fileName: att.fileName,
         fileUrl: att.fileUrl,
         fileSize: att.fileSize,
         mimeType: att.mimeType,
-        uploadedByName: att.uploadedBy.fullName,
+        uploadedByName: att.uploadedBy?.fullName || "",
         createdAt: att.createdAt.toISOString(),
       })),
       escalationLevel: reqDetails.escalationLevel || 0,
@@ -855,14 +883,14 @@ export async function escalateRequest(requestId: string, reason?: string) {
       return { success: false, message: "Not authenticated." };
     }
 
-    const req = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: {
+    const req = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: {
         category: true,
         department: true,
         assignments: {
-          include: {
-            user: { select: { id: true, fullName: true, role: true } },
+          with: {
+            user: { columns: { id: true, fullName: true, role: true } },
           },
         },
       },
@@ -923,15 +951,15 @@ export async function escalateRequest(requestId: string, reason?: string) {
 
     // 1. Check if Category-specific routing rule exists for targetCategoryLevel
     if (req.categoryId) {
-      const categoryRules = await prisma.routingRule.findMany({
-        where: {
-          categoryId: req.categoryId,
-          level: targetCategoryLevel,
-          isActive: true,
-        },
-        include: {
+      const categoryRules = await db.query.RoutingRule.findMany({
+        where: and(
+          eq(RoutingRule.categoryId, req.categoryId),
+          eq(RoutingRule.level, targetCategoryLevel),
+          eq(RoutingRule.isActive, true),
+        ),
+        with: {
           user: {
-            select: {
+            columns: {
               id: true,
               fullName: true,
               role: true,
@@ -942,21 +970,21 @@ export async function escalateRequest(requestId: string, reason?: string) {
       });
 
       if (categoryRules.length > 0) {
-        nextAssigneeIds = categoryRules.map((r) => r.userId);
-        nextTargetLabel = `Level ${targetCategoryLevel} (${categoryRules.map((r) => r.user.fullName).join(", ")})`;
+        nextAssigneeIds = categoryRules.map((r: any) => r.userId);
+        nextTargetLabel = `Level ${targetCategoryLevel} (${categoryRules.map((r: any) => r.user.fullName).join(", ")})`;
       }
     }
 
     // 2. If no category-specific rule found, escalate to Central Escalation Section
     if (nextAssigneeIds.length === 0) {
-      const centralRules = await prisma.routingRule.findMany({
-        where: {
-          isCentral: true,
-          isActive: true,
-        },
-        include: {
+      const centralRules = await db.query.RoutingRule.findMany({
+        where: and(
+          eq(RoutingRule.isCentral, true),
+          eq(RoutingRule.isActive, true),
+        ),
+        with: {
           user: {
-            select: {
+            columns: {
               id: true,
               fullName: true,
               role: true,
@@ -964,13 +992,13 @@ export async function escalateRequest(requestId: string, reason?: string) {
             },
           },
         },
-        orderBy: { level: "asc" },
+        orderBy: [asc(RoutingRule.level)],
       });
 
       if (centralRules.length > 0) {
-        const assignedUserIds = new Set(req.assignments.map((a) => a.userId));
+        const assignedUserIds = new Set(req.assignments.map((a: any) => a.userId));
         const unassignedCentral = centralRules.filter(
-          (r) => !assignedUserIds.has(r.userId),
+          (r: any) => !assignedUserIds.has(r.userId),
         );
 
         const targetCentral =
@@ -981,12 +1009,12 @@ export async function escalateRequest(requestId: string, reason?: string) {
         nextTargetLabel = `Central Authority Level ${targetCentral.level} (${targetCentral.user.fullName})`;
       } else {
         // Fallback: If no central rules configured, find administrator
-        const adminUsers = await prisma.user.findMany({
-          where: {
-            rights: { has: "ADMIN" },
-            status: "ACTIVE",
-          },
-          take: 1,
+        const adminUsers = await db.query.User.findMany({
+          where: and(
+            sql`'ADMIN' = ANY(${User.rights})`,
+            eq(User.status, "ACTIVE"),
+          ),
+          limit: 1,
         });
         if (adminUsers.length > 0) {
           nextAssigneeIds = [adminUsers[0].id];
@@ -1013,86 +1041,84 @@ export async function escalateRequest(requestId: string, reason?: string) {
         ? Priority.HIGH
         : Priority.URGENT;
 
-    await prisma.$transaction(async (tx) => {
+    await db.transaction(async (tx) => {
       // Update request metadata
-      await tx.request.update({
-        where: { id: req.id },
-        data: {
+      await tx
+        .update(Request)
+        .set({
           escalationLevel: nextEscalation,
           lastEscalatedAt: new Date(),
           isEscalated: true,
           tags: updatedTags,
           priority: nextPriority,
           status: RequestStatus.UNDER_REVIEW,
-        },
-      });
+        })
+        .where(eq(Request.id, req.id));
 
       // Move existing primary assignments to SECONDARY
-      await tx.requestAssignment.updateMany({
-        where: {
-          requestId: req.id,
-          role: "PRIMARY",
-        },
-        data: {
+      await tx
+        .update(RequestAssignment)
+        .set({
           role: "SECONDARY",
-        },
-      });
+        })
+        .where(
+          and(
+            eq(RequestAssignment.requestId, req.id),
+            eq(RequestAssignment.role, "PRIMARY"),
+          ),
+        );
 
       // Upsert new primary assignees
       for (const newUserId of nextAssigneeIds) {
-        const existing = await tx.requestAssignment.findUnique({
-          where: {
-            requestId_userId: {
-              requestId: req.id,
-              userId: newUserId,
-            },
-          },
+        const existing = await tx.query.RequestAssignment.findFirst({
+          where: and(
+            eq(RequestAssignment.requestId, req.id),
+            eq(RequestAssignment.userId, newUserId),
+          ),
         });
 
         if (existing) {
-          await tx.requestAssignment.update({
-            where: { id: existing.id },
-            data: {
+          await tx
+            .update(RequestAssignment)
+            .set({
               role: "PRIMARY",
               status: "PENDING",
-            },
-          });
+            })
+            .where(eq(RequestAssignment.id, existing.id));
         } else {
-          await tx.requestAssignment.create({
-            data: {
-              requestId: req.id,
-              userId: newUserId,
-              assignedById: activeUser.id,
-              role: "PRIMARY",
-              status: "PENDING",
-            },
+          await tx.insert(RequestAssignment).values({
+            requestId: req.id,
+            userId: newUserId,
+            assignedById: activeUser.id,
+            role: "PRIMARY",
+            status: "PENDING",
           });
         }
 
         // If newly escalated user was a watcher, remove them from watchers
-        await tx.requestWatcher.deleteMany({
-          where: {
-            requestId: req.id,
-            userId: newUserId,
-          },
-        });
+        await tx
+          .delete(RequestWatcher)
+          .where(
+            and(
+              eq(RequestWatcher.requestId, req.id),
+              eq(RequestWatcher.userId, newUserId),
+            ),
+          );
       }
 
       // Add timeline log activity
-      await tx.requestActivity.create({
-        data: {
-          requestId: req.id,
-          actorId: activeUser.id,
-          type: ActivityType.ESCALATED,
-          oldValue:
-            currentEscalation === 0
-              ? "Standard (Level 1)"
-              : `Escalated Level ${currentEscalation}`,
-          newValue: `Escalated Level ${nextEscalation}`,
-          message: reason?.trim()
-            ? `Request escalated by student to ${nextTargetLabel}. Reason: "${reason.trim()}"`
-            : `Request escalated by student to ${nextTargetLabel} following 7-day resolution threshold.`,
-        },
+      await tx.insert(RequestActivity).values({
+        requestId: req.id,
+        actorId: activeUser.id,
+        type: ActivityType.ESCALATED,
+        oldValue:
+          currentEscalation === 0
+            ? "Standard (Level 1)"
+            : `Escalated Level ${currentEscalation}`,
+        newValue: `Escalated Level ${nextEscalation}`,
+        message: reason?.trim()
+          ? `Request escalated by student to ${nextTargetLabel}. Reason: "${reason.trim()}"`
+          : `Request escalated by student to ${nextTargetLabel} following 7-day resolution threshold.`,
       });
     });
 
@@ -1122,12 +1148,12 @@ export async function updateRequestStatus(
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: {
+    const request = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: {
         assignments: true,
         watchers: true,
-        createdBy: { include: { course: true } },
+        createdBy: { with: { course: true } },
         department: true,
       },
     });
@@ -1137,10 +1163,10 @@ export async function updateRequestStatus(
 
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN") || rights.includes("RESOLVE_GRIEVANCES");
-    const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
+    const isAssigned = request.assignments.some((a: any) => a.userId === activeUser.id);
     const managedDeptIds = await getHodDepartmentIds(activeUser);
     const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
-    const isWatcher = request.watchers.some((w) => w.userId === activeUser.id);
+    const isWatcher = request.watchers.some((w: any) => w.userId === activeUser.id);
 
     // Watchers have strictly read-only access
     if (isWatcher && !isAdmin && !isAssigned && !isDeptManager) {
@@ -1159,26 +1185,24 @@ export async function updateRequestStatus(
     }
 
     // Map status string to RequestStatus enum
-    let statusEnum = newStatus.toUpperCase() as RequestStatus;
+    const statusEnum = newStatus.toUpperCase() as RequestStatus;
 
     // Update status
-    await prisma.request.update({
-      where: { id: requestId },
-      data: { status: statusEnum },
-    });
+    await db
+      .update(Request)
+      .set({ status: statusEnum })
+      .where(eq(Request.id, requestId));
 
     // Log status activity
-    await prisma.requestActivity.create({
-      data: {
-        requestId,
-        actorId: activeUser.id,
-        type: ActivityType.STATUS_CHANGED,
-        oldValue: request.status,
-        newValue: statusEnum,
-        message:
-          commentMessage ||
-          `Status changed from ${request.status} to ${statusEnum}.`,
-      },
+    await db.insert(RequestActivity).values({
+      requestId,
+      actorId: activeUser.id,
+      type: ActivityType.STATUS_CHANGED,
+      oldValue: request.status,
+      newValue: statusEnum,
+      message:
+        commentMessage ||
+        `Status changed from ${request.status} to ${statusEnum}.`,
     });
 
     return { success: true, message: "Status updated successfully!" };
@@ -1201,17 +1225,17 @@ export async function assignRequest(
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: {
+    const request = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: {
         assignments: {
-          include: {
-            user: { select: { id: true, fullName: true, role: true } },
+          with: {
+            user: { columns: { id: true, fullName: true, role: true } },
           },
         },
         watchers: true,
         createdBy: {
-          include: { department: true, course: true },
+          with: { department: true, course: true },
         },
         department: true,
       },
@@ -1234,8 +1258,8 @@ export async function assignRequest(
     }
 
     // Fetch details of assigned staff member
-    const staff = await prisma.user.findUnique({
-      where: { id: assignedToId },
+    const staff = await db.query.User.findFirst({
+      where: eq(User.id, assignedToId),
     });
     if (!staff || (staff.role === "STUDENT" && staff.rights.length === 0)) {
       return {
@@ -1245,8 +1269,8 @@ export async function assignRequest(
     }
 
     // Other current assignees to convert to watchers
-    const otherAssignees = request.assignments.filter((a) => a.userId !== assignedToId);
-    const existingWatcherUserIds = new Set(request.watchers.map((w) => w.userId));
+    const otherAssignees = request.assignments.filter((a: any) => a.userId !== assignedToId);
+    const existingWatcherUserIds = new Set(request.watchers.map((w: any) => w.userId));
 
     // Update request status to ASSIGNED if SUBMITTED
     const nextStatus =
@@ -1254,95 +1278,97 @@ export async function assignRequest(
         ? RequestStatus.ASSIGNED
         : request.status;
 
-    await prisma.$transaction(async (tx) => {
+    await db.transaction(async (tx) => {
       // 1. Remove other assignees from assignments
       if (otherAssignees.length > 0) {
-        await tx.requestAssignment.deleteMany({
-          where: {
-            requestId,
-            userId: { in: otherAssignees.map((a) => a.userId) },
-          },
-        });
+        const otherIds = otherAssignees.map((a: any) => a.userId);
+        await tx
+          .delete(RequestAssignment)
+          .where(
+            and(
+              eq(RequestAssignment.requestId, requestId),
+              inArray(RequestAssignment.userId, otherIds),
+            ),
+          );
 
         // 2. Convert them to watchers if not already watching
         const watchersToCreate = otherAssignees
-          .filter((a) => !existingWatcherUserIds.has(a.userId))
-          .map((a) => ({
+          .filter((a: any) => !existingWatcherUserIds.has(a.userId))
+          .map((a: any) => ({
             requestId,
             userId: a.userId,
             addedById: activeUser.id,
           }));
 
         if (watchersToCreate.length > 0) {
-          await tx.requestWatcher.createMany({
-            data: watchersToCreate,
-          });
+          await tx.insert(RequestWatcher).values(watchersToCreate);
         }
       }
 
       // 3. Remove assignedToId from watchers if they were watching
-      await tx.requestWatcher.deleteMany({
-        where: {
-          requestId,
-          userId: assignedToId,
-        },
-      });
+      await tx
+        .delete(RequestWatcher)
+        .where(
+          and(
+            eq(RequestWatcher.requestId, requestId),
+            eq(RequestWatcher.userId, assignedToId),
+          ),
+        );
 
       // 4. Assign new handler as PRIMARY
-      const existingAssignment = request.assignments.find((a) => a.userId === assignedToId);
+      const existingAssignment = request.assignments.find((a: any) => a.userId === assignedToId);
       if (!existingAssignment) {
-        await tx.requestAssignment.create({
-          data: {
-            requestId,
-            userId: assignedToId,
-            assignedById: activeUser.id,
-            role: "PRIMARY",
-            status: "PENDING",
-          },
+        await tx.insert(RequestAssignment).values({
+          requestId,
+          userId: assignedToId,
+          assignedById: activeUser.id,
+          role: "PRIMARY",
+          status: "PENDING",
         });
       } else {
-        await tx.requestAssignment.update({
-          where: { requestId_userId: { requestId, userId: assignedToId } },
-          data: { role: "PRIMARY", status: "PENDING" },
-        });
+        await tx
+          .update(RequestAssignment)
+          .set({ role: "PRIMARY", status: "PENDING" })
+          .where(
+            and(
+              eq(RequestAssignment.requestId, requestId),
+              eq(RequestAssignment.userId, assignedToId),
+            ),
+          );
       }
 
       // 5. Update request status if needed
       if (nextStatus !== request.status) {
-        await tx.request.update({
-          where: { id: requestId },
-          data: { status: nextStatus },
-        });
+        await tx
+          .update(Request)
+          .set({ status: nextStatus })
+          .where(eq(Request.id, requestId));
       }
     });
 
     // Log Assignment Activity
-    const otherNames = otherAssignees.map((a) => a.user?.fullName || "staff").join(", ");
+    const otherNames = otherAssignees.map((a: any) => a.user?.fullName || "staff").join(", ");
     const conversionNote =
       otherAssignees.length > 0
         ? ` Previous assignee(s) (${otherNames}) converted to watchers.`
         : "";
 
-    await prisma.requestActivity.create({
-      data: {
-        requestId,
-        actorId: activeUser.id,
-        type: ActivityType.ASSIGNED,
-        newValue: staff.fullName,
-        message: message || `Request assigned to ${staff.fullName}.${conversionNote}`,
-      },
+    await db.insert(RequestActivity).values({
+      requestId,
+      actorId: activeUser.id,
+      type: ActivityType.ASSIGNED,
+      newValue: staff.fullName,
+      message: message || `Request assigned to ${staff.fullName}.${conversionNote}`,
     });
 
     if (nextStatus !== request.status) {
-      await prisma.requestActivity.create({
-        data: {
-          requestId,
-          actorId: activeUser.id,
-          type: ActivityType.STATUS_CHANGED,
-          oldValue: request.status,
-          newValue: nextStatus,
-          message: `Status auto-changed to ${nextStatus} on assignment.`,
-        },
+      await db.insert(RequestActivity).values({
+        requestId,
+        actorId: activeUser.id,
+        type: ActivityType.STATUS_CHANGED,
+        oldValue: request.status,
+        newValue: nextStatus,
+        message: `Status auto-changed to ${nextStatus} on assignment.`,
       });
     }
 
@@ -1372,12 +1398,12 @@ export async function addRequestComment(
       return { success: false, message: "Comment message cannot be empty." };
     }
 
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: {
+    const request = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: {
         assignments: true,
         watchers: true,
-        createdBy: { include: { course: true } },
+        createdBy: { with: { course: true } },
         department: true,
       },
     });
@@ -1387,10 +1413,10 @@ export async function addRequestComment(
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN");
     const isCreator = request.createdById === activeUser.id;
-    const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
+    const isAssigned = request.assignments.some((a: any) => a.userId === activeUser.id);
     const managedDeptIds = await getHodDepartmentIds(activeUser);
     const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
-    const isWatcher = request.watchers.some((w) => w.userId === activeUser.id);
+    const isWatcher = request.watchers.some((w: any) => w.userId === activeUser.id);
 
     // Watchers have strictly read-only access
     if (isWatcher && !isAdmin && !isCreator && !isAssigned && !isDeptManager) {
@@ -1417,25 +1443,21 @@ export async function addRequestComment(
     }
 
     // Insert comment
-    await prisma.requestComment.create({
-      data: {
-        requestId,
-        authorId: activeUser.id,
-        message: message.trim(),
-        internal,
-      },
+    await db.insert(RequestComment).values({
+      requestId,
+      authorId: activeUser.id,
+      message: message.trim(),
+      internal,
     });
 
     // Log activity
-    await prisma.requestActivity.create({
-      data: {
-        requestId,
-        actorId: activeUser.id,
-        type: ActivityType.COMMENTED,
-        message: internal
-          ? "Added an internal comment (Staff Only)."
-          : "Added a public comment.",
-      },
+    await db.insert(RequestActivity).values({
+      requestId,
+      actorId: activeUser.id,
+      type: ActivityType.COMMENTED,
+      message: internal
+        ? "Added an internal comment (Staff Only)."
+        : "Added a public comment.",
     });
 
     return { success: true, message: "Comment added successfully!" };
@@ -1462,12 +1484,12 @@ export async function addRequestAttachment(
       return { success: false, message: "File name and URL are required." };
     }
 
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: {
+    const request = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: {
         assignments: true,
         watchers: true,
-        createdBy: { include: { course: true } },
+        createdBy: { with: { course: true } },
         department: true,
       },
     });
@@ -1476,10 +1498,10 @@ export async function addRequestAttachment(
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN");
     const isCreator = request.createdById === activeUser.id;
-    const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
+    const isAssigned = request.assignments.some((a: any) => a.userId === activeUser.id);
     const managedDeptIds = await getHodDepartmentIds(activeUser);
     const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
-    const isWatcher = request.watchers.some((w) => w.userId === activeUser.id);
+    const isWatcher = request.watchers.some((w: any) => w.userId === activeUser.id);
 
     // Watchers have read-only access
     if (isWatcher && !isAdmin && !isCreator && !isAssigned && !isDeptManager) {
@@ -1500,27 +1522,26 @@ export async function addRequestAttachment(
     const mime = fileName.split(".").pop() || "txt";
 
     // Insert attachment
-    const newAttachment = await prisma.requestAttachment.create({
-      data: {
+    const [newAttachment] = await db
+      .insert(RequestAttachment)
+      .values({
         requestId,
         uploadedById: activeUser.id,
         fileName: fileName.trim(),
         fileUrl: fileUrl.trim(),
         mimeType: mime,
         fileSize: Number(fileSize),
-      },
-    });
+      })
+      .returning();
 
     // Log Activity
-    await prisma.requestActivity.create({
-      data: {
-        requestId,
-        actorId: activeUser.id,
-        type: ActivityType.ATTACHMENT_ADDED,
-        message: `Attached file: ${fileName.trim()}`,
-        newValue: fileUrl.trim(),
-        oldValue: fileName.trim(),
-      },
+    await db.insert(RequestActivity).values({
+      requestId,
+      actorId: activeUser.id,
+      type: ActivityType.ATTACHMENT_ADDED,
+      message: `Attached file: ${fileName.trim()}`,
+      newValue: fileUrl.trim(),
+      oldValue: fileName.trim(),
     });
 
     console.log("Successfully added attachment:", newAttachment);
@@ -1539,15 +1560,13 @@ export async function unassignRequest(requestId: string, userId: string) {
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    const assignment = await prisma.requestAssignment.findUnique({
-      where: {
-        requestId_userId: {
-          requestId,
-          userId,
-        },
-      },
-      include: {
-        user: { select: { fullName: true } },
+    const assignment = await db.query.RequestAssignment.findFirst({
+      where: and(
+        eq(RequestAssignment.requestId, requestId),
+        eq(RequestAssignment.userId, userId),
+      ),
+      with: {
+        user: { columns: { fullName: true } },
       },
     });
 
@@ -1555,9 +1574,9 @@ export async function unassignRequest(requestId: string, userId: string) {
       return { success: false, message: "Assignment not found." };
     }
 
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: { createdBy: { include: { course: true } }, department: true },
+    const request = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: { createdBy: { with: { course: true } }, department: true },
     });
     if (!request) return { success: false, message: "Request not found." };
 
@@ -1575,29 +1594,27 @@ export async function unassignRequest(requestId: string, userId: string) {
       };
     }
 
-    await prisma.requestAssignment.delete({
-      where: {
-        requestId_userId: {
-          requestId,
-          userId,
-        },
-      },
-    });
+    await db
+      .delete(RequestAssignment)
+      .where(
+        and(
+          eq(RequestAssignment.requestId, requestId),
+          eq(RequestAssignment.userId, userId),
+        ),
+      );
 
     // Log Unassignment Activity
-    await prisma.requestActivity.create({
-      data: {
-        requestId,
-        actorId: activeUser.id,
-        type: ActivityType.FORWARDED,
-        oldValue: assignment.user.fullName,
-        message: `Removed ${assignment.user.fullName} from assigned handlers.`,
-      },
+    await db.insert(RequestActivity).values({
+      requestId,
+      actorId: activeUser.id,
+      type: ActivityType.FORWARDED,
+      oldValue: assignment.user?.fullName || "staff",
+      message: `Removed ${assignment.user?.fullName || "staff"} from assigned handlers.`,
     });
 
     return {
       success: true,
-      message: `Removed ${assignment.user.fullName} from assigned handlers.`,
+      message: `Removed ${assignment.user?.fullName || "staff"} from assigned handlers.`,
     };
   } catch (error: any) {
     console.error("Error unassigning user:", error);
@@ -1613,12 +1630,12 @@ export async function addRequestWatcher(requestId: string, userId: string) {
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: {
+    const request = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: {
         assignments: true,
         watchers: true,
-        createdBy: { include: { course: true } },
+        createdBy: { with: { course: true } },
         department: true,
       },
     });
@@ -1627,7 +1644,7 @@ export async function addRequestWatcher(requestId: string, userId: string) {
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN");
     const hasRoutingRight = rights.includes("MANAGE_ROUTING");
-    const isAssigned = request.assignments.some((a) => a.userId === activeUser.id);
+    const isAssigned = request.assignments.some((a: any) => a.userId === activeUser.id);
     const managedDeptIds = await getHodDepartmentIds(activeUser);
     const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
 
@@ -1638,7 +1655,7 @@ export async function addRequestWatcher(requestId: string, userId: string) {
       };
     }
 
-    const existing = request.watchers.find((w) => w.userId === userId);
+    const existing = request.watchers.find((w: any) => w.userId === userId);
     if (existing) {
       return {
         success: false,
@@ -1646,30 +1663,26 @@ export async function addRequestWatcher(requestId: string, userId: string) {
       };
     }
 
-    const staff = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { fullName: true },
+    const staff = await db.query.User.findFirst({
+      where: eq(User.id, userId),
+      columns: { fullName: true },
     });
     if (!staff) {
       return { success: false, message: "Staff user not found." };
     }
 
-    await prisma.requestWatcher.create({
-      data: {
-        requestId,
-        userId,
-        addedById: activeUser.id,
-      },
+    await db.insert(RequestWatcher).values({
+      requestId,
+      userId,
+      addedById: activeUser.id,
     });
 
     // Log Activity
-    await prisma.requestActivity.create({
-      data: {
-        requestId,
-        actorId: activeUser.id,
-        type: ActivityType.COMMENTED,
-        message: `Added ${staff.fullName} as a watcher.`,
-      },
+    await db.insert(RequestActivity).values({
+      requestId,
+      actorId: activeUser.id,
+      type: ActivityType.COMMENTED,
+      message: `Added ${staff.fullName} as a watcher.`,
     });
 
     return { success: true, message: `Added ${staff.fullName} as a watcher.` };
@@ -1688,15 +1701,13 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    const watcher = await prisma.requestWatcher.findUnique({
-      where: {
-        requestId_userId: {
-          requestId,
-          userId,
-        },
-      },
-      include: {
-        user: { select: { fullName: true } },
+    const watcher = await db.query.RequestWatcher.findFirst({
+      where: and(
+        eq(RequestWatcher.requestId, requestId),
+        eq(RequestWatcher.userId, userId),
+      ),
+      with: {
+        user: { columns: { fullName: true } },
       },
     });
 
@@ -1711,9 +1722,9 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
 
     if (!isSelf && !isAdmin && !hasRoutingRight) {
       // Check if caller is department manager
-      const req = await prisma.request.findUnique({
-        where: { id: requestId },
-        include: { createdBy: { include: { course: true } }, department: true },
+      const req = await db.query.Request.findFirst({
+        where: eq(Request.id, requestId),
+        with: { createdBy: { with: { course: true } }, department: true },
       });
       const managedDeptIds = await getHodDepartmentIds(activeUser);
       const isDeptManager = req ? isHodForRequest(activeUser, managedDeptIds, req) : false;
@@ -1726,34 +1737,32 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
       }
     }
 
-    await prisma.requestWatcher.delete({
-      where: {
-        requestId_userId: {
-          requestId,
-          userId,
-        },
-      },
-    });
+    await db
+      .delete(RequestWatcher)
+      .where(
+        and(
+          eq(RequestWatcher.requestId, requestId),
+          eq(RequestWatcher.userId, userId),
+        ),
+      );
 
     const activityMsg = isSelf
-      ? `${watcher.user.fullName} stopped watching this ticket.`
-      : `Removed ${watcher.user.fullName} from watchers list.`;
+      ? `${watcher.user?.fullName || "User"} stopped watching this ticket.`
+      : `Removed ${watcher.user?.fullName || "User"} from watchers list.`;
 
     // Log Activity
-    await prisma.requestActivity.create({
-      data: {
-        requestId,
-        actorId: activeUser.id,
-        type: ActivityType.COMMENTED,
-        message: activityMsg,
-      },
+    await db.insert(RequestActivity).values({
+      requestId,
+      actorId: activeUser.id,
+      type: ActivityType.COMMENTED,
+      message: activityMsg,
     });
 
     return {
       success: true,
       message: isSelf
         ? "You have stopped watching this request."
-        : `Removed ${watcher.user.fullName} from watchers list.`,
+        : `Removed ${watcher.user?.fullName || "User"} from watchers list.`,
     };
   } catch (error: any) {
     console.error("Error removing watcher:", error);
@@ -1773,12 +1782,12 @@ export async function updateRequestTarget(
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: {
+    const request = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: {
         category: true,
         department: true,
-        createdBy: { include: { course: true } },
+        createdBy: { with: { course: true } },
       },
     });
     if (!request) return { success: false, message: "Request not found." };
@@ -1801,8 +1810,8 @@ export async function updateRequestTarget(
     let newTargetName = "";
 
     if (targetType === "CATEGORY") {
-      const newCat = await prisma.category.findUnique({
-        where: { id: targetId },
+      const newCat = await db.query.Category.findFirst({
+        where: eq(Category.id, targetId),
       });
       if (!newCat)
         return { success: false, message: "Selected category not found." };
@@ -1814,16 +1823,16 @@ export async function updateRequestTarget(
           : "General";
       newTargetName = newCat.name;
 
-      await prisma.request.update({
-        where: { id: requestId },
-        data: {
+      await db
+        .update(Request)
+        .set({
           categoryId: targetId,
           departmentId: null,
-        },
-      });
+        })
+        .where(eq(Request.id, requestId));
     } else {
-      const newDept = await prisma.department.findUnique({
-        where: { id: targetId },
+      const newDept = await db.query.Department.findFirst({
+        where: eq(Department.id, targetId),
       });
       if (!newDept)
         return { success: false, message: "Selected department not found." };
@@ -1835,25 +1844,23 @@ export async function updateRequestTarget(
           : "General";
       newTargetName = `Dept: ${newDept.name}`;
 
-      await prisma.request.update({
-        where: { id: requestId },
-        data: {
+      await db
+        .update(Request)
+        .set({
           categoryId: null,
           departmentId: targetId,
-        },
-      });
+        })
+        .where(eq(Request.id, requestId));
     }
 
     // Log re-assignment activity
-    await prisma.requestActivity.create({
-      data: {
-        requestId,
-        actorId: activeUser.id,
-        type: ActivityType.STATUS_CHANGED,
-        oldValue: oldTargetName,
-        newValue: newTargetName,
-        message: `Request target updated from ${oldTargetName} to ${newTargetName} by ${activeUser.fullName}.`,
-      },
+    await db.insert(RequestActivity).values({
+      requestId,
+      actorId: activeUser.id,
+      type: ActivityType.STATUS_CHANGED,
+      oldValue: oldTargetName,
+      newValue: newTargetName,
+      message: `Request target updated from ${oldTargetName} to ${newTargetName} by ${activeUser.fullName}.`,
     });
 
     return {
@@ -1879,12 +1886,12 @@ export async function forwardRequest(
     const activeUser = await getAuthenticatedUser();
     if (!activeUser) return { success: false, message: "Not authenticated." };
 
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-      include: {
+    const request = await db.query.Request.findFirst({
+      where: eq(Request.id, requestId),
+      with: {
         assignments: {
-          include: {
-            user: { select: { id: true, fullName: true, role: true } },
+          with: {
+            user: { columns: { id: true, fullName: true, role: true } },
           },
         },
         watchers: true,
@@ -1895,7 +1902,7 @@ export async function forwardRequest(
 
     // Verify active user is assigned
     const activeUserAssignment = request.assignments.find(
-      (a) => a.userId === activeUser.id,
+      (a: any) => a.userId === activeUser.id,
     );
     if (!activeUserAssignment) {
       return {
@@ -1906,8 +1913,8 @@ export async function forwardRequest(
     }
 
     // Verify target user is staff
-    const targetUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
+    const targetUser = await db.query.User.findFirst({
+      where: eq(User.id, targetUserId),
     });
     if (!targetUser || (targetUser.role === "STUDENT" && targetUser.rights.length === 0)) {
       return {
@@ -1917,75 +1924,79 @@ export async function forwardRequest(
     }
 
     // Current assignees other than target user to be converted to watchers
-    const assigneesToConvert = request.assignments.filter((a) => a.userId !== targetUserId);
-    const existingWatcherUserIds = new Set(request.watchers.map((w) => w.userId));
+    const assigneesToConvert = request.assignments.filter((a: any) => a.userId !== targetUserId);
+    const existingWatcherUserIds = new Set(request.watchers.map((w: any) => w.userId));
 
-    await prisma.$transaction(async (tx) => {
+    await db.transaction(async (tx) => {
       // 1. Remove all current assignees from assignments
       if (assigneesToConvert.length > 0) {
-        await tx.requestAssignment.deleteMany({
-          where: {
-            requestId,
-            userId: { in: assigneesToConvert.map((a) => a.userId) },
-          },
-        });
+        const convertIds = assigneesToConvert.map((a: any) => a.userId);
+        await tx
+          .delete(RequestAssignment)
+          .where(
+            and(
+              eq(RequestAssignment.requestId, requestId),
+              inArray(RequestAssignment.userId, convertIds),
+            ),
+          );
 
         // 2. Convert them to watchers
         const watchersToCreate = assigneesToConvert
-          .filter((a) => !existingWatcherUserIds.has(a.userId))
-          .map((a) => ({
+          .filter((a: any) => !existingWatcherUserIds.has(a.userId))
+          .map((a: any) => ({
             requestId,
             userId: a.userId,
             addedById: activeUser.id,
           }));
 
         if (watchersToCreate.length > 0) {
-          await tx.requestWatcher.createMany({
-            data: watchersToCreate,
-          });
+          await tx.insert(RequestWatcher).values(watchersToCreate);
         }
       }
 
       // 3. Remove target user from watchers if they were watching
-      await tx.requestWatcher.deleteMany({
-        where: {
-          requestId,
-          userId: targetUserId,
-        },
-      });
+      await tx
+        .delete(RequestWatcher)
+        .where(
+          and(
+            eq(RequestWatcher.requestId, requestId),
+            eq(RequestWatcher.userId, targetUserId),
+          ),
+        );
 
       // 4. Add target user as assignee
-      const existingTargetAssign = request.assignments.find((a) => a.userId === targetUserId);
+      const existingTargetAssign = request.assignments.find((a: any) => a.userId === targetUserId);
       if (!existingTargetAssign) {
-        await tx.requestAssignment.create({
-          data: {
-            requestId,
-            userId: targetUserId,
-            assignedById: activeUser.id,
-            role: "PRIMARY",
-            status: "PENDING",
-          },
+        await tx.insert(RequestAssignment).values({
+          requestId,
+          userId: targetUserId,
+          assignedById: activeUser.id,
+          role: "PRIMARY",
+          status: "PENDING",
         });
       } else {
-        await tx.requestAssignment.update({
-          where: { requestId_userId: { requestId, userId: targetUserId } },
-          data: { role: "PRIMARY", status: "PENDING" },
-        });
+        await tx
+          .update(RequestAssignment)
+          .set({ role: "PRIMARY", status: "PENDING" })
+          .where(
+            and(
+              eq(RequestAssignment.requestId, requestId),
+              eq(RequestAssignment.userId, targetUserId),
+            ),
+          );
       }
     });
 
     // 5. Log Forward Activity
-    await prisma.requestActivity.create({
-      data: {
-        requestId,
-        actorId: activeUser.id,
-        type: ActivityType.FORWARDED,
-        oldValue: activeUser.fullName,
-        newValue: targetUser.fullName,
-        message:
-          message ||
-          `Request forwarded from ${activeUser.fullName} to ${targetUser.fullName}. Active handler converted to watcher.`,
-      },
+    await db.insert(RequestActivity).values({
+      requestId,
+      actorId: activeUser.id,
+      type: ActivityType.FORWARDED,
+      oldValue: activeUser.fullName,
+      newValue: targetUser.fullName,
+      message:
+        message ||
+        `Request forwarded from ${activeUser.fullName} to ${targetUser.fullName}. Active handler converted to watcher.`,
     });
 
     return {

@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { generateCodeChallenge, generateCodeVerifier } from "./pkce";
 import { getSSOUrl } from "./sso";
-import prisma from "../prisma";
+import { db, User, eq, or } from "@/db/drizzel";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -154,18 +154,19 @@ export const fetchSSOToken = async (code: string) => {
         : [];
 
     // Find existing user by ssoId or email
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { ssoId: ssoId },
-          ...(ssoUser.email ? [{ email: ssoUser.email }] : []),
-        ],
-      },
+    const lookupConditions = [eq(User.ssoId, ssoId)];
+    if (ssoUser.email) {
+      lookupConditions.push(eq(User.email, ssoUser.email));
+    }
+
+    let user = await db.query.User.findFirst({
+      where: or(...lookupConditions),
     });
 
     if (!user) {
-      user = await prisma.user.create({
-        data: {
+      const [newUser] = await db
+        .insert(User)
+        .values({
           ssoId: ssoId,
           email: ssoUser.email || `${ssoId}@sbsstc.ac.in`,
           fullName: ssoUser.fullName || ssoUser.name || "User",
@@ -173,23 +174,32 @@ export const fetchSSOToken = async (code: string) => {
           mobileNumber: ssoUser.mobileNumber || null,
           role: role,
           rights: initialRights,
-        },
-      });
+        })
+        .returning();
+      user = newUser;
     } else {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          ssoId: ssoId,
-          ...(ssoUser.fullName || ssoUser.name
-            ? { fullName: ssoUser.fullName || ssoUser.name }
-            : {}),
-          ...(ssoUser.email ? { email: ssoUser.email } : {}),
-          ...(ssoUser.rollNumber ? { rollNumber: ssoUser.rollNumber } : {}),
-          ...(ssoUser.mobileNumber
-            ? { mobileNumber: ssoUser.mobileNumber }
-            : {}),
-        },
-      });
+      const updateData: Partial<typeof User.$inferInsert> = {
+        ssoId: ssoId,
+      };
+      if (ssoUser.fullName || ssoUser.name) {
+        updateData.fullName = ssoUser.fullName || ssoUser.name;
+      }
+      if (ssoUser.email) {
+        updateData.email = ssoUser.email;
+      }
+      if (ssoUser.rollNumber) {
+        updateData.rollNumber = ssoUser.rollNumber;
+      }
+      if (ssoUser.mobileNumber) {
+        updateData.mobileNumber = ssoUser.mobileNumber;
+      }
+
+      const [updatedUser] = await db
+        .update(User)
+        .set(updateData)
+        .where(eq(User.id, user.id))
+        .returning();
+      user = updatedUser;
     }
 
     // Embed internal database user ID (user.id) in session JWT payload

@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "../prisma";
+import { db, Course, desc, eq } from "@/db/drizzel";
 import { requireRights, getAuthenticatedUser } from "./auth";
 
 /**
@@ -16,16 +16,16 @@ export async function getCourses() {
       };
     }
 
-    const courses = await prisma.course.findMany({
-      include: {
+    const courses = await db.query.Course.findMany({
+      with: {
         department: {
-          select: {
+          columns: {
             id: true,
             name: true,
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [desc(Course.createdAt)],
     });
 
     return {
@@ -86,8 +86,8 @@ export async function createCourse(data: {
     }
 
     // Check unique code constraint
-    const existingCourse = await prisma.course.findUnique({
-      where: { code: data.code.trim() },
+    const existingCourse = await db.query.Course.findFirst({
+      where: eq(Course.code, data.code.trim()),
     });
     if (existingCourse) {
       return {
@@ -96,14 +96,15 @@ export async function createCourse(data: {
       };
     }
 
-    const newCourse = await prisma.course.create({
-      data: {
+    const [newCourse] = await db
+      .insert(Course)
+      .values({
         code: data.code.trim(),
         name: data.name.trim(),
         duration: data.duration ? Number(data.duration) : null,
         departmentId: targetDeptId,
-      },
-    });
+      })
+      .returning();
 
     console.log("Successfully created course:", newCourse);
     return { success: true, message: "Course created successfully!" };
@@ -135,8 +136,8 @@ export async function updateCourse(
 
     const activeUser = await requireRights(["MANAGE_CONFIGS", "MANAGE_DEPARTMENT"]);
 
-    const existingCourse = await prisma.course.findUnique({
-      where: { id },
+    const existingCourse = await db.query.Course.findFirst({
+      where: eq(Course.id, id),
     });
     if (!existingCourse) {
       return { success: false, message: "Course not found." };
@@ -164,8 +165,8 @@ export async function updateCourse(
     }
 
     // Check unique code constraint (excluding current record)
-    const existingCourseWithCode = await prisma.course.findUnique({
-      where: { code: data.code.trim() },
+    const existingCourseWithCode = await db.query.Course.findFirst({
+      where: eq(Course.code, data.code.trim()),
     });
     if (existingCourseWithCode && existingCourseWithCode.id !== id) {
       return {
@@ -179,15 +180,16 @@ export async function updateCourse(
       ? activeUser.departmentId
       : data.departmentId || existingCourse.departmentId;
 
-    const updatedCourse = await prisma.course.update({
-      where: { id },
-      data: {
+    const [updatedCourse] = await db
+      .update(Course)
+      .set({
         code: data.code.trim(),
         name: data.name.trim(),
         duration: data.duration ? Number(data.duration) : null,
         departmentId: targetDeptId,
-      },
-    });
+      })
+      .where(eq(Course.id, id))
+      .returning();
 
     console.log("Successfully updated course:", updatedCourse);
     return { success: true, message: "Course updated successfully!" };
@@ -211,9 +213,13 @@ export async function deleteCourse(id: string) {
 
     const activeUser = await requireRights(["MANAGE_CONFIGS", "MANAGE_DEPARTMENT"]);
 
-    const course = await prisma.course.findUnique({
-      where: { id },
-      include: { students: { take: 1 } },
+    const course = await db.query.Course.findFirst({
+      where: eq(Course.id, id),
+      with: {
+        students: {
+          limit: 1,
+        },
+      },
     });
 
     if (!course) {
@@ -237,7 +243,7 @@ export async function deleteCourse(id: string) {
       }
     }
 
-    if (course.students.length > 0) {
+    if (course.students && course.students.length > 0) {
       return {
         success: false,
         message:
@@ -245,9 +251,7 @@ export async function deleteCourse(id: string) {
       };
     }
 
-    await prisma.course.delete({
-      where: { id },
-    });
+    await db.delete(Course).where(eq(Course.id, id));
 
     console.log(`Successfully deleted course with ID: ${id}`);
     return { success: true, message: "Course deleted successfully!" };

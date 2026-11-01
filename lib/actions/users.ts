@@ -1,8 +1,7 @@
 "use server";
 
-import prisma from "../prisma";
+import { db, User, Course, eq, Gender } from "@/db/drizzel";
 import { cookies } from "next/headers";
-import { Gender } from "@/prisma/generated/prisma/enums";
 import { verifyToken } from "@/lib/auth/auth";
 
 /**
@@ -42,9 +41,9 @@ export async function getProfile() {
       return { success: false, message: "Invalid or expired session token." };
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      include: {
+    const user = await db.query.User.findFirst({
+      where: eq(User.id, payload.userId),
+      with: {
         course: true,
         department: true,
       },
@@ -120,8 +119,8 @@ export async function updateUserProfile(data: {
     // 2. Find or create course
     let courseId: string | null = null;
     if (data.enrolledCourse) {
-      let course = await prisma.course.findFirst({
-        where: { name: data.enrolledCourse },
+      let course = await db.query.Course.findFirst({
+        where: eq(Course.name, data.enrolledCourse),
       });
       if (!course) {
         const code =
@@ -131,21 +130,23 @@ export async function updateUserProfile(data: {
             .join("")
             .toUpperCase() + Math.floor(Math.random() * 1000);
 
-        course = await prisma.course.create({
-          data: {
+        const [newCourse] = await db
+          .insert(Course)
+          .values({
             name: data.enrolledCourse,
             code: code,
-          },
-        });
+          })
+          .returning();
+        course = newCourse;
       }
-      courseId = course.id;
+      courseId = course?.id || null;
     }
 
     // 3. Update database record
     const dateOfBirth = data.dob ? new Date(data.dob) : null;
-    const updatedUser = await prisma.user.update({
-      where: { id: payload.userId },
-      data: {
+    const [updatedUser] = await db
+      .update(User)
+      .set({
         fullName: data.name,
         email: data.email,
         mobileNumber: data.mobileNumber || null,
@@ -153,12 +154,13 @@ export async function updateUserProfile(data: {
         gender: genderEnum,
         courseId,
         designation: data.designation || null,
-      },
-    });
+      })
+      .where(eq(User.id, payload.userId))
+      .returning();
 
     console.log(
       "Successfully updated profile for user:",
-      updatedUser.email,
+      updatedUser?.email,
       updatedUser,
     );
     return { success: true, message: "Profile details updated successfully!" };

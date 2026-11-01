@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "../prisma";
+import { db, RoutingRule, and, asc, eq, isNull } from "@/db/drizzel";
 import { requireRights } from "./auth";
 
 /**
@@ -8,11 +8,11 @@ import { requireRights } from "./auth";
  */
 export async function getRoutingRules() {
   try {
-    const rules = await prisma.routingRule.findMany({
-      include: {
+    const rules = await db.query.RoutingRule.findMany({
+      with: {
         category: true,
         user: {
-          select: {
+          columns: {
             id: true,
             fullName: true,
             email: true,
@@ -22,9 +22,9 @@ export async function getRoutingRules() {
         },
       },
       orderBy: [
-        { isCentral: "asc" },
-        { categoryId: "asc" },
-        { level: "asc" },
+        asc(RoutingRule.isCentral),
+        asc(RoutingRule.categoryId),
+        asc(RoutingRule.level),
       ],
     });
 
@@ -78,13 +78,19 @@ export async function createRoutingRule(data: {
     const categoryId = isCentral ? null : data.categoryId!;
 
     // Check if duplicate rule exists
-    const existing = await prisma.routingRule.findFirst({
-      where: {
-        isCentral,
-        categoryId,
-        level,
-        userId: data.userId,
-      },
+    const conditions = [
+      eq(RoutingRule.isCentral, isCentral),
+      eq(RoutingRule.level, level),
+      eq(RoutingRule.userId, data.userId),
+    ];
+    if (categoryId) {
+      conditions.push(eq(RoutingRule.categoryId, categoryId));
+    } else {
+      conditions.push(isNull(RoutingRule.categoryId));
+    }
+
+    const existing = await db.query.RoutingRule.findFirst({
+      where: and(...conditions),
     });
 
     if (existing) {
@@ -94,14 +100,12 @@ export async function createRoutingRule(data: {
       };
     }
 
-    await prisma.routingRule.create({
-      data: {
-        isCentral,
-        categoryId,
-        userId: data.userId,
-        level,
-        isActive: true,
-      },
+    await db.insert(RoutingRule).values({
+      isCentral,
+      categoryId,
+      userId: data.userId,
+      level,
+      isActive: true,
     });
 
     return {
@@ -130,10 +134,7 @@ export async function toggleRoutingRule(id: string, isActive: boolean) {
 
     await requireRights(["MANAGE_ROUTING"]);
 
-    await prisma.routingRule.update({
-      where: { id },
-      data: { isActive },
-    });
+    await db.update(RoutingRule).set({ isActive }).where(eq(RoutingRule.id, id));
 
     return {
       success: true,
@@ -159,9 +160,7 @@ export async function deleteRoutingRule(id: string) {
 
     await requireRights(["MANAGE_ROUTING"]);
 
-    await prisma.routingRule.delete({
-      where: { id },
-    });
+    await db.delete(RoutingRule).where(eq(RoutingRule.id, id));
 
     return { success: true, message: "Routing rule deleted successfully!" };
   } catch (error: any) {

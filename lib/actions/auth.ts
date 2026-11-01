@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "../prisma";
+import { db, User, eq } from "@/db/drizzel";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth/auth";
 
@@ -16,14 +16,21 @@ export async function getAuthenticatedUser() {
     const payload = await verifyToken(token);
     if (!payload || !payload.userId) return null;
 
-    return await prisma.user.findUnique({
-      where: { id: payload.userId },
-      include: {
+    const user = await db.query.User.findFirst({
+      where: eq(User.id, payload.userId),
+      with: {
         department: true,
         course: true,
         managedDepartment: true,
       },
     });
+
+    if (!user) return null;
+
+    return {
+      ...user,
+      managedDepartment: user.managedDepartment?.[0] || null,
+    };
   } catch (err) {
     console.error("Error retrieving authenticated user:", err);
     return null;

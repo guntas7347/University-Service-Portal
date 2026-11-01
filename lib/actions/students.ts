@@ -1,7 +1,6 @@
 "use server";
 
-import prisma from "../prisma";
-import { Gender, UserStatus } from "@/prisma/generated/prisma/enums";
+import { db, User, eq, and, desc, Gender, UserStatus } from "@/db/drizzel";
 import { requireRights } from "./auth";
 
 /**
@@ -15,26 +14,24 @@ export async function getStudents() {
     const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
     const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
-    let whereClause: any = {
-      role: "STUDENT",
-    };
+    const conditions = [eq(User.role, "STUDENT")];
 
     if (isDeptManager && !isAdmin && activeUser.departmentId) {
-      whereClause.departmentId = activeUser.departmentId;
+      conditions.push(eq(User.departmentId, activeUser.departmentId));
     }
 
-    const students = await prisma.user.findMany({
-      where: whereClause,
-      include: {
+    const students = await db.query.User.findMany({
+      where: and(...conditions),
+      with: {
         department: true,
         course: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [desc(User.createdAt)],
     });
 
     return {
       success: true,
-      students: students.map((u) => ({
+      students: students.map((u: any) => ({
         id: u.id,
         name: u.fullName,
         email: u.email,
@@ -88,8 +85,8 @@ export async function updateStudent(
     const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
     const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
-    const existingStudent = await prisma.user.findUnique({
-      where: { id },
+    const existingStudent = await db.query.User.findFirst({
+      where: eq(User.id, id),
     });
     if (!existingStudent || existingStudent.role !== "STUDENT") {
       return { success: false, message: "Student account not found." };
@@ -117,8 +114,8 @@ export async function updateStudent(
     }
 
     // Check email uniqueness
-    const emailDup = await prisma.user.findUnique({
-      where: { email: data.email.trim() },
+    const emailDup = await db.query.User.findFirst({
+      where: eq(User.email, data.email.trim()),
     });
     if (emailDup && emailDup.id !== id) {
       return {
@@ -128,8 +125,8 @@ export async function updateStudent(
     }
 
     // Check roll number uniqueness
-    const rollDup = await prisma.user.findUnique({
-      where: { rollNumber: data.rollNumber.trim() },
+    const rollDup = await db.query.User.findFirst({
+      where: eq(User.rollNumber, data.rollNumber.trim()),
     });
     if (rollDup && rollDup.id !== id) {
       return {
@@ -140,8 +137,8 @@ export async function updateStudent(
 
     // Check mobile number uniqueness
     if (data.mobileNumber?.trim()) {
-      const mobileDup = await prisma.user.findUnique({
-        where: { mobileNumber: data.mobileNumber.trim() },
+      const mobileDup = await db.query.User.findFirst({
+        where: eq(User.mobileNumber, data.mobileNumber.trim()),
       });
       if (mobileDup && mobileDup.id !== id) {
         return {
@@ -173,9 +170,9 @@ export async function updateStudent(
       ? activeUser.departmentId
       : data.departmentId;
 
-    const updatedStudent = await prisma.user.update({
-      where: { id },
-      data: {
+    const [updatedStudent] = await db
+      .update(User)
+      .set({
         fullName: data.name.trim(),
         email: data.email.trim(),
         rollNumber: data.rollNumber.trim(),
@@ -185,8 +182,9 @@ export async function updateStudent(
         departmentId: targetDeptId || null,
         courseId: data.courseId || null,
         status: statusEnum,
-      },
-    });
+      })
+      .where(eq(User.id, id))
+      .returning();
 
     console.log("Successfully updated student account:", updatedStudent);
     return { success: true, message: "Student account updated successfully!" };
@@ -212,9 +210,13 @@ export async function deleteStudent(id: string) {
     const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
     const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
-    const student = await prisma.user.findUnique({
-      where: { id },
-      include: { requests: { take: 1 } },
+    const student = await db.query.User.findFirst({
+      where: eq(User.id, id),
+      with: {
+        requests: {
+          limit: 1,
+        },
+      },
     });
 
     if (!student || student.role !== "STUDENT") {
@@ -243,9 +245,7 @@ export async function deleteStudent(id: string) {
       };
     }
 
-    await prisma.user.delete({
-      where: { id },
-    });
+    await db.delete(User).where(eq(User.id, id));
 
     console.log(`Successfully deleted student account with ID: ${id}`);
     return { success: true, message: "Student account deleted successfully!" };

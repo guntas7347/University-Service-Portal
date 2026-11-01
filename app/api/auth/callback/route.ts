@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForUser } from "@/lib/auth/sso";
 import { createJWT, TokenPayload } from "@/lib/auth/auth";
-import prisma from "@/lib/prisma";
+import { db, User, eq, or } from "@/db/drizzel";
 
 export const runtime = "nodejs";
 
@@ -117,19 +117,22 @@ async function processCallback(req: NextRequest, code: string | null) {
     const profileImage = ssoUser.photoUrl || ssoUser.photo || null;
 
     // Look up existing user by ssoId, email, or rollNumber
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { ssoId },
-          ...(email ? [{ email }] : []),
-          ...(rollNumber ? [{ rollNumber }] : []),
-        ],
-      },
+    const lookupConditions = [eq(User.ssoId, ssoId)];
+    if (email) {
+      lookupConditions.push(eq(User.email, email));
+    }
+    if (rollNumber) {
+      lookupConditions.push(eq(User.rollNumber, rollNumber));
+    }
+
+    let user = await db.query.User.findFirst({
+      where: or(...lookupConditions),
     });
 
     if (!user) {
-      user = await prisma.user.create({
-        data: {
+      const [newUser] = await db
+        .insert(User)
+        .values({
           ssoId,
           email,
           fullName,
@@ -138,25 +141,30 @@ async function processCallback(req: NextRequest, code: string | null) {
           profileImage,
           role,
           rights: initialRights,
-        },
-      });
+        })
+        .returning();
+      user = newUser;
       console.log(
         "SSO Callback: Created new user account:",
         user.id,
         user.email,
       );
     } else {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          ssoId,
-          ...(fullName ? { fullName } : {}),
-          ...(email ? { email } : {}),
-          ...(rollNumber ? { rollNumber } : {}),
-          ...(mobileNumber ? { mobileNumber } : {}),
-          ...(profileImage ? { profileImage } : {}),
-        },
-      });
+      const updateData: Partial<typeof User.$inferInsert> = {
+        ssoId,
+      };
+      if (fullName) updateData.fullName = fullName;
+      if (email) updateData.email = email;
+      if (rollNumber) updateData.rollNumber = rollNumber;
+      if (mobileNumber) updateData.mobileNumber = mobileNumber;
+      if (profileImage) updateData.profileImage = profileImage;
+
+      const [updatedUser] = await db
+        .update(User)
+        .set(updateData)
+        .where(eq(User.id, user.id))
+        .returning();
+      user = updatedUser;
       console.log(
         "SSO Callback: Updated existing user account:",
         user.id,

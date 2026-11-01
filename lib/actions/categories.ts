@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "../prisma";
+import { db, Category, desc, eq } from "@/db/drizzel";
 import { requireRights } from "./auth";
 
 /**
@@ -8,8 +8,8 @@ import { requireRights } from "./auth";
  */
 export async function getCategories() {
   try {
-    const categories = await prisma.category.findMany({
-      orderBy: { createdAt: "desc" },
+    const categories = await db.query.Category.findMany({
+      orderBy: [desc(Category.createdAt)],
     });
     return { success: true, categories };
   } catch (error: any) {
@@ -36,8 +36,8 @@ export async function createCategory(data: {
     }
 
     // Check unique name constraint
-    const existingCategory = await prisma.category.findUnique({
-      where: { name: data.name.trim() },
+    const existingCategory = await db.query.Category.findFirst({
+      where: eq(Category.name, data.name.trim()),
     });
     if (existingCategory) {
       return {
@@ -46,12 +46,13 @@ export async function createCategory(data: {
       };
     }
 
-    const newCategory = await prisma.category.create({
-      data: {
+    const [newCategory] = await db
+      .insert(Category)
+      .values({
         name: data.name.trim(),
         description: data.description?.trim() || null,
-      },
-    });
+      })
+      .returning();
 
     console.log("Successfully created category:", newCategory);
     return { success: true, message: "Category created successfully!" };
@@ -86,8 +87,8 @@ export async function updateCategory(
     }
 
     // Check unique name constraint (excluding current record)
-    const existingCategory = await prisma.category.findUnique({
-      where: { name: data.name.trim() },
+    const existingCategory = await db.query.Category.findFirst({
+      where: eq(Category.name, data.name.trim()),
     });
     if (existingCategory && existingCategory.id !== id) {
       return {
@@ -96,13 +97,14 @@ export async function updateCategory(
       };
     }
 
-    const updatedCategory = await prisma.category.update({
-      where: { id },
-      data: {
+    const [updatedCategory] = await db
+      .update(Category)
+      .set({
         name: data.name.trim(),
         description: data.description?.trim() || null,
-      },
-    });
+      })
+      .where(eq(Category.id, id))
+      .returning();
 
     console.log("Successfully updated category:", updatedCategory);
     return { success: true, message: "Category updated successfully!" };
@@ -127,12 +129,16 @@ export async function deleteCategory(id: string) {
     await requireRights(["MANAGE_CONFIGS"]);
 
     // Verify if there are active requests under this category
-    const categoryWithRequests = await prisma.category.findUnique({
-      where: { id },
-      include: { requests: { take: 1 } },
+    const categoryWithRequests = await db.query.Category.findFirst({
+      where: eq(Category.id, id),
+      with: {
+        requests: {
+          limit: 1,
+        },
+      },
     });
 
-    if (categoryWithRequests && categoryWithRequests.requests.length > 0) {
+    if (categoryWithRequests && categoryWithRequests.requests && categoryWithRequests.requests.length > 0) {
       return {
         success: false,
         message:
@@ -140,9 +146,7 @@ export async function deleteCategory(id: string) {
       };
     }
 
-    await prisma.category.delete({
-      where: { id },
-    });
+    await db.delete(Category).where(eq(Category.id, id));
 
     console.log(`Successfully deleted category with ID: ${id}`);
     return { success: true, message: "Category deleted successfully!" };

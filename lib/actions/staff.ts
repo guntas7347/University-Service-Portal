@@ -1,7 +1,6 @@
 "use server";
 
-import prisma from "../prisma";
-import { Gender } from "@/prisma/generated/prisma/enums";
+import { db, User, Department, eq, ne, and, desc, Gender } from "@/db/drizzel";
 import { requireRights, getAuthenticatedUser } from "./auth";
 
 /**
@@ -14,27 +13,17 @@ export async function getStaffUsers() {
       return { success: false, message: "Not authenticated." };
     }
 
-    const rights = activeUser.rights || [];
-    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_USERS") || rights.includes("MANAGE_ROUTING");
-    const isDeptManager = rights.includes("MANAGE_DEPARTMENT") || activeUser.role === "HOD";
-
-    let whereClause: any = {
-      role: {
-        not: "STUDENT",
-      },
-    };
-
-    const staff = await prisma.user.findMany({
-      where: whereClause,
-      include: {
+    const staff = await db.query.User.findMany({
+      where: ne(User.role, "STUDENT"),
+      with: {
         department: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [desc(User.createdAt)],
     });
 
     return {
       success: true,
-      staff: staff.map((u) => ({
+      staff: staff.map((u: any) => ({
         id: u.id,
         name: u.fullName,
         email: u.email,
@@ -90,8 +79,8 @@ export async function updateStaffUser(
     const isDeptManager = callerRights.includes("MANAGE_DEPARTMENT");
 
     // Check email uniqueness constraint (excluding active edit user)
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email.trim() },
+    const existingUser = await db.query.User.findFirst({
+      where: eq(User.email, data.email.trim()),
     });
     if (existingUser && existingUser.id !== id) {
       return {
@@ -127,17 +116,21 @@ export async function updateStaffUser(
       assignedRights = assignedRights.filter((r) => r !== "ADMIN" && r !== "MANAGE_USERS");
     }
 
-    const updatedUser = await prisma.$transaction(async (tx) => {
+    const updatedUser = await db.transaction(async (tx) => {
       // Get previous user state
-      const oldUser = await tx.user.findUnique({
-        where: { id },
-        select: { role: true, departmentId: true, rights: true },
+      const oldUser = await tx.query.User.findFirst({
+        where: eq(User.id, id),
+        columns: {
+          role: true,
+          departmentId: true,
+          rights: true,
+        },
       });
 
       // Update user
-      const user = await tx.user.update({
-        where: { id },
-        data: {
+      const [user] = await tx
+        .update(User)
+        .set({
           fullName: data.name.trim(),
           email: data.email.trim(),
           role: roleStr,
@@ -146,23 +139,24 @@ export async function updateStaffUser(
           mobileNumber: data.mobileNumber?.trim() || null,
           gender: genderEnum,
           rights: isAdmin ? assignedRights : oldUser?.rights || [],
-        },
-      });
+        })
+        .where(eq(User.id, id))
+        .returning();
 
       // Sync department HOD link if HOD role or MANAGE_DEPARTMENT right is set
       const isHodDesignation = roleStr === "HOD" || assignedRights.includes("MANAGE_DEPARTMENT");
       if (isHodDesignation && data.departmentId) {
         // Set this user as HOD of the target department
-        await tx.department.update({
-          where: { id: data.departmentId },
-          data: { hodId: id },
-        });
+        await tx
+          .update(Department)
+          .set({ hodId: id })
+          .where(eq(Department.id, data.departmentId));
       } else if (oldUser?.departmentId && (!data.departmentId || (!isHodDesignation))) {
         // Clear HOD link from previous department if no longer HOD
-        await tx.department.updateMany({
-          where: { id: oldUser.departmentId, hodId: id },
-          data: { hodId: null },
-        });
+        await tx
+          .update(Department)
+          .set({ hodId: null })
+          .where(and(eq(Department.id, oldUser.departmentId), eq(Department.hodId, id)));
       }
 
       return user;
@@ -201,9 +195,7 @@ export async function deleteStaffUser(id: string) {
       };
     }
 
-    await prisma.user.delete({
-      where: { id },
-    });
+    await db.delete(User).where(eq(User.id, id));
 
     console.log(`Successfully deleted staff account with ID: ${id}`);
     return {
