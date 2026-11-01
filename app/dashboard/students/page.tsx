@@ -29,9 +29,9 @@ import {
   getStudents,
   updateStudent,
   deleteStudent,
-} from "@/lib/prisma/actions/students";
-import { getDepartments } from "@/lib/prisma/actions/departments";
-import { getCourses } from "@/lib/prisma/actions/courses";
+} from "@/lib/actions/students";
+import { getDepartments } from "@/lib/actions/departments";
+import { getCourses } from "@/lib/actions/courses";
 
 interface StudentType {
   id: string;
@@ -71,7 +71,8 @@ export default function StudentsPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const isAdmin = userRights.includes("ADMIN") || userRights.includes("MANAGE_STUDENTS");
+  const isAdmin =
+    userRights.includes("ADMIN") || userRights.includes("MANAGE_STUDENTS");
   const isDeptManager = userRights.includes("MANAGE_DEPARTMENT");
   const isDeptLocked = isDeptManager && !isAdmin;
 
@@ -118,7 +119,11 @@ export default function StudentsPage() {
       }
 
       // If department manager, default and lock department
-      if (rights.includes("MANAGE_DEPARTMENT") && !rights.includes("ADMIN") && deptId) {
+      if (
+        rights.includes("MANAGE_DEPARTMENT") &&
+        !rights.includes("ADMIN") &&
+        deptId
+      ) {
         setFields({ departmentId: deptId });
       }
     } catch (err) {
@@ -342,287 +347,289 @@ export default function StudentsPage() {
               </button>
             </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Student Name */}
-            <div>
-              <label
-                htmlFor="name"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Full Name
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                </div>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  required
-                  disabled={isSubmitting}
-                  value={form.name}
-                  onChange={handleChange}
-                  placeholder="e.g. Rahul Sharma"
-                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-                />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Email Address
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                </div>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  required
-                  disabled={isSubmitting}
-                  value={form.email}
-                  onChange={handleChange}
-                  placeholder="e.g. rahul@university.edu"
-                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-                />
-              </div>
-            </div>
-
-            {/* Roll Number */}
-            <div>
-              <label
-                htmlFor="rollNumber"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Roll Number / Student ID
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Hash className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                </div>
-                <input
-                  type="text"
-                  id="rollNumber"
-                  name="rollNumber"
-                  required
-                  disabled={isSubmitting}
-                  value={form.rollNumber}
-                  onChange={handleChange}
-                  placeholder="e.g. 2026CSE105"
-                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-                />
-              </div>
-            </div>
-
-            {/* Mobile Number */}
-            <div>
-              <label
-                htmlFor="mobileNumber"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Mobile Number
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                </div>
-                <input
-                  type="tel"
-                  id="mobileNumber"
-                  name="mobileNumber"
-                  disabled={isSubmitting}
-                  value={form.mobileNumber}
-                  onChange={handleChange}
-                  placeholder="e.g. +91 9876543210"
-                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-                />
-              </div>
-            </div>
-
-            {/* Department */}
-            <div>
-              <label
-                htmlFor="departmentId"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Department
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Landmark className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                </div>
-                <select
-                  id="departmentId"
-                  name="departmentId"
-                  required
-                  disabled={isSubmitting || !editingId || isDeptLocked}
-                  value={isDeptLocked ? userDeptId : form.departmentId}
-                  onChange={handleChange}
-                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
-                >
-                  <option value="">Select Department</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Course */}
-            <div>
-              <label
-                htmlFor="courseId"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Enrolled Course Program
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <BookOpen className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                </div>
-                <select
-                  id="courseId"
-                  name="courseId"
-                  disabled={isSubmitting}
-                  value={form.courseId}
-                  onChange={handleChange}
-                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
-                >
-                  <option value="">Select Program</option>
-                  {filteredCourses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Batch & Gender Row */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Batch */}
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Student Name */}
               <div>
                 <label
-                  htmlFor="batch"
+                  htmlFor="name"
                   className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
                 >
-                  Graduation Batch
+                  Full Name
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Calendar className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                    <User className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                   </div>
                   <input
-                    type="number"
-                    id="batch"
-                    name="batch"
+                    type="text"
+                    id="name"
+                    name="name"
+                    required
                     disabled={isSubmitting}
-                    value={form.batch}
+                    value={form.name}
                     onChange={handleChange}
-                    placeholder="e.g. 2026"
-                    min="1900"
-                    max="2100"
-                    className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-450 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+                    placeholder="e.g. Rahul Sharma"
+                    className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
                   />
                 </div>
               </div>
 
-              {/* Gender */}
+              {/* Email */}
               <div>
                 <label
-                  htmlFor="gender"
+                  htmlFor="email"
                   className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
                 >
-                  Gender
+                  Email Address
                 </label>
-                <select
-                  id="gender"
-                  name="gender"
-                  disabled={isSubmitting}
-                  value={form.gender}
-                  onChange={handleChange}
-                  className="w-full h-11 px-3 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="MALE">Male</option>
-                  <option value="FEMALE">Female</option>
-                  <option value="OTHER">Other</option>
-                  <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
-                </select>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  </div>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required
+                    disabled={isSubmitting}
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="e.g. rahul@university.edu"
+                    className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Account Status (Only visible in edit mode) */}
-            {editingId && (
+              {/* Roll Number */}
               <div>
                 <label
-                  htmlFor="status"
+                  htmlFor="rollNumber"
                   className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
                 >
-                  Account Access Status
+                  Roll Number / Student ID
                 </label>
-                <select
-                  id="status"
-                  name="status"
-                  disabled={isSubmitting}
-                  value={form.status}
-                  onChange={handleChange}
-                  className="w-full h-11 px-3 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="PENDING">Pending Approval</option>
-                  <option value="SUSPENDED">Suspended / Disabled</option>
-                  <option value="DELETED">Soft Deleted</option>
-                </select>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Hash className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    id="rollNumber"
+                    name="rollNumber"
+                    required
+                    disabled={isSubmitting}
+                    value={form.rollNumber}
+                    onChange={handleChange}
+                    placeholder="e.g. 2026CSE105"
+                    className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+                  />
+                </div>
               </div>
-            )}
 
-            {/* Action Buttons */}
-            <div className="pt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                disabled={isSubmitting}
-                className="w-1/2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-1/2 h-11 bg-primary hover:bg-primary/95 text-white font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] shadow-md shadow-primary/10 cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    <span>Save Profile</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+              {/* Mobile Number */}
+              <div>
+                <label
+                  htmlFor="mobileNumber"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
+                  Mobile Number
+                </label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  </div>
+                  <input
+                    type="tel"
+                    id="mobileNumber"
+                    name="mobileNumber"
+                    disabled={isSubmitting}
+                    value={form.mobileNumber}
+                    onChange={handleChange}
+                    placeholder="e.g. +91 9876543210"
+                    className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+                  />
+                </div>
+              </div>
 
-      {/* Right Column: List Table card */}
-      <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm overflow-hidden flex flex-col min-h-[450px] ${
-        editingId ? "lg:col-span-2" : "lg:col-span-3"
-      }`}>
+              {/* Department */}
+              <div>
+                <label
+                  htmlFor="departmentId"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
+                  Department
+                </label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Landmark className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  </div>
+                  <select
+                    id="departmentId"
+                    name="departmentId"
+                    required
+                    disabled={isSubmitting || !editingId || isDeptLocked}
+                    value={isDeptLocked ? userDeptId : form.departmentId}
+                    onChange={handleChange}
+                    className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Course */}
+              <div>
+                <label
+                  htmlFor="courseId"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
+                  Enrolled Course Program
+                </label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <BookOpen className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  </div>
+                  <select
+                    id="courseId"
+                    name="courseId"
+                    disabled={isSubmitting}
+                    value={form.courseId}
+                    onChange={handleChange}
+                    className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
+                  >
+                    <option value="">Select Program</option>
+                    {filteredCourses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Batch & Gender Row */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Batch */}
+                <div>
+                  <label
+                    htmlFor="batch"
+                    className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                  >
+                    Graduation Batch
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Calendar className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                    </div>
+                    <input
+                      type="number"
+                      id="batch"
+                      name="batch"
+                      disabled={isSubmitting}
+                      value={form.batch}
+                      onChange={handleChange}
+                      placeholder="e.g. 2026"
+                      min="1900"
+                      max="2100"
+                      className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-450 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Gender */}
+                <div>
+                  <label
+                    htmlFor="gender"
+                    className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                  >
+                    Gender
+                  </label>
+                  <select
+                    id="gender"
+                    name="gender"
+                    disabled={isSubmitting}
+                    value={form.gender}
+                    onChange={handleChange}
+                    className="w-full h-11 px-3 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="OTHER">Other</option>
+                    <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Account Status (Only visible in edit mode) */}
+              {editingId && (
+                <div>
+                  <label
+                    htmlFor="status"
+                    className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                  >
+                    Account Access Status
+                  </label>
+                  <select
+                    id="status"
+                    name="status"
+                    disabled={isSubmitting}
+                    value={form.status}
+                    onChange={handleChange}
+                    className="w-full h-11 px-3 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="PENDING">Pending Approval</option>
+                    <option value="SUSPENDED">Suspended / Disabled</option>
+                    <option value="DELETED">Soft Deleted</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={isSubmitting}
+                  className="w-1/2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-1/2 h-11 bg-primary hover:bg-primary/95 text-white font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] shadow-md shadow-primary/10 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      <span>Save Profile</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : null}
+
+        {/* Right Column: List Table card */}
+        <div
+          className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm overflow-hidden flex flex-col min-h-[450px] ${
+            editingId ? "lg:col-span-2" : "lg:col-span-3"
+          }`}
+        >
           {/* Controls */}
           <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div>

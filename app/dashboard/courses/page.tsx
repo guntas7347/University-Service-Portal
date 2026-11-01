@@ -1,28 +1,28 @@
 "use client";
 
 import React, { useState, useEffect, FormEvent } from "react";
-import { 
-  BookOpen, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  BookOpen,
+  Plus,
+  Edit,
+  Trash2,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   Hash,
   FileText,
   Clock,
   X,
-  Landmark
+  Landmark,
 } from "lucide-react";
 import { useForm } from "@/hooks/useForm";
-import { 
-  getCourses, 
-  createCourse, 
-  updateCourse, 
-  deleteCourse 
-} from "@/lib/prisma/actions/courses";
-import { getDepartments } from "@/lib/prisma/actions/departments";
+import {
+  getCourses,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+} from "@/lib/actions/courses";
+import { getDepartments } from "@/lib/actions/departments";
 
 interface CourseType {
   id: string;
@@ -39,7 +39,9 @@ interface CourseType {
 
 export default function CoursesPage() {
   const [courses, setCourses] = useState<CourseType[]>([]);
-  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [departments, setDepartments] = useState<
+    { id: string; name: string }[]
+  >([]);
   const [userRights, setUserRights] = useState<string[]>([]);
   const [userDeptId, setUserDeptId] = useState("");
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -50,7 +52,8 @@ export default function CoursesPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const isAdmin = userRights.includes("ADMIN") || userRights.includes("MANAGE_CONFIGS");
+  const isAdmin =
+    userRights.includes("ADMIN") || userRights.includes("MANAGE_CONFIGS");
   const isDeptManager = userRights.includes("MANAGE_DEPARTMENT");
   const canManage = isAdmin || isDeptManager;
 
@@ -59,7 +62,7 @@ export default function CoursesPage() {
     code: "",
     name: "",
     duration: "",
-    departmentId: ""
+    departmentId: "",
   });
 
   // Fetch courses on page load
@@ -67,7 +70,7 @@ export default function CoursesPage() {
     setIsPageLoading(true);
     const [coursesRes, deptRes] = await Promise.all([
       getCourses(),
-      getDepartments()
+      getDepartments(),
     ]);
 
     let rights: string[] = [];
@@ -86,7 +89,11 @@ export default function CoursesPage() {
     }
 
     // Auto-set department manager's department and preselect it
-    if (rights.includes("MANAGE_DEPARTMENT") && !rights.includes("ADMIN") && deptId) {
+    if (
+      rights.includes("MANAGE_DEPARTMENT") &&
+      !rights.includes("ADMIN") &&
+      deptId
+    ) {
       setFields({ departmentId: deptId });
     }
 
@@ -126,7 +133,7 @@ export default function CoursesPage() {
           code: form.code,
           name: form.name,
           duration: durationNum,
-          departmentId: departmentIdVal
+          departmentId: departmentIdVal,
         });
       } else {
         // Create new record
@@ -134,7 +141,7 @@ export default function CoursesPage() {
           code: form.code,
           name: form.name,
           duration: durationNum,
-          departmentId: departmentIdVal
+          departmentId: departmentIdVal,
         });
       }
 
@@ -165,7 +172,7 @@ export default function CoursesPage() {
       code: course.code,
       name: course.name,
       duration: course.duration ? String(course.duration) : "",
-      departmentId: course.departmentId || ""
+      departmentId: course.departmentId || "",
     });
   };
 
@@ -204,20 +211,19 @@ export default function CoursesPage() {
 
   return (
     <div className="space-y-6">
-      
       {/* Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
           Manage Courses
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Configure educational programs and duration tracks for student enrollment
+          Configure educational programs and duration tracks for student
+          enrollment
         </p>
       </div>
 
       {/* Grid Layout: Form on Left, List on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-login-gap">
-        
         {/* Left Column: Form Card */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
           <div className="mb-6 flex justify-between items-center">
@@ -225,8 +231,8 @@ export default function CoursesPage() {
               {editingId ? "Edit Course" : "Add New Course"}
             </h2>
             {editingId && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={handleCancelEdit}
                 className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
                 title="Cancel Edit"
@@ -255,7 +261,10 @@ export default function CoursesPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Course Code */}
             <div>
-              <label htmlFor="code" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="code"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Course Code
               </label>
               <div className="relative group">
@@ -278,7 +287,10 @@ export default function CoursesPage() {
 
             {/* Course Name */}
             <div>
-              <label htmlFor="name" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="name"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Course Title
               </label>
               <div className="relative group">
@@ -301,7 +313,10 @@ export default function CoursesPage() {
 
             {/* Department selection */}
             <div>
-              <label htmlFor="departmentId" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="departmentId"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Department
               </label>
               <div className="relative group">
@@ -313,7 +328,9 @@ export default function CoursesPage() {
                   name="departmentId"
                   required
                   disabled={isSubmitting || (isDeptManager && !isAdmin)}
-                  value={(isDeptManager && !isAdmin) ? userDeptId : form.departmentId}
+                  value={
+                    isDeptManager && !isAdmin ? userDeptId : form.departmentId
+                  }
                   onChange={handleChange}
                   className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 appearance-none cursor-pointer"
                 >
@@ -329,7 +346,10 @@ export default function CoursesPage() {
 
             {/* Course Duration */}
             <div>
-              <label htmlFor="duration" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="duration"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Duration (in Months) - Optional
               </label>
               <div className="relative group">
@@ -399,14 +419,19 @@ export default function CoursesPage() {
           {isPageLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2.5 py-20">
               <Loader2 className="h-8 w-8 text-primary animate-spin" />
-              <p className="text-sm text-slate-400">Loading course curriculum...</p>
+              <p className="text-sm text-slate-400">
+                Loading course curriculum...
+              </p>
             </div>
           ) : courses.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2 py-20 text-center px-4">
               <BookOpen className="h-10 w-10 text-slate-350 dark:text-slate-650" />
-              <h4 className="font-bold text-slate-700 dark:text-slate-400 text-sm">No Courses Listed</h4>
+              <h4 className="font-bold text-slate-700 dark:text-slate-400 text-sm">
+                No Courses Listed
+              </h4>
               <p className="text-xs text-slate-400 max-w-xs mt-1">
-                There are currently no active course registrations. Create your first course using the dashboard form.
+                There are currently no active course registrations. Create your
+                first course using the dashboard form.
               </p>
             </div>
           ) : (
@@ -423,10 +448,15 @@ export default function CoursesPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-155 dark:divide-slate-850">
                   {courses.map((item) => {
-                    const canManageItem = isAdmin || (isDeptManager && item.departmentId === userDeptId);
+                    const canManageItem =
+                      isAdmin ||
+                      (isDeptManager && item.departmentId === userDeptId);
 
                     return (
-                      <tr key={item.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm">
+                      <tr
+                        key={item.id}
+                        className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm"
+                      >
                         <td className="py-4 px-6 font-bold text-slate-900 dark:text-slate-100">
                           {item.code}
                         </td>
@@ -437,7 +467,9 @@ export default function CoursesPage() {
                           {item.department?.name || "Unassigned"}
                         </td>
                         <td className="py-4 px-6 text-slate-500 dark:text-slate-450 font-medium">
-                          {item.duration ? `${item.duration} Months` : "Flexible"}
+                          {item.duration
+                            ? `${item.duration} Months`
+                            : "Flexible"}
                         </td>
                         <td className="py-4 px-6 text-right">
                           {canManageItem ? (
@@ -460,7 +492,9 @@ export default function CoursesPage() {
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400 italic font-medium pr-2">No Access</span>
+                            <span className="text-xs text-slate-400 italic font-medium pr-2">
+                              No Access
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -471,10 +505,7 @@ export default function CoursesPage() {
             </div>
           )}
         </div>
-
       </div>
-
     </div>
   );
 }
-

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForUser } from "@/lib/auth/sso";
 import { createJWT, TokenPayload } from "@/lib/auth/auth";
-import prisma from "@/lib/prisma/prisma";
+import prisma from "@/lib/prisma";
 
 export const runtime = "nodejs";
 

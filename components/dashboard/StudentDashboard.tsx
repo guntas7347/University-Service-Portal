@@ -2,17 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { 
-  FileText, 
-  Clock, 
-  CheckCircle, 
+import {
+  FileText,
+  Clock,
+  CheckCircle,
   AlertCircle,
-  PlusCircle, 
+  PlusCircle,
   ArrowRight,
-  ChevronRight
+  ChevronRight,
 } from "lucide-react";
 import RecentGrievances from "./RecentGrievances";
-import { getStudentRequests } from "@/lib/prisma/actions/requests";
+import { getStudentRequests } from "@/lib/actions/requests";
 
 interface RequestItem {
   id: string;
@@ -47,7 +47,7 @@ export default function StudentDashboard() {
 
   // Compute dynamic stats from the active student requests list
   const totalCount = requests.length;
-  
+
   const pendingCount = requests.filter((r) => {
     const s = r.status.toUpperCase();
     return s === "SUBMITTED" || s === "ASSIGNED" || s === "DRAFT";
@@ -55,7 +55,9 @@ export default function StudentDashboard() {
 
   const investigationCount = requests.filter((r) => {
     const s = r.status.toUpperCase();
-    return s === "UNDER_REVIEW" || s === "IN_PROGRESS" || s === "WAITING_FOR_STUDENT";
+    return (
+      s === "UNDER_REVIEW" || s === "IN_PROGRESS" || s === "WAITING_FOR_STUDENT"
+    );
   }).length;
 
   const resolvedCount = requests.filter((r) => {
@@ -65,7 +67,6 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-6">
-      
       {/* Metrics Card Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-login-gap">
         {/* Total Grievances */}
@@ -131,13 +132,12 @@ export default function StudentDashboard() {
 
       {/* Main Grid: List & Quick Action */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-login-gap">
-        
         {/* Dynamic Grievances List Component */}
         <div className="lg:col-span-2">
-          <RecentGrievances 
-            requests={requests} 
-            isLoading={isLoading} 
-            errorMsg={errorMsg} 
+          <RecentGrievances
+            requests={requests}
+            isLoading={isLoading}
+            errorMsg={errorMsg}
           />
         </div>
 
@@ -153,10 +153,11 @@ export default function StudentDashboard() {
                 File a Grievance
               </h3>
               <p className="text-xs text-slate-655 dark:text-slate-400 leading-relaxed">
-                Submit academic, infrastructure, hostel, or administration complaints to university redressal cells.
+                Submit academic, infrastructure, hostel, or administration
+                complaints to university redressal cells.
               </p>
             </div>
-            
+
             <Link
               href="/dashboard/create-request"
               className="flex items-center justify-between w-full py-3 px-4 bg-primary hover:bg-primary/95 text-white font-semibold rounded-xl text-sm transition-all duration-200 active:scale-[0.98] cursor-pointer shadow-md shadow-primary/10"
@@ -187,9 +188,7 @@ export default function StudentDashboard() {
             </ul>
           </div>
         </div>
-
       </div>
-
     </div>
   );
 }

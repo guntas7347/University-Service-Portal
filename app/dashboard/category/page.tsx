@@ -1,25 +1,25 @@
 "use client";
 
 import React, { useState, useEffect, FormEvent } from "react";
-import { 
-  Grid, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  Grid,
+  Plus,
+  Edit,
+  Trash2,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   FileText,
   Bookmark,
-  X
+  X,
 } from "lucide-react";
 import { useForm } from "@/hooks/useForm";
-import { 
-  getCategories, 
-  createCategory, 
-  updateCategory, 
-  deleteCategory 
-} from "@/lib/prisma/actions/categories";
+import {
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} from "@/lib/actions/categories";
 
 interface CategoryType {
   id: string;
@@ -41,7 +41,7 @@ export default function CategoryPage() {
   // Form management hook
   const { form, handleChange, setFields, resetFormFields } = useForm({
     name: "",
-    description: ""
+    description: "",
   });
 
   // Fetch categories on page load
@@ -77,13 +77,13 @@ export default function CategoryPage() {
         // Update existing record
         response = await updateCategory(editingId, {
           name: form.name,
-          description: form.description
+          description: form.description,
         });
       } else {
         // Create new record
         response = await createCategory({
           name: form.name,
-          description: form.description
+          description: form.description,
         });
       }
 
@@ -109,7 +109,7 @@ export default function CategoryPage() {
     setEditingId(category.id);
     setFields({
       name: category.name,
-      description: category.description || ""
+      description: category.description || "",
     });
   };
 
@@ -145,20 +145,19 @@ export default function CategoryPage() {
 
   return (
     <div className="space-y-6">
-      
       {/* Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
           Manage Categories
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Configure grievance departments, classifications, and support issue scopes
+          Configure grievance departments, classifications, and support issue
+          scopes
         </p>
       </div>
 
       {/* Grid Layout: Form on Left, List on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-login-gap">
-        
         {/* Left Column: Form Card */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
           <div className="mb-6 flex justify-between items-center">
@@ -166,8 +165,8 @@ export default function CategoryPage() {
               {editingId ? "Edit Category" : "Add New Category"}
             </h2>
             {editingId && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={handleCancelEdit}
                 className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
                 title="Cancel Edit"
@@ -196,7 +195,10 @@ export default function CategoryPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Category Name */}
             <div>
-              <label htmlFor="name" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="name"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Category Name
               </label>
               <div className="relative group">
@@ -219,7 +221,10 @@ export default function CategoryPage() {
 
             {/* Description */}
             <div>
-              <label htmlFor="description" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="description"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Scope Description (Optional)
               </label>
               <div className="relative group">
@@ -266,7 +271,9 @@ export default function CategoryPage() {
                 ) : (
                   <>
                     <Plus className="h-4 w-4" />
-                    <span>{editingId ? "Save Changes" : "Create Category"}</span>
+                    <span>
+                      {editingId ? "Save Changes" : "Create Category"}
+                    </span>
                   </>
                 )}
               </button>
@@ -288,14 +295,19 @@ export default function CategoryPage() {
           {isPageLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2.5 py-20">
               <Loader2 className="h-8 w-8 text-primary animate-spin" />
-              <p className="text-sm text-slate-400">Loading classifications...</p>
+              <p className="text-sm text-slate-400">
+                Loading classifications...
+              </p>
             </div>
           ) : categories.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2 py-20 text-center px-4">
               <Grid className="h-10 w-10 text-slate-350 dark:text-slate-650" />
-              <h4 className="font-bold text-slate-700 dark:text-slate-400 text-sm">No Categories Configured</h4>
+              <h4 className="font-bold text-slate-700 dark:text-slate-400 text-sm">
+                No Categories Configured
+              </h4>
               <p className="text-xs text-slate-400 max-w-xs mt-1">
-                There are currently no grievance categories defined. Create your first category using the dashboard form.
+                There are currently no grievance categories defined. Create your
+                first category using the dashboard form.
               </p>
             </div>
           ) : (
@@ -310,12 +322,19 @@ export default function CategoryPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-150 dark:divide-slate-800">
                   {categories.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm">
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm"
+                    >
                       <td className="py-4 px-6 font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {item.name}
                       </td>
                       <td className="py-4 px-6 text-slate-600 dark:text-slate-350 max-w-xs truncate">
-                        {item.description || <span className="text-slate-400 italic">No description scope provided</span>}
+                        {item.description || (
+                          <span className="text-slate-400 italic">
+                            No description scope provided
+                          </span>
+                        )}
                       </td>
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -344,9 +363,7 @@ export default function CategoryPage() {
             </div>
           )}
         </div>
-
       </div>
-
     </div>
   );
 }

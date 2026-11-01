@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Loader2, ShieldAlert } from "lucide-react";
-import { getProfile } from "@/lib/prisma/actions/users";
+import { getProfile } from "@/lib/actions/users";
 import StudentDashboard from "@/components/dashboard/StudentDashboard";
 
 interface ProfileUser {
@@ -32,7 +32,9 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="h-8 w-8 text-primary animate-spin" />
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Loading user workspace...</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+          Loading user workspace...
+        </p>
       </div>
     );
   }
@@ -41,8 +43,13 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
         <ShieldAlert className="h-10 w-10 text-red-500" />
-        <h3 className="font-bold text-slate-800 dark:text-slate-200">Session Error</h3>
-        <p className="text-xs text-slate-450 max-w-xs">Could not retrieve active session parameters. Please log out and sign in again.</p>
+        <h3 className="font-bold text-slate-800 dark:text-slate-200">
+          Session Error
+        </h3>
+        <p className="text-xs text-slate-450 max-w-xs">
+          Could not retrieve active session parameters. Please log out and sign
+          in again.
+        </p>
       </div>
     );
   }
@@ -50,7 +57,7 @@ export default function DashboardPage() {
   // Check if user has any administrative or staff rights
   const userRights = user.rights || [];
   const hasStaffRights = userRights.length > 0;
-  
+
   if (!hasStaffRights) {
     return (
       <div className="space-y-6">
@@ -60,7 +67,8 @@ export default function DashboardPage() {
             Welcome back, {user.name}!
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Monitor your submitted complaints and check official university responses
+            Monitor your submitted complaints and check official university
+            responses
           </p>
         </div>
 
@@ -87,9 +95,13 @@ export default function DashboardPage() {
           <ShieldAlert className="h-8 w-8" />
         </div>
         <div className="space-y-1 max-w-sm">
-          <h3 className="font-bold text-slate-850 dark:text-slate-200">Administrative Dashboard</h3>
+          <h3 className="font-bold text-slate-850 dark:text-slate-200">
+            Administrative Dashboard
+          </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            Role: <span className="font-semibold">{user.role}</span>. Use the navigation sidebar to access modules according to your assigned rights.
+            Role: <span className="font-semibold">{user.role}</span>. Use the
+            navigation sidebar to access modules according to your assigned
+            rights.
           </p>
         </div>
       </div>

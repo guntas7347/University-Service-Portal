@@ -1,4 +1,4 @@
-import { Lock } from "lucide-react";
+import { Lock, Paperclip, ExternalLink } from "lucide-react";
 
 type TimelineActivity = {
   id: string;
@@ -8,6 +8,8 @@ type TimelineActivity = {
   oldValue: string | null;
   newValue: string | null;
   message: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
   createdAt: string;
 };
 
@@ -50,6 +52,7 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
         {timelineItems.map((item: any) => {
           const isComment = item.timelineType === "COMMENT";
           const isEscalated = !isComment && item.type === "ESCALATED";
+          const isAttachment = !isComment && item.type === "ATTACHMENT_ADDED";
 
           return (
             <div key={item.id} className="relative group select-none">
@@ -62,6 +65,8 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
                       : "border-primary"
                     : isEscalated
                     ? "border-red-500 bg-red-50"
+                    : isAttachment
+                    ? "border-primary bg-primary/20"
                     : "border-slate-350 dark:border-slate-600"
                 }`}
               />
@@ -75,12 +80,14 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
                       : "bg-primary/5 border-primary/20"
                     : isEscalated
                     ? "bg-red-50/60 dark:bg-red-955/20 border-red-200 dark:border-red-850"
+                    : isAttachment
+                    ? "bg-primary/5 dark:bg-primary/10 border-primary/20"
                     : "bg-slate-50/50 dark:bg-slate-955/20 border-slate-200/50 dark:border-slate-800/80"
                 }`}
               >
                 {/* Sub-header (Author/Actor and Date) */}
                 <div className="flex justify-between items-center gap-2">
-                  <div className="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-250">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-250">
                     {isComment ? (
                       <>
                         <span>{item.authorName}</span>
@@ -94,6 +101,12 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
                         {isEscalated && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 uppercase tracking-wider">
                             Escalated
+                          </span>
+                        )}
+                        {isAttachment && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">
+                            <Paperclip className="h-2.5 w-2.5" />
+                            <span>Attachment</span>
                           </span>
                         )}
                       </>
@@ -134,6 +147,22 @@ const TimeLine = ({ timelineItems }: { timelineItems: TimelineItem[] }) => {
                       <p className={`text-[11px] font-medium ${isEscalated ? "text-red-800 dark:text-red-200 font-semibold" : "text-slate-400"}`}>
                         {item.message}
                       </p>
+                    )}
+
+                    {/* View Attachment Action in Timeline */}
+                    {isAttachment && item.fileUrl && (
+                      <div className="pt-2">
+                        <a
+                          href={item.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary dark:text-primary-foreground font-bold text-xs rounded-lg transition-colors cursor-pointer border border-primary/20 shadow-xs"
+                          title="Open attachment in new tab"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>View Attachment {item.fileName ? `(${item.fileName})` : ""}</span>
+                        </a>
+                      </div>
                     )}
                   </div>
                 )}

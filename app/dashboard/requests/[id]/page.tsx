@@ -1,34 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  FormEvent,
+  useCallback,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  Loader2,
-  AlertTriangle,
-  Clock,
-  CheckCircle,
-  Info,
-  XCircle,
-  User,
-  Shield,
-  MessageSquare,
-  Lock,
-  CornerDownRight,
-  UserCheck,
-  Send,
-  Sparkles,
-  Calendar,
-  AlertCircle,
-  Trash2,
-  ArrowUpRight,
-  ShieldAlert,
-  Layers,
-  Flame,
-  X,
-  Eye,
-} from "lucide-react";
+import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
+
 import {
   getRequestDetails,
   updateRequestStatus,
@@ -40,11 +22,22 @@ import {
   updateRequestTarget,
   forwardRequest,
   escalateRequest,
-} from "@/lib/prisma/actions/requests";
-import { getStaffUsers } from "@/lib/prisma/actions/staff";
-import { getCategories } from "@/lib/prisma/actions/categories";
-import { getDepartments } from "@/lib/prisma/actions/departments";
+  addRequestAttachment,
+} from "@/lib/actions/requests";
+import { uploadFile } from "@/lib/uploader";
+import { getStaffUsers } from "@/lib/actions/staff";
+import { getCategories } from "@/lib/actions/categories";
+import { getDepartments } from "@/lib/actions/departments";
+
 import TimeLine from "@/components/requests/timeline";
+import { ObserverBanner } from "./components/ObserverBanner";
+import { TicketHeader } from "./components/TicketHeader";
+import { EscalationCard } from "./components/EscalationCard";
+import { FilerDetailsCard } from "./components/FilerDetailsCard";
+import { AssignedOfficersCard } from "./components/AssignedOfficersCard";
+import { WatchersCard } from "./components/WatchersCard";
+import { AttachmentsCard } from "./components/AttachmentsCard";
+import { ActionPanel } from "./components/ActionPanel";
 
 interface StaffOption {
   id: string;
@@ -56,12 +49,13 @@ export default function RequestDetailsPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
 
-  // Data states
+  // Core data states
   const [request, setRequest] = useState<any>(null);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [userRole, setUserRole] = useState("STUDENT");
   const [userRights, setUserRights] = useState<string[]>([]);
   const [userId, setUserId] = useState("");
+  const [userDeptId, setUserDeptId] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -72,29 +66,34 @@ export default function RequestDetailsPage() {
   const [newStatus, setNewStatus] = useState("");
   const [assignedStaffId, setAssignedStaffId] = useState("");
   const [watcherSelectId, setWatcherSelectId] = useState("");
+  const [forwardStaffId, setForwardStaffId] = useState("");
   const [commentText, setCommentText] = useState("");
   const [isInternalComment, setIsInternalComment] = useState(false);
 
-  // Target change editing state
+  // Classification editing state
   const [isEditingTarget, setIsEditingTarget] = useState(false);
   const [newTargetMode, setNewTargetMode] = useState<"CATEGORY" | "DEPARTMENT">(
     "CATEGORY",
   );
   const [newTargetId, setNewTargetId] = useState("");
 
-  const [userDeptId, setUserDeptId] = useState("");
-  const [forwardStaffId, setForwardStaffId] = useState("");
-
-  // Escalation state
+  // Escalation modal state
   const [isEscalateModalOpen, setIsEscalateModalOpen] = useState(false);
   const [escalationReason, setEscalationReason] = useState("");
   const [isSubmittingEscalation, setIsSubmittingEscalation] = useState(false);
 
-  // Success messages for form actions
+  // Attachment upload state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [fileUploadError, setFileUploadError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Feedback notifications
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const loadDetails = async () => {
+  const loadDetails = useCallback(async () => {
     setIsPageLoading(true);
     const response = await getRequestDetails(id);
     if (response.success && response.request) {
@@ -143,15 +142,15 @@ export default function RequestDetailsPage() {
       }
     }
     setIsPageLoading(false);
-  };
+  }, [id]);
 
   useEffect(() => {
     if (id) {
       loadDetails();
     }
-  }, [id]);
+  }, [id, loadDetails]);
 
-  // Handle Status Update Submit
+  // Handle Status Update
   const handleStatusSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setActionSuccess(null);
@@ -162,18 +161,42 @@ export default function RequestDetailsPage() {
       const response = await updateRequestStatus(id, newStatus);
       if (response.success) {
         setActionSuccess("Status updated successfully!");
-        await loadDetails(); // Reload data
+        await loadDetails();
       } else {
         setActionError(response.message);
       }
-    } catch (err) {
+    } catch {
       setActionError("Failed to update status.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle Staff Assignment Submit
+  // Quick Keys / Quick Status Action for Officers
+  const handleQuickStatus = async (targetStatus: string) => {
+    if (!targetStatus || targetStatus === request?.status || isSubmitting)
+      return;
+
+    setActionSuccess(null);
+    setActionError(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await updateRequestStatus(id, targetStatus);
+      if (response.success) {
+        setActionSuccess(`Ticket marked as ${targetStatus.replace("_", " ")}!`);
+        await loadDetails();
+      } else {
+        setActionError(response.message);
+      }
+    } catch {
+      setActionError(`Failed to update status to ${targetStatus}.`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle Staff Assignment
   const handleAssignSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setActionSuccess(null);
@@ -190,13 +213,14 @@ export default function RequestDetailsPage() {
       } else {
         setActionError(response.message);
       }
-    } catch (err) {
+    } catch {
       setActionError("Failed to assign staff.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Handle Forward Request
   const handleForwardSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setActionSuccess(null);
@@ -213,32 +237,34 @@ export default function RequestDetailsPage() {
       } else {
         setActionError(response.message);
       }
-    } catch (err) {
+    } catch {
       setActionError("Failed to forward request.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleUnassign = async (userId: string) => {
+  // Handle Unassign Officer
+  const handleUnassign = async (targetUserId: string) => {
     setActionSuccess(null);
     setActionError(null);
     setIsSubmitting(true);
     try {
-      const response = await unassignRequest(id, userId);
+      const response = await unassignRequest(id, targetUserId);
       if (response.success) {
         setActionSuccess(response.message);
         await loadDetails();
       } else {
         setActionError(response.message);
       }
-    } catch (err) {
+    } catch {
       setActionError("Failed to unassign staff.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Watcher Actions
   const handleAddWatcherSubmit = async () => {
     if (!watcherSelectId) return;
     setActionSuccess(null);
@@ -253,32 +279,33 @@ export default function RequestDetailsPage() {
       } else {
         setActionError(response.message);
       }
-    } catch (err) {
+    } catch {
       setActionError("Failed to add watcher.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleRemoveWatcher = async (userId: string) => {
+  const handleRemoveWatcher = async (targetUserId: string) => {
     setActionSuccess(null);
     setActionError(null);
     setIsSubmitting(true);
     try {
-      const response = await removeRequestWatcher(id, userId);
+      const response = await removeRequestWatcher(id, targetUserId);
       if (response.success) {
         setActionSuccess(response.message);
         await loadDetails();
       } else {
         setActionError(response.message);
       }
-    } catch (err) {
+    } catch {
       setActionError("Failed to remove watcher.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Classification Target Submit
   const handleTargetSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setActionSuccess(null);
@@ -299,14 +326,14 @@ export default function RequestDetailsPage() {
       } else {
         setActionError(response.message);
       }
-    } catch (err) {
+    } catch {
       setActionError("Failed to update request target classification.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle Comment Submission
+  // Comment Submission
   const handleCommentSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setActionSuccess(null);
@@ -315,7 +342,6 @@ export default function RequestDetailsPage() {
     if (!commentText.trim()) return;
 
     setIsSubmitting(true);
-
     try {
       const response = await addRequestComment(
         id,
@@ -330,61 +356,44 @@ export default function RequestDetailsPage() {
       } else {
         setActionError(response.message);
       }
-    } catch (err) {
+    } catch {
       setActionError("Failed to submit comment.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Status mapping to badges
-  const getStatusBadge = (status: string) => {
-    const s = status.toUpperCase();
-    if (s === "SUBMITTED" || s === "ASSIGNED" || s === "DRAFT") {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-955/35 text-amber-800 dark:text-amber-300 border border-amber-250 dark:border-amber-900/30">
-          <Clock className="h-3.5 w-3.5" />
-          <span>Pending</span>
-        </span>
-      );
+  // Escalation Submit
+  const handleEscalateSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingEscalation(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const response = await escalateRequest(id, escalationReason);
+      if (response.success) {
+        setActionSuccess(response.message);
+        setIsEscalateModalOpen(false);
+        setEscalationReason("");
+        await loadDetails();
+      } else {
+        setActionError(response.message);
+      }
+    } catch {
+      setActionError("Failed to escalate request.");
+    } finally {
+      setIsSubmittingEscalation(false);
     }
-    if (
-      s === "UNDER_REVIEW" ||
-      s === "IN_PROGRESS" ||
-      s === "WAITING_FOR_STUDENT"
-    ) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-955/35 text-blue-800 dark:text-blue-300 border border-blue-250 dark:border-blue-900/30">
-          <Info className="h-3.5 w-3.5" />
-          <span>Under Investigation</span>
-        </span>
-      );
-    }
-    if (s === "RESOLVED" || s === "CLOSED") {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-955/35 text-emerald-800 dark:text-emerald-300 border border-emerald-250 dark:border-emerald-900/30">
-          <CheckCircle className="h-3.5 w-3.5" />
-          <span>Resolved</span>
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 dark:bg-red-955/35 text-red-800 dark:text-red-300 border border-red-200/30">
-        <XCircle className="h-3.5 w-3.5" />
-        <span>Closed / Rejected</span>
-      </span>
-    );
   };
 
-  const getPriorityColor = (priority: string) => {
-    const p = priority.toUpperCase();
-    if (p === "URGENT")
-      return "text-red-650 bg-red-50 dark:bg-red-950/20 border-red-200/50";
-    if (p === "HIGH")
-      return "text-orange-655 bg-orange-50 dark:bg-orange-950/20 border-orange-200/50";
-    if (p === "MEDIUM")
-      return "text-blue-655 bg-blue-50 dark:bg-blue-950/20 border-blue-200/50";
-    return "text-slate-600 bg-slate-50 dark:bg-slate-800 border-slate-200/50";
+  // File Upload Helpers & Actions
+  const formatFileSize = (bytes: number) => {
+    if (!bytes || bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
   const formatTimelineDate = (isoString: string) => {
@@ -401,6 +410,120 @@ export default function RequestDetailsPage() {
       return "";
     }
   };
+
+  const handleFileSelect = (file: File) => {
+    setFileUploadError(null);
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+    const ALLOWED_TYPES = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "application/pdf",
+    ];
+
+    if (file.size > MAX_FILE_SIZE) {
+      setFileUploadError("File size must not exceed 10 MB.");
+      return;
+    }
+
+    if (!ALLOWED_TYPES.includes(file.type.toLowerCase())) {
+      setFileUploadError(
+        "File type not allowed. Please choose a PDF, PNG, JPG, WebP, or GIF.",
+      );
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  const handleUploadAttachment = async () => {
+    if (!selectedFile) return;
+
+    setIsUploadingAttachment(true);
+    setFileUploadError(null);
+    setActionSuccess(null);
+    setActionError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const uploadRes = await uploadFile(formData);
+
+      if (!uploadRes.success || !uploadRes.path) {
+        setFileUploadError(
+          uploadRes.error || "Failed to upload file to storage.",
+        );
+        return;
+      }
+
+      const attachRes = await addRequestAttachment(
+        id,
+        selectedFile.name,
+        selectedFile.size,
+        uploadRes.path,
+      );
+
+      if (attachRes.success) {
+        setActionSuccess("Attachment uploaded and recorded successfully!");
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        await loadDetails();
+      } else {
+        setFileUploadError(attachRes.message || "Failed to link attachment.");
+      }
+    } catch (err: unknown) {
+      console.error("Error during file attachment upload:", err);
+      setFileUploadError(
+        err instanceof Error ? err.message : "Unexpected error during upload.",
+      );
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  };
+
+  // Keyboard Shortcuts for Officers (Alt+U, Alt+P, Alt+W, Alt+R)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (userRole === "STUDENT" || isSubmitting) {
+        return;
+      }
+
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        const key = e.key.toLowerCase();
+        if (key === "u") {
+          e.preventDefault();
+          handleQuickStatus("UNDER_REVIEW");
+        } else if (key === "p") {
+          e.preventDefault();
+          handleQuickStatus("IN_PROGRESS");
+        } else if (key === "w") {
+          e.preventDefault();
+          handleQuickStatus("WAITING_FOR_STUDENT");
+        } else if (key === "r") {
+          e.preventDefault();
+          handleQuickStatus("RESOLVED");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [userRole, isSubmitting, request?.status, handleQuickStatus]);
 
   if (isPageLoading) {
     return (
@@ -436,56 +559,11 @@ export default function RequestDetailsPage() {
     );
   }
 
-  // Handle student manual escalation
-  const handleEscalateSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setIsSubmittingEscalation(true);
-    setActionError(null);
-    setActionSuccess(null);
-
-    try {
-      const response = await escalateRequest(id, escalationReason);
-      if (response.success) {
-        setActionSuccess(response.message);
-        setIsEscalateModalOpen(false);
-        setEscalationReason("");
-        await loadDetails();
-      } else {
-        setActionError(response.message);
-      }
-    } catch (err: any) {
-      setActionError("Failed to escalate request.");
-    } finally {
-      setIsSubmittingEscalation(false);
-    }
-  };
-
-  // Combine Activities and Comments in unified chronological order (ascending)
-  const timelineItems = [
-    ...request.activities.map((a: any) => ({
-      id: a.id,
-      timelineType: "ACTIVITY",
-      type: a.type,
-      actorName: a.actorName,
-      oldValue: a.oldValue,
-      newValue: a.newValue,
-      message: a.message,
-      createdAt: a.createdAt,
-    })),
-    ...request.comments.map((c: any) => ({
-      id: c.id,
-      timelineType: "COMMENT",
-      authorName: c.authorName,
-      authorRole: c.authorRole,
-      message: c.message,
-      internal: c.internal,
-      createdAt: c.createdAt,
-    })),
-  ].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
-
-  const isAdmin = userRights.includes("ADMIN") || userRole === "ADMIN" || userRole === "SUPER_ADMIN";
+  // Rights & Access evaluations
+  const isAdmin =
+    userRights.includes("ADMIN") ||
+    userRole === "ADMIN" ||
+    userRole === "SUPER_ADMIN";
   const hasRoutingRight = userRights.includes("MANAGE_ROUTING");
   const isDepartmentHod =
     (userRights.includes("MANAGE_DEPARTMENT") || userRole === "HOD") &&
@@ -503,8 +581,7 @@ export default function RequestDetailsPage() {
     (a: any) => a.userId === userId || a.user?.id === userId,
   );
   const isWatcher = request?.watchers?.some(
-    (w: any) =>
-      w.userId === userId || w.id === userId || w.user?.id === userId,
+    (w: any) => w.userId === userId || w.id === userId || w.user?.id === userId,
   );
   const isPureWatcher =
     isWatcher && !isAdmin && !isDepartmentHod && !isAssignedToMe && !isCreator;
@@ -513,772 +590,171 @@ export default function RequestDetailsPage() {
     (isAdmin || hasRoutingRight || isDepartmentHod) && !isPureWatcher;
   const canChangeTarget =
     (isAdmin || isDepartmentHod || userRole === "HOD") && !isPureWatcher;
+  const canUploadAttachment =
+    (isAdmin || isDepartmentHod || isCreator || isAssignedToMe) &&
+    !isPureWatcher;
   const isStudent = userRole === "STUDENT";
+
+  // Build Unified Timeline with Attachment Links
+  const timelineItems = [
+    ...request.activities.map((a: any) => {
+      // Find matching attachment if activity is ATTACHMENT_ADDED
+      const matchedAtt =
+        a.type === "ATTACHMENT_ADDED"
+          ? request.attachments?.find(
+              (att: any) =>
+                (a.newValue && att.fileUrl === a.newValue) ||
+                (a.oldValue && att.fileName === a.oldValue) ||
+                (a.message && a.message.includes(att.fileName)),
+            )
+          : null;
+
+      const fileUrl =
+        a.newValue && a.newValue.startsWith("/data/")
+          ? a.newValue
+          : matchedAtt?.fileUrl || null;
+
+      return {
+        id: a.id,
+        timelineType: "ACTIVITY" as const,
+        type: a.type,
+        actorName: a.actorName,
+        oldValue: a.oldValue,
+        newValue: a.newValue,
+        message: a.message,
+        fileUrl,
+        fileName: matchedAtt?.fileName || a.oldValue || null,
+        createdAt: a.createdAt,
+      };
+    }),
+    ...request.comments.map((c: any) => ({
+      id: c.id,
+      timelineType: "COMMENT" as const,
+      authorName: c.authorName,
+      authorRole: c.authorRole,
+      message: c.message,
+      internal: c.internal,
+      createdAt: c.createdAt,
+    })),
+  ].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 
   return (
     <div className="space-y-6">
-      {/* Back Button Header */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/dashboard/requests"
-          className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-xs font-semibold transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back to Grievances</span>
-        </Link>
-        <span className="text-xs text-slate-400 font-mono select-none">
-          Ticket: {request.ticketId}
-        </span>
-      </div>
+      {/* 1. Observer Mode Banner */}
+      <ObserverBanner
+        isPureWatcher={isPureWatcher}
+        userId={userId}
+        isSubmitting={isSubmitting}
+        onRemoveWatcher={handleRemoveWatcher}
+      />
 
-      {/* Observer Mode Active Banner */}
-      {isPureWatcher && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-amber-500/10 border border-amber-500/30 dark:bg-amber-950/20 dark:border-amber-800/40 rounded-login-radius text-amber-900 dark:text-amber-200">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-              <Eye className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
-                Observer Mode Active
-              </h4>
-              <p className="text-xs text-amber-750/80 dark:text-amber-400/80">
-                You are watching this grievance in read-only mode. You cannot comment, forward, or update ticket status.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={() => handleRemoveWatcher(userId)}
-            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
-          >
-            Stop Watching
-          </button>
-        </div>
-      )}
-
-      {/* Main Grid: Management details card on left, Timeline on right */}
+      {/* Main Grid: Management & Actions on left, Activity Timeline on right */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-login-gap">
-        {/* Left Column: Details and Actions (3/5 Width) */}
+        {/* Left Column (3/5 Width) */}
         <div className="lg:col-span-3 space-y-login-gap">
-          {/* Card 1: Ticket Description Details */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
-            {isEditingTarget ? (
-              <form
-                onSubmit={handleTargetSubmit}
-                className="bg-slate-50 dark:bg-slate-955/40 p-4 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3"
-              >
-                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Update Request Classification Target
-                </h4>
+          {/* 2. Ticket Header (Subject, Category, Status, Priority, Description) */}
+          <TicketHeader
+            request={request}
+            categories={categories}
+            departments={departments}
+            canChangeTarget={canChangeTarget}
+            isEditingTarget={isEditingTarget}
+            setIsEditingTarget={setIsEditingTarget}
+            newTargetMode={newTargetMode}
+            setNewTargetMode={setNewTargetMode}
+            newTargetId={newTargetId}
+            setNewTargetId={setNewTargetId}
+            isSubmitting={isSubmitting}
+            onTargetSubmit={handleTargetSubmit}
+            formatTimelineDate={formatTimelineDate}
+          />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
-                      Filing Option
-                    </label>
-                    <select
-                      value={newTargetMode}
-                      onChange={(e) => {
-                        setNewTargetMode(
-                          e.target.value as "CATEGORY" | "DEPARTMENT",
-                        );
-                        setNewTargetId("");
-                      }}
-                      className="w-full h-9 px-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
-                    >
-                      <option value="CATEGORY">Category</option>
-                      <option value="DEPARTMENT">Department</option>
-                    </select>
-                  </div>
+          {/* 3. Action Panel: Note Writing & File Upload Side-by-Side + Quick Keys */}
+          <ActionPanel
+            request={request}
+            userId={userId}
+            isStudent={isStudent}
+            isPureWatcher={isPureWatcher}
+            isAdmin={isAdmin}
+            canAssign={canAssign}
+            isAssignedToMe={isAssignedToMe}
+            isSubmitting={isSubmitting}
+            actionSuccess={actionSuccess}
+            actionError={actionError}
+            newStatus={newStatus}
+            setNewStatus={setNewStatus}
+            onStatusSubmit={handleStatusSubmit}
+            onQuickStatus={handleQuickStatus}
+            assignedStaffId={assignedStaffId}
+            setAssignedStaffId={setAssignedStaffId}
+            onAssignSubmit={handleAssignSubmit}
+            forwardStaffId={forwardStaffId}
+            setForwardStaffId={setForwardStaffId}
+            onForwardSubmit={handleForwardSubmit}
+            staffOptions={staffOptions}
+            commentText={commentText}
+            setCommentText={setCommentText}
+            isInternalComment={isInternalComment}
+            setIsInternalComment={setIsInternalComment}
+            onCommentSubmit={handleCommentSubmit}
+            canUploadAttachment={canUploadAttachment}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            isUploadingAttachment={isUploadingAttachment}
+            fileUploadError={fileUploadError}
+            setFileUploadError={setFileUploadError}
+            isDragging={isDragging}
+            setIsDragging={setIsDragging}
+            fileInputRef={fileInputRef}
+            onFileSelect={handleFileSelect}
+            onUploadAttachment={handleUploadAttachment}
+            formatFileSize={formatFileSize}
+            onRemoveWatcher={handleRemoveWatcher}
+          />
 
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
-                      Select Target
-                    </label>
-                    {newTargetMode === "CATEGORY" ? (
-                      <select
-                        value={newTargetId}
-                        onChange={(e) => setNewTargetId(e.target.value)}
-                        required
-                        className="w-full h-9 px-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
-                      >
-                        <option value="">Select Category</option>
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <select
-                        value={newTargetId}
-                        onChange={(e) => setNewTargetId(e.target.value)}
-                        required
-                        className="w-full h-9 px-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
-                      >
-                        <option value="">Select Department</option>
-                        {departments.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name} ({d.code})
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </div>
+          {/* 4. Attachments List */}
+          <AttachmentsCard
+            attachments={request.attachments || []}
+            formatFileSize={formatFileSize}
+          />
 
-                <div className="flex justify-end gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditingTarget(false);
-                      setActionError(null);
-                    }}
-                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !newTargetId}
-                    className="px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmitting ? "Saving..." : "Save Classification"}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold tracking-wider uppercase">
-                      {request.categoryName}
-                    </span>
-                    {request.isEscalated && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-50 dark:bg-red-955/35 text-red-700 dark:text-red-300 border border-red-200/50 uppercase tracking-wider">
-                        <Flame className="h-3 w-3 text-red-500" />
-                        <span>Escalated Level {request.escalationLevel ? request.escalationLevel + 1 : 2}</span>
-                      </span>
-                    )}
-                    {request.tags && request.tags.map((tag: string) => (
-                      <span
-                        key={tag}
-                        className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/50 font-mono"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                    {canChangeTarget && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewTargetMode(
-                            request.departmentId ? "DEPARTMENT" : "CATEGORY",
-                          );
-                          setNewTargetId(
-                            request.departmentId || request.categoryId || "",
-                          );
-                          setIsEditingTarget(true);
-                        }}
-                        className="text-[10px] text-slate-400 hover:text-primary font-semibold flex items-center gap-0.5 cursor-pointer"
-                      >
-                        (Change)
-                      </button>
-                    )}
-                  </div>
-                  <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight leading-snug">
-                    {request.subject}
-                  </h1>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {getStatusBadge(request.status)}
-                  <span
-                    className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(request.priority)}`}
-                  >
-                    {request.priority}
-                  </span>
-                </div>
-              </div>
-            )}
+          {/* 5. Escalation & Hierarchy Tier Card */}
+          <EscalationCard
+            request={request}
+            isPureWatcher={isPureWatcher}
+            isAdmin={isAdmin}
+            isEscalateModalOpen={isEscalateModalOpen}
+            setIsEscalateModalOpen={setIsEscalateModalOpen}
+            escalationReason={escalationReason}
+            setEscalationReason={setEscalationReason}
+            isSubmittingEscalation={isSubmittingEscalation}
+            onEscalateSubmit={handleEscalateSubmit}
+          />
 
-            {/* Description Text */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Grievance Description
-              </h4>
-              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                {request.description}
-              </p>
-            </div>
+          {/* 6. Student Identity / Filer Details */}
+          <FilerDetailsCard request={request} isStudent={isStudent} />
 
-            {/* Date info banner */}
-            <div className="flex items-center gap-2 pt-2 text-xs text-slate-400">
-              <Calendar className="h-4 w-4 shrink-0" />
-              <span>Filed on {formatTimelineDate(request.createdAt)}</span>
-              {request.isAnonymous && (
-                <>
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                  <span className="text-amber-600 dark:text-amber-450 font-semibold">
-                    Anonymous Submission
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
+          {/* 7. Assigned Resolution Officers */}
+          <AssignedOfficersCard
+            assignments={request.assignments || []}
+            canAssign={canAssign}
+            onUnassign={handleUnassign}
+          />
 
-          {/* Card: Escalation Banner & Actions */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-              <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-primary" />
-                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider">
-                  Escalation & Hierarchy Tier
-                </h3>
-              </div>
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Current: <strong className="text-primary font-bold">Level {request.escalationLevel ? request.escalationLevel + 1 : 1}</strong>
-              </span>
-            </div>
-
-            {/* Escalation Condition Message & Button */}
-            {!["RESOLVED", "CLOSED", "REJECTED", "CANCELLED"].includes(request.status) ? (
-              (!isPureWatcher && request.canEscalate) ? (
-                <div className="p-3.5 bg-red-50/70 dark:bg-red-955/25 border border-red-200/70 dark:border-red-850 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <h4 className="text-xs font-bold text-red-900 dark:text-red-300 flex items-center gap-1.5">
-                      <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
-                      Eligible for Escalation
-                    </h4>
-                    <p className="text-[11px] text-red-750 dark:text-red-400 leading-normal">
-                      This grievance has been unresolved for 7+ days. You can escalate it to the next authority tier (Level {(request.escalationLevel || 0) + 2}).
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsEscalateModalOpen(true)}
-                    className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-all active:scale-95 shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
-                  >
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                    <span>Escalate Ticket</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="p-3 bg-slate-50 dark:bg-slate-955/40 border border-slate-200/60 dark:border-slate-800 rounded-xl text-xs text-slate-600 dark:text-slate-400 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-slate-400 shrink-0" />
-                    <span>
-                      Next escalation unlock in <strong>{request.daysUntilEscalation || 0} day(s)</strong> (7-day resolution window per level).
-                    </span>
-                  </div>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => setIsEscalateModalOpen(true)}
-                      className="text-[11px] text-primary hover:underline font-semibold cursor-pointer shrink-0"
-                    >
-                      Admin Force Escalate
-                    </button>
-                  )}
-                </div>
-              )
-            ) : (
-              <div className="p-3 bg-slate-50 dark:bg-slate-955/20 border border-slate-200/50 dark:border-slate-800 rounded-xl text-xs text-slate-400 italic">
-                This grievance is currently marked as {request.status} and does not require further escalation.
-              </div>
-            )}
-          </div>
-
-          {/* Card 2: Student Identity Card (only detail values visible based on anonymity) */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
-              Filer Details
-            </h3>
-
-            {request.isAnonymous && isStudent ? (
-              <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-800/30 p-3.5 rounded-xl text-amber-800 dark:text-amber-300 text-xs">
-                <AlertCircle className="h-4.5 w-4.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                <div className="space-y-1">
-                  <span className="font-bold">Identity Masked</span>
-                  <p className="leading-relaxed">
-                    This ticket was filed anonymously. Administrative staff will
-                    not see your Name, Roll Number, or contact information.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-xs text-slate-450 block mb-1">
-                    Student Name
-                  </span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {request.creator?.fullName ||
-                      request.creator?.name ||
-                      request.student?.fullName ||
-                      request.student?.name ||
-                      "N/A"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-455 block mb-1">
-                    Email Address
-                  </span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {request.creator?.email || request.student?.email || "N/A"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-455 block mb-1">
-                    Mobile Contact
-                  </span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {request.creator?.mobileNumber ||
-                      request.student?.mobileNumber ||
-                      "N/A"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-455 block mb-1">
-                    Enrolled Course
-                  </span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">
-                    {request.creator?.courseName ||
-                      request.student?.courseName ||
-                      "N/A"}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Card 3: Assigned Officers Details */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
-              Assigned Resolution Officers ({request.assignments?.length || 0})
-            </h3>
-
-            {request.assignments && request.assignments.length > 0 ? (
-              <div className="space-y-3">
-                {request.assignments.map((assignment: any) => {
-                  const assigneeName =
-                    assignment.user?.name ||
-                    assignment.name ||
-                    assignment.user?.fullName ||
-                    "Assigned User";
-                  const assigneeRole =
-                    assignment.user?.role || assignment.role || "STAFF";
-                  const assigneeDesignation =
-                    assignment.user?.designation ||
-                    assignment.designation ||
-                    "";
-                  const assigneeId =
-                    assignment.user?.id || assignment.userId || assignment.id;
-
-                  return (
-                    <div
-                      key={assignment.id || assigneeId}
-                      className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                          {assigneeName
-                            .split(" ")
-                            .map((n: string) => n[0])
-                            .join("")
-                            .toUpperCase()
-                            .slice(0, 2)}
-                        </div>
-                        <div className="space-y-0.5">
-                          <h4 className="font-bold text-slate-850 dark:text-slate-100 text-xs">
-                            {assigneeName}
-                          </h4>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                            {assigneeRole.replace("_", " ")}{" "}
-                            {assigneeDesignation
-                              ? `• ${assigneeDesignation}`
-                              : ""}
-                          </p>
-                        </div>
-                      </div>
-                      {canAssign && (
-                        <button
-                          type="button"
-                          onClick={() => handleUnassign(assigneeId)}
-                          className="p-1 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors cursor-pointer shrink-0"
-                          title="Remove Assignee"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2.5 p-3.5 bg-slate-50 dark:bg-slate-955/20 border border-slate-150 dark:border-slate-800/50 rounded-xl text-slate-500 dark:text-slate-400 text-xs">
-                <User className="h-4.5 w-4.5 text-slate-400" />
-                <span>
-                  This grievance has not been assigned to a resolution officer
-                  yet.
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Card: Watchers Details */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
-              Request Watchers ({request.watchers?.length || 0})
-            </h3>
-
-            {request.watchers && request.watchers.length > 0 ? (
-              <div className="space-y-3">
-                {request.watchers.map((watcher: any) => {
-                  const watcherName =
-                    watcher.user?.name ||
-                    watcher.name ||
-                    watcher.user?.fullName ||
-                    "Watcher";
-                  const watcherRole =
-                    watcher.user?.role || watcher.role || "STAFF";
-                  const watcherId =
-                    watcher.user?.id || watcher.userId || watcher.id;
-
-                  return (
-                    <div
-                      key={watcherId}
-                      className="flex items-center justify-between gap-3.5 p-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/50 dark:border-slate-800 rounded-xl"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-550 dark:text-slate-350 flex items-center justify-center font-bold text-xs shrink-0">
-                          {watcherName
-                            .split(" ")
-                            .map((n: string) => n[0])
-                            .join("")
-                            .toUpperCase()
-                            .slice(0, 2)}
-                        </div>
-                        <div className="space-y-0.5">
-                          <h4 className="font-bold text-slate-805 dark:text-slate-100 text-xs">
-                            {watcherName}
-                          </h4>
-                          <p className="text-[10px] text-slate-400">
-                            {watcherRole.replace("_", " ")}
-                          </p>
-                        </div>
-                      </div>
-                      {(canAssign || watcherId === userId) && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveWatcher(watcherId)}
-                          className="p-1 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors cursor-pointer shrink-0"
-                          title={watcherId === userId ? "Stop Watching" : "Remove Watcher"}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-slate-450 italic text-xs py-1 select-none">
-                No watchers added to this request yet.
-              </div>
-            )}
-
-            {/* Add Watcher */}
-            {canAssign && (
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex gap-2">
-                <select
-                  id="addWatcherSelect"
-                  disabled={isSubmitting}
-                  value={watcherSelectId}
-                  onChange={(e) => setWatcherSelectId(e.target.value)}
-                  className="flex-1 h-8 px-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-850 rounded-lg text-slate-850 dark:text-slate-200 text-[11px] focus:outline-none focus:border-primary transition-all disabled:opacity-50"
-                >
-                  <option value="">Select watcher to add</option>
-                  {staffOptions.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.name} ({opt.role.replace("_", " ")})
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleAddWatcherSubmit}
-                  disabled={isSubmitting || !watcherSelectId}
-                  className="px-2.5 h-8 bg-primary hover:bg-primary/95 text-white font-semibold text-[11px] rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-                >
-                  Add
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Action Success / Error Messages for Staff controls */}
-          {actionSuccess && (
-            <div className="flex items-start gap-2.5 p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs animate-fade-in">
-              <CheckCircle className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-              <span>{actionSuccess}</span>
-            </div>
-          )}
-
-          {actionError && (
-            <div className="flex items-start gap-2.5 p-3 bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-800/30 rounded-xl text-red-800 dark:text-red-300 text-xs animate-fade-in">
-              <AlertCircle className="h-4.5 w-4.5 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
-              <span>{actionError}</span>
-            </div>
-          )}
-
-          {/* Card 4: Staff Resolution Panel (hidden for students and pure watchers) */}
-          {!isStudent && !isPureWatcher && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-6">
-              <h3 className="text-sm font-bold text-slate-950 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
-                Administrative Resolution actions
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* 1. Status Update Form */}
-                <form onSubmit={handleStatusSubmit} className="space-y-3">
-                  <label
-                    htmlFor="updateStatusSelect"
-                    className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-                  >
-                    Transition Ticket Status
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      id="updateStatusSelect"
-                      disabled={isSubmitting}
-                      value={newStatus}
-                      onChange={(e) => setNewStatus(e.target.value)}
-                      className="flex-1 h-10 px-3 py-1.5 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 text-xs focus:outline-none focus:border-primary transition-all disabled:opacity-50"
-                    >
-                      <option value="SUBMITTED">Pending (Submitted)</option>
-                      <option value="ASSIGNED">Assigned</option>
-                      <option value="UNDER_REVIEW">Under Review</option>
-                      <option value="IN_PROGRESS">In Progress</option>
-                      <option value="WAITING_FOR_STUDENT">
-                        Waiting for Student
-                      </option>
-                      <option value="RESOLVED">Resolved</option>
-                      <option value="REJECTED">Rejected</option>
-                      <option value="CLOSED">Closed</option>
-                    </select>
-
-                    <button
-                      type="submit"
-                      disabled={isSubmitting || newStatus === request.status}
-                      className="px-4 h-10 bg-primary hover:bg-primary/90 text-white font-semibold text-xs rounded-xl transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Update
-                    </button>
-                  </div>
-                </form>
-
-                {/* 2. Forward / Assignment Form */}
-                {canAssign ? (
-                  <form onSubmit={handleAssignSubmit} className="space-y-3">
-                    <label
-                      htmlFor="assignStaffSelect"
-                      className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-                    >
-                      Assign Handler
-                    </label>
-                    <div className="flex gap-2">
-                      <select
-                        id="assignStaffSelect"
-                        disabled={isSubmitting}
-                        value={assignedStaffId}
-                        onChange={(e) => setAssignedStaffId(e.target.value)}
-                        className="flex-1 h-10 px-3 py-1.5 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-850 dark:text-slate-200 text-xs focus:outline-none focus:border-primary transition-all disabled:opacity-50"
-                      >
-                        <option value="" disabled>
-                          Select Staff Member
-                        </option>
-                        {staffOptions.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.name} ({opt.role.replace("_", " ")})
-                          </option>
-                        ))}
-                      </select>
-
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || !assignedStaffId}
-                        className="px-4 h-10 bg-primary hover:bg-primary/95 text-white font-semibold text-xs rounded-xl transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Assign
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  isAssignedToMe && (
-                    <form onSubmit={handleForwardSubmit} className="space-y-3">
-                      <label
-                        htmlFor="forwardStaffSelect"
-                        className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-                      >
-                        Forward Request (Self-Unassign & Watch)
-                      </label>
-                      <div className="flex gap-2">
-                        <select
-                          id="forwardStaffSelect"
-                          disabled={isSubmitting}
-                          value={forwardStaffId}
-                          onChange={(e) => setForwardStaffId(e.target.value)}
-                          className="flex-1 h-10 px-3 py-1.5 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-850 dark:text-slate-200 text-xs focus:outline-none focus:border-primary transition-all disabled:opacity-50"
-                        >
-                          <option value="" disabled>
-                            Select Staff Member
-                          </option>
-                          {staffOptions.map((opt) => (
-                            <option key={opt.id} value={opt.id}>
-                              {opt.name} ({opt.role.replace("_", " ")})
-                            </option>
-                          ))}
-                        </select>
-
-                        <button
-                          type="submit"
-                          disabled={isSubmitting || !forwardStaffId}
-                          className="px-4 h-10 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Forward
-                        </button>
-                      </div>
-                    </form>
-                  )
-                )}
-              </div>
-
-              {/* 3. Add Comments Action Form */}
-              <form
-                onSubmit={handleCommentSubmit}
-                className="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-4"
-              >
-                <label
-                  htmlFor="commentTextarea"
-                  className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-                >
-                  Add Resolution Comment / Updates
-                </label>
-
-                <div className="relative group">
-                  <textarea
-                    id="commentTextarea"
-                    required
-                    disabled={isSubmitting}
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Write a response or update note..."
-                    rows={3}
-                    className="w-full pl-4 pr-12 py-3 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-xs focus:outline-none focus:border-primary transition-all resize-y disabled:opacity-50"
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !commentText.trim()}
-                    className="absolute bottom-3 right-3 p-2 bg-primary hover:bg-primary/95 text-white rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-                    title="Send comment"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="h-4.5 w-4.5 animate-spin" />
-                    ) : (
-                      <Send className="h-4.5 w-4.5" />
-                    )}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2 select-none">
-                  <input
-                    id="internalCommentCheck"
-                    type="checkbox"
-                    disabled={isSubmitting}
-                    checked={isInternalComment}
-                    onChange={(e) => setIsInternalComment(e.target.checked)}
-                    className="h-3.5 w-3.5 text-primary border-slate-350 dark:border-slate-800 rounded cursor-pointer"
-                  />
-                  <label
-                    htmlFor="internalCommentCheck"
-                    className="text-xs text-slate-550 dark:text-slate-300 font-semibold cursor-pointer flex items-center gap-1"
-                  >
-                    <Lock className="h-3 w-3 text-amber-500" />
-                    <span>
-                      Internal Comment (Staff Only - Hidden from Students)
-                    </span>
-                  </label>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Action Comment form for students (if student and not pure watcher) */}
-          {isStudent && !isPureWatcher && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-slate-950 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">
-                Write a Response Note
-              </h3>
-
-              <form onSubmit={handleCommentSubmit} className="space-y-3">
-                <div className="relative group">
-                  <textarea
-                    required
-                    disabled={isSubmitting}
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Provide additional details or response comments..."
-                    rows={3}
-                    className="w-full pl-4 pr-12 py-3 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-xs focus:outline-none focus:border-primary transition-all resize-y disabled:opacity-50"
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !commentText.trim()}
-                    className="absolute bottom-3 right-3 p-2 bg-primary hover:bg-primary/95 text-white rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="h-4.5 w-4.5 animate-spin" />
-                    ) : (
-                      <Send className="h-4.5 w-4.5" />
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Observer Read-Only Panel for Pure Watchers */}
-          {isPureWatcher && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-3">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                    <Eye className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                      Read-Only Timeline Access
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      You are an observer on this grievance. Commenting, forwarding, and status updates are disabled.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => handleRemoveWatcher(userId)}
-                  className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-all active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
-                >
-                  Leave Watchlist
-                </button>
-              </div>
-            </div>
-          )}
+          {/* 8. Request Watchers */}
+          <WatchersCard
+            watchers={request.watchers || []}
+            userId={userId}
+            canAssign={canAssign}
+            isSubmitting={isSubmitting}
+            staffOptions={staffOptions}
+            watcherSelectId={watcherSelectId}
+            setWatcherSelectId={setWatcherSelectId}
+            onAddWatcher={handleAddWatcherSubmit}
+            onRemoveWatcher={handleRemoveWatcher}
+          />
         </div>
 
         {/* Right Column: Chronological Timeline (2/5 Width) */}
@@ -1286,76 +762,6 @@ export default function RequestDetailsPage() {
           <TimeLine timelineItems={timelineItems} />
         </div>
       </div>
-
-      {/* Escalation Modal Dialog */}
-      {isEscalateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                <ShieldAlert className="h-5 w-5" />
-                <h3 className="font-extrabold text-sm text-slate-900 dark:text-slate-50">
-                  Escalate Grievance Ticket
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEscalateModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Escalating will automatically forward this ticket from <strong>Level {(request.escalationLevel || 0) + 1}</strong> to <strong>Level {(request.escalationLevel || 0) + 2}</strong> (or central escalation authority) and elevate its priority.
-            </p>
-
-            <form onSubmit={handleEscalateSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Reason / Remarks for Escalation (Optional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={escalationReason}
-                  onChange={(e) => setEscalationReason(e.target.value)}
-                  placeholder="Explain why current resolution is unsatisfactory or delayed..."
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-850 dark:text-slate-200 focus:outline-none focus:border-primary transition-all resize-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-2">
-                <button
-                  type="button"
-                  disabled={isSubmittingEscalation}
-                  onClick={() => setIsEscalateModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingEscalation}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {isSubmittingEscalation ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span>Escalating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                      <span>Confirm Escalation</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

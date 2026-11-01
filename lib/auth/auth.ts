@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { generateCodeChallenge, generateCodeVerifier } from "./pkce";
 import { getSSOUrl } from "./sso";
-import prisma from "../prisma/prisma";
+import prisma from "../prisma";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 

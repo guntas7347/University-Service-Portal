@@ -5,9 +5,9 @@ import {
   getStaffUsers,
   updateStaffUser,
   deleteStaffUser,
-} from "@/lib/prisma/actions/staff";
-import { getDepartments } from "@/lib/prisma/actions/departments";
-import { getProfile } from "@/lib/prisma/actions/users";
+} from "@/lib/actions/staff";
+import { getDepartments } from "@/lib/actions/departments";
+import { getProfile } from "@/lib/actions/users";
 import { useForm } from "@/hooks/useForm";
 import UserForm from "@/components/dashboard/UserForm";
 import UserTable from "@/components/dashboard/UserTable";
@@ -29,13 +29,22 @@ interface StaffUserType {
 
 const RIGHTS_OPTIONS = [
   { value: "ADMIN", label: "Full Administrator Access (ADMIN)" },
-  { value: "MANAGE_CONFIGS", label: "Manage Configs (Departments, Courses, Categories)" },
-  { value: "MANAGE_DEPARTMENT", label: "Manage Department (Department Users & Scoped Ops)" },
+  {
+    value: "MANAGE_CONFIGS",
+    label: "Manage Configs (Departments, Courses, Categories)",
+  },
+  {
+    value: "MANAGE_DEPARTMENT",
+    label: "Manage Department (Department Users & Scoped Ops)",
+  },
   { value: "MANAGE_USERS", label: "Manage Staff Users" },
   { value: "MANAGE_STUDENTS", label: "Manage Students" },
   { value: "MANAGE_ROUTING", label: "Manage Routing Rules" },
   { value: "RESOLVE_GRIEVANCES", label: "Resolve Grievances" },
-  { value: "VIEW_ALL_REQUESTS", label: "View All Tickets (Across Departments)" },
+  {
+    value: "VIEW_ALL_REQUESTS",
+    label: "View All Tickets (Across Departments)",
+  },
 ];
 
 export default function UsersPage() {
@@ -137,9 +146,7 @@ export default function UsersPage() {
 
     const targetRole = form.role || "FACULTY";
     const targetDeptId =
-      isDeptManager && !isAdmin
-        ? currentUser?.departmentId
-        : form.departmentId;
+      isDeptManager && !isAdmin ? currentUser?.departmentId : form.departmentId;
 
     if (!editingId) {
       setErrorMsg("No active user account selected for editing.");
@@ -281,7 +288,9 @@ export default function UsersPage() {
     );
   };
 
-  const isDeptManager = currentUser?.rights?.includes("MANAGE_DEPARTMENT") && !currentUser?.rights?.includes("ADMIN");
+  const isDeptManager =
+    currentUser?.rights?.includes("MANAGE_DEPARTMENT") &&
+    !currentUser?.rights?.includes("ADMIN");
 
   return (
     <div className="space-y-6">

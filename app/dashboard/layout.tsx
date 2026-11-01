@@ -24,7 +24,7 @@ import {
   Landmark,
   Shuffle,
 } from "lucide-react";
-import { getProfile, logoutUser } from "@/lib/prisma/actions/users";
+import { getProfile, logoutUser } from "@/lib/actions/users";
 import { useTheme } from "@/hooks/useTheme";
 
 interface SidebarLinkProps {
@@ -83,10 +83,7 @@ export default function DashboardLayout({
     }
 
     if (pathname === "/dashboard/category") {
-      return (
-        isAdmin ||
-        rights.includes("MANAGE_CONFIGS")
-      );
+      return isAdmin || rights.includes("MANAGE_CONFIGS");
     }
 
     if (pathname === "/dashboard/departments") {
@@ -94,10 +91,7 @@ export default function DashboardLayout({
     }
 
     if (pathname === "/dashboard/routing") {
-      return (
-        isAdmin ||
-        rights.includes("MANAGE_ROUTING")
-      );
+      return isAdmin || rights.includes("MANAGE_ROUTING");
     }
 
     if (pathname === "/dashboard/create-request") {
@@ -258,13 +252,13 @@ export default function DashboardLayout({
           {user &&
             (user.rights?.includes("ADMIN") ||
               user.rights?.includes("MANAGE_CONFIGS")) && (
-            <SidebarLink
-              href="/dashboard/departments"
-              icon={<Landmark className="h-4 w-4" />}
-              label="Manage Departments"
-              onClick={() => setIsSidebarOpen(false)}
-            />
-          )}
+              <SidebarLink
+                href="/dashboard/departments"
+                icon={<Landmark className="h-4 w-4" />}
+                label="Manage Departments"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            )}
           {user &&
             (user.rights?.includes("ADMIN") ||
               user.rights?.includes("MANAGE_ROUTING")) && (
@@ -547,22 +541,22 @@ export default function DashboardLayout({
 
                 {/* System Permissions (Only show if user has rights) */}
                 {user?.rights && user.rights.length > 0 && (
-                    <div className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 mt-2">
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
-                        System Permissions
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {user.rights.map((right: string) => (
-                          <span
-                            key={right}
-                            className="text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded"
-                          >
-                            {right.replace("MANAGE_", "")}
-                          </span>
-                        ))}
-                      </div>
+                  <div className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 mt-2">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                      System Permissions
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {user.rights.map((right: string) => (
+                        <span
+                          key={right}
+                          className="text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded"
+                        >
+                          {right.replace("MANAGE_", "")}
+                        </span>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                )}
               </div>
             </div>
 

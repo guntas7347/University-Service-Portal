@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, FormEvent } from "react";
-import { 
-  User, 
-  Mail, 
-  Smartphone, 
-  Hash, 
+import {
+  User,
+  Mail,
+  Smartphone,
+  Hash,
   Calendar,
   GraduationCap,
   Loader2,
@@ -13,30 +13,24 @@ import {
   AlertCircle,
   Briefcase,
   Shield,
-  Landmark
+  Landmark,
 } from "lucide-react";
 import { useForm } from "@/hooks/useForm";
-import { getProfile, updateUserProfile } from "@/lib/prisma/actions/users";
+import { getProfile, updateUserProfile } from "@/lib/actions/users";
 
 export default function ProfilePage() {
   // Store the complete unmutated profile for read-only keys
   const [fullProfile, setFullProfile] = useState<any>(null);
 
   // Use Form hook with editable state fields only
-  const { 
-    form, 
-    handleChange, 
-    setFields,
-    error, 
-    checkError, 
-    setCheckError 
-  } = useForm({
-    name: "",
-    gender: "",
-    dob: "",
-    mobileNumber: "",
-    designation: ""
-  });
+  const { form, handleChange, setFields, error, checkError, setCheckError } =
+    useForm({
+      name: "",
+      gender: "",
+      dob: "",
+      mobileNumber: "",
+      designation: "",
+    });
 
   // UI state variables
   const [isProfileLoading, setIsProfileLoading] = useState(true);
@@ -65,7 +59,7 @@ export default function ProfilePage() {
           gender: mappedGender,
           dob: response.user.dob,
           mobileNumber: response.user.mobileNumber,
-          designation: response.user.designation || ""
+          designation: response.user.designation || "",
         });
       }
       setIsProfileLoading(false);
@@ -96,7 +90,7 @@ export default function ProfilePage() {
         mobileNumber: form.mobileNumber || undefined,
         dob: form.dob || undefined,
         gender: form.gender || undefined,
-        designation: form.designation || undefined
+        designation: form.designation || undefined,
       });
 
       if (response.success) {
@@ -125,14 +119,15 @@ export default function ProfilePage() {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="h-8 w-8 text-primary animate-spin" />
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Loading profile parameters...</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+          Loading profile parameters...
+        </p>
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      
       {/* Title Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
@@ -145,7 +140,6 @@ export default function ProfilePage() {
 
       {/* Card Form Wrapper */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 md:p-8 shadow-sm">
-        
         {/* Status Alerts */}
         {errorMsg && (
           <div className="mb-6 flex items-start gap-3 p-3 bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-800/30 rounded-login-radius text-red-800 dark:text-red-300 text-sm animate-fade-in">
@@ -163,17 +157,19 @@ export default function ProfilePage() {
 
         {/* Profile Edit Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          
           {/* Section: Personal Info (Editable) */}
           <div className="space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-wider text-primary border-b border-slate-100 dark:border-slate-800 pb-2">
               Personal Information
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
               {/* Full Name */}
               <div>
-                <label htmlFor="name" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <label
+                  htmlFor="name"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
                   Full Name
                 </label>
                 <div className="relative group">
@@ -189,7 +185,9 @@ export default function ProfilePage() {
                     value={form.name}
                     onChange={handleChange}
                     className={`w-full h-login-input-h pl-10 pr-4 py-3 bg-slate-50/50 dark:bg-slate-955/50 border rounded-login-radius text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all ${
-                      isFieldInvalid("name") ? "border-red-500" : "border-slate-200 dark:border-slate-800"
+                      isFieldInvalid("name")
+                        ? "border-red-500"
+                        : "border-slate-200 dark:border-slate-800"
                     }`}
                   />
                 </div>
@@ -197,7 +195,10 @@ export default function ProfilePage() {
 
               {/* Gender */}
               <div>
-                <label htmlFor="gender" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <label
+                  htmlFor="gender"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
                   Gender
                 </label>
                 <select
@@ -217,7 +218,10 @@ export default function ProfilePage() {
 
               {/* Date of Birth */}
               <div>
-                <label htmlFor="dob" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <label
+                  htmlFor="dob"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
                   Date of Birth
                 </label>
                 <div className="relative group">
@@ -239,7 +243,10 @@ export default function ProfilePage() {
               {/* Designation (Staff only, editable) */}
               {fullProfile?.role !== "STUDENT" && (
                 <div>
-                  <label htmlFor="designation" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                  <label
+                    htmlFor="designation"
+                    className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                  >
                     Designation
                   </label>
                   <div className="relative group">
@@ -267,11 +274,14 @@ export default function ProfilePage() {
             <h3 className="text-sm font-bold uppercase tracking-wider text-primary border-b border-slate-100 dark:border-slate-800 pb-2">
               Contact Information
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
               {/* Mobile Number (Editable) */}
               <div>
-                <label htmlFor="mobileNumber" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <label
+                  htmlFor="mobileNumber"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
                   Mobile Number
                 </label>
                 <div className="relative group">
@@ -298,7 +308,7 @@ export default function ProfilePage() {
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2">
                 Academic Details (Read-Only)
               </h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
                 {/* Roll Number */}
                 <div>
@@ -330,7 +340,7 @@ export default function ProfilePage() {
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2">
               Account Details (Read-Only)
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
               {/* Role */}
               <div>
@@ -373,11 +383,16 @@ export default function ProfilePage() {
                 </span>
                 <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-medium select-none">
                   {!fullProfile?.rights || fullProfile.rights.length === 0 ? (
-                    <span className="text-slate-455 italic text-xs">No administrative rights (Standard Student / User Access)</span>
+                    <span className="text-slate-455 italic text-xs">
+                      No administrative rights (Standard Student / User Access)
+                    </span>
                   ) : (
                     <div className="flex flex-wrap gap-1">
                       {fullProfile.rights.map((right: string) => (
-                        <span key={right} className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider font-mono">
+                        <span
+                          key={right}
+                          className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider font-mono"
+                        >
                           {right.replace("_", " ")}
                         </span>
                       ))}
@@ -405,11 +420,8 @@ export default function ProfilePage() {
               )}
             </button>
           </div>
-
         </form>
-
       </div>
-
     </div>
   );
 }

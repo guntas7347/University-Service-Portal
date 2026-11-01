@@ -1518,6 +1518,8 @@ export async function addRequestAttachment(
         actorId: activeUser.id,
         type: ActivityType.ATTACHMENT_ADDED,
         message: `Attached file: ${fileName.trim()}`,
+        newValue: fileUrl.trim(),
+        oldValue: fileName.trim(),
       },
     });
 

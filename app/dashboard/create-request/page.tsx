@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, FormEvent } from "react";
 import Link from "next/link";
-import { 
-  PlusCircle, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  PlusCircle,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   FileText,
   AlertTriangle,
@@ -16,13 +16,13 @@ import {
   Landmark,
   FolderOpen,
   User,
-  Users
+  Users,
 } from "lucide-react";
 import { useForm } from "@/hooks/useForm";
-import { getCategories } from "@/lib/prisma/actions/categories";
-import { getDepartments } from "@/lib/prisma/actions/departments";
-import { getStaffUsers } from "@/lib/prisma/actions/staff";
-import { createRequest } from "@/lib/prisma/actions/requests";
+import { getCategories } from "@/lib/actions/categories";
+import { getDepartments } from "@/lib/actions/departments";
+import { getStaffUsers } from "@/lib/actions/staff";
+import { createRequest } from "@/lib/actions/requests";
 
 interface CategoryOption {
   id: string;
@@ -55,7 +55,7 @@ export default function CreateRequestPage() {
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
-  
+
   // Submission result states
   const [ticketId, setTicketId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -70,7 +70,7 @@ export default function CreateRequestPage() {
     assignedUserId: "", // Empty or "HOD" defaults to HOD, otherwise specific faculty ID
     subject: "",
     description: "",
-    priority: "MEDIUM"
+    priority: "MEDIUM",
   });
 
   // Load all dependencies on mount
@@ -80,7 +80,7 @@ export default function CreateRequestPage() {
       const [catRes, deptRes, staffRes] = await Promise.all([
         getCategories(),
         getDepartments(),
-        getStaffUsers()
+        getStaffUsers(),
       ]);
 
       if (catRes.success && catRes.categories) {
@@ -94,7 +94,7 @@ export default function CreateRequestPage() {
             assignedUserId: "",
             subject: "",
             description: "",
-            priority: "MEDIUM"
+            priority: "MEDIUM",
           });
         }
       }
@@ -128,28 +128,34 @@ export default function CreateRequestPage() {
       return;
     }
     if (form.description.trim().length < 15) {
-      setErrorMsg("Please write a detailed description of the issue (minimum 15 characters).");
+      setErrorMsg(
+        "Please write a detailed description of the issue (minimum 15 characters).",
+      );
       return;
     }
 
     setIsSubmitting(true);
 
-    const assignedUserIds = form.raiseMode === "DEPARTMENT" && form.assignedUserId && form.assignedUserId !== "HOD"
-      ? [form.assignedUserId]
-      : [];
+    const assignedUserIds =
+      form.raiseMode === "DEPARTMENT" &&
+      form.assignedUserId &&
+      form.assignedUserId !== "HOD"
+        ? [form.assignedUserId]
+        : [];
 
     try {
       const response = await createRequest({
         type: form.type,
         raiseMode: form.raiseMode as any,
         categoryId: form.raiseMode === "CATEGORY" ? form.categoryId : undefined,
-        departmentId: form.raiseMode === "DEPARTMENT" ? form.departmentId : undefined,
+        departmentId:
+          form.raiseMode === "DEPARTMENT" ? form.departmentId : undefined,
         assignedUserIds,
         watcherUserIds: selectedWatchers,
         subject: form.subject,
         description: form.description,
         priority: form.priority,
-        isAnonymous
+        isAnonymous,
       });
 
       if (response.success && response.ticketId) {
@@ -162,7 +168,9 @@ export default function CreateRequestPage() {
         setErrorMsg(response.message);
       }
     } catch (err) {
-      setErrorMsg("An unexpected error occurred during submission. Please try again.");
+      setErrorMsg(
+        "An unexpected error occurred during submission. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -182,19 +190,23 @@ export default function CreateRequestPage() {
       assignedUserId: "",
       subject: "",
       description: "",
-      priority: "MEDIUM"
+      priority: "MEDIUM",
     });
   };
 
   // Filter staff to selected department (for direct assignee selection)
-  const departmentFaculty = staffList.filter(s => s.departmentId === form.departmentId);
+  const departmentFaculty = staffList.filter(
+    (s) => s.departmentId === form.departmentId,
+  );
 
   // 1. Loading active category tracks
   if (isDataLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="h-8 w-8 text-primary animate-spin" />
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Loading form dependencies...</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+          Loading form dependencies...
+        </p>
       </div>
     );
   }
@@ -213,7 +225,8 @@ export default function CreateRequestPage() {
               {successMsg}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
-              Your ticket has been logged into the university redressal cells. Use this tracking ID for official references:
+              Your ticket has been logged into the university redressal cells.
+              Use this tracking ID for official references:
             </p>
           </div>
 
@@ -250,20 +263,19 @@ export default function CreateRequestPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      
       {/* Title Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
           File a Request
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Submit official complaints, inquiries, or feedback to administration departments
+          Submit official complaints, inquiries, or feedback to administration
+          departments
         </p>
       </div>
 
       {/* Main card wrapper */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 md:p-8 shadow-sm">
-        
         {categories.length === 0 && departments.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
             <AlertTriangle className="h-10 w-10 text-amber-500" />
@@ -272,13 +284,13 @@ export default function CreateRequestPage() {
                 No Categories or Departments
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
-                Before filing a request, categories or departments must be configured in the portal dashboard.
+                Before filing a request, categories or departments must be
+                configured in the portal dashboard.
               </p>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
-            
             {/* Feedback Alerts */}
             {errorMsg && (
               <div className="mb-4 flex items-start gap-2.5 p-3 bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-800/30 rounded-xl text-red-800 dark:text-red-300 text-xs">
@@ -289,10 +301,12 @@ export default function CreateRequestPage() {
 
             {/* Split Form Elements */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
-              
               {/* Request Type Selection */}
               <div>
-                <label htmlFor="type" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <label
+                  htmlFor="type"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
                   Request Type Classification
                 </label>
                 <select
@@ -315,7 +329,10 @@ export default function CreateRequestPage() {
 
               {/* Priority Select */}
               <div>
-                <label htmlFor="priority" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <label
+                  htmlFor="priority"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                >
                   Priority Urgency
                 </label>
                 <select
@@ -340,14 +357,16 @@ export default function CreateRequestPage() {
                   Filing Option (Grievance Target)
                 </label>
                 <div className="grid grid-cols-2 gap-3.5">
-                  <label className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all select-none ${
-                    form.raiseMode === "CATEGORY" 
-                      ? "border-primary bg-primary/5 dark:bg-primary/5" 
-                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-950/20"
-                  }`}>
-                    <input 
-                      type="radio" 
-                      name="raiseMode" 
+                  <label
+                    className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all select-none ${
+                      form.raiseMode === "CATEGORY"
+                        ? "border-primary bg-primary/5 dark:bg-primary/5"
+                        : "border-slate-200 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-950/20"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="raiseMode"
                       value="CATEGORY"
                       checked={form.raiseMode === "CATEGORY"}
                       onChange={handleChange}
@@ -358,18 +377,22 @@ export default function CreateRequestPage() {
                         <FolderOpen className="h-3.5 w-3.5 text-primary shrink-0" />
                         Raise by Category
                       </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Auto-route assign based on rules</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                        Auto-route assign based on rules
+                      </span>
                     </div>
                   </label>
 
-                  <label className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all select-none ${
-                    form.raiseMode === "DEPARTMENT" 
-                      ? "border-primary bg-primary/5 dark:bg-primary/5" 
-                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-950/20"
-                  }`}>
-                    <input 
-                      type="radio" 
-                      name="raiseMode" 
+                  <label
+                    className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all select-none ${
+                      form.raiseMode === "DEPARTMENT"
+                        ? "border-primary bg-primary/5 dark:bg-primary/5"
+                        : "border-slate-200 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-950/20"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="raiseMode"
                       value="DEPARTMENT"
                       checked={form.raiseMode === "DEPARTMENT"}
                       onChange={handleChange}
@@ -380,7 +403,9 @@ export default function CreateRequestPage() {
                         <Landmark className="h-3.5 w-3.5 text-primary shrink-0" />
                         Raise by Department
                       </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Assign directly to HOD or Faculty</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                        Assign directly to HOD or Faculty
+                      </span>
                     </div>
                   </label>
                 </div>
@@ -389,7 +414,10 @@ export default function CreateRequestPage() {
               {/* Category Dropdown Selection */}
               {form.raiseMode === "CATEGORY" && (
                 <div className="md:col-span-2">
-                  <label htmlFor="categoryId" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                  <label
+                    htmlFor="categoryId"
+                    className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                  >
                     Grievance Category classification
                   </label>
                   <div className="relative group">
@@ -420,7 +448,10 @@ export default function CreateRequestPage() {
               {form.raiseMode === "DEPARTMENT" && (
                 <>
                   <div>
-                    <label htmlFor="departmentId" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                    <label
+                      htmlFor="departmentId"
+                      className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                    >
                       Target Department / Office
                     </label>
                     <div className="relative group">
@@ -447,7 +478,10 @@ export default function CreateRequestPage() {
                   </div>
 
                   <div>
-                    <label htmlFor="assignedUserId" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                    <label
+                      htmlFor="assignedUserId"
+                      className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                    >
                       Assign Handlers
                     </label>
                     <div className="relative group">
@@ -465,7 +499,8 @@ export default function CreateRequestPage() {
                         <option value="">Faculty Default HOD (Auto)</option>
                         {departmentFaculty.map((f) => (
                           <option key={f.id} value={f.id}>
-                            {f.name} {f.designation ? `(${f.designation})` : `(Faculty)`}
+                            {f.name}{" "}
+                            {f.designation ? `(${f.designation})` : `(Faculty)`}
                           </option>
                         ))}
                       </select>
@@ -473,12 +508,14 @@ export default function CreateRequestPage() {
                   </div>
                 </>
               )}
-
             </div>
 
             {/* Subject heading */}
             <div>
-              <label htmlFor="subject" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="subject"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Subject Heading
               </label>
               <div className="relative group">
@@ -501,7 +538,10 @@ export default function CreateRequestPage() {
 
             {/* Description textarea */}
             <div>
-              <label htmlFor="description" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="description"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Grievance Description Detail
               </label>
               <div className="relative group">
@@ -537,15 +577,23 @@ export default function CreateRequestPage() {
                         checked={selectedWatchers.includes(s.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedWatchers(prev => [...prev, s.id]);
+                            setSelectedWatchers((prev) => [...prev, s.id]);
                           } else {
-                            setSelectedWatchers(prev => prev.filter(id => id !== s.id));
+                            setSelectedWatchers((prev) =>
+                              prev.filter((id) => id !== s.id),
+                            );
                           }
                         }}
                         className="h-3.5 w-3.5 text-primary border-slate-350 dark:border-slate-850 rounded cursor-pointer focus:ring-primary"
                       />
-                      <label htmlFor={`watcher-${s.id}`} className="text-xs text-slate-705 dark:text-slate-300 font-medium cursor-pointer select-none">
-                        {s.name} {s.designation ? `(${s.designation})` : `(${s.role.replace("_", " ")})`}
+                      <label
+                        htmlFor={`watcher-${s.id}`}
+                        className="text-xs text-slate-705 dark:text-slate-300 font-medium cursor-pointer select-none"
+                      >
+                        {s.name}{" "}
+                        {s.designation
+                          ? `(${s.designation})`
+                          : `(${s.role.replace("_", " ")})`}
                       </label>
                     </div>
                   ))}
@@ -566,7 +614,10 @@ export default function CreateRequestPage() {
                 />
               </div>
               <div className="space-y-0.5">
-                <label htmlFor="isAnonymous" className="block text-xs font-bold text-slate-800 dark:text-slate-250 cursor-pointer flex items-center gap-1">
+                <label
+                  htmlFor="isAnonymous"
+                  className="block text-xs font-bold text-slate-800 dark:text-slate-250 cursor-pointer flex items-center gap-1"
+                >
                   <span>File Anonymously</span>
                   {isAnonymous ? (
                     <EyeOff className="h-3.5 w-3.5 text-amber-500" />
@@ -575,7 +626,8 @@ export default function CreateRequestPage() {
                   )}
                 </label>
                 <p className="text-[10px] text-slate-500 dark:text-slate-450 leading-relaxed">
-                  Your identity details will be masked from administrators. Only your public ticket ID will be displayed.
+                  Your identity details will be masked from administrators. Only
+                  your public ticket ID will be displayed.
                 </p>
               </div>
             </div>
@@ -606,12 +658,9 @@ export default function CreateRequestPage() {
                 )}
               </button>
             </div>
-
           </form>
         )}
-
       </div>
-
     </div>
   );
 }

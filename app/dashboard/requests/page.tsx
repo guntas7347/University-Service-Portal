@@ -2,21 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Inbox, 
-  Search, 
-  Filter, 
-  Loader2, 
+import {
+  Inbox,
+  Search,
+  Filter,
+  Loader2,
   AlertTriangle,
   Clock,
   CheckCircle,
   Info,
   XCircle,
   ChevronRight,
-  Eye
+  Eye,
 } from "lucide-react";
-import { getAllRequests } from "@/lib/prisma/actions/requests";
-import { getCategories } from "@/lib/prisma/actions/categories";
+import { getAllRequests } from "@/lib/actions/requests";
+import { getCategories } from "@/lib/actions/categories";
 
 interface RequestRow {
   id: string;
@@ -60,7 +60,7 @@ export default function RequestsPage() {
       setIsPageLoading(true);
       const [reqResponse, catResponse] = await Promise.all([
         getAllRequests(),
-        getCategories()
+        getCategories(),
       ]);
 
       if (reqResponse.success && reqResponse.requests) {
@@ -89,7 +89,11 @@ export default function RequestsPage() {
         </span>
       );
     }
-    if (s === "UNDER_REVIEW" || s === "IN_PROGRESS" || s === "WAITING_FOR_STUDENT") {
+    if (
+      s === "UNDER_REVIEW" ||
+      s === "IN_PROGRESS" ||
+      s === "WAITING_FOR_STUDENT"
+    ) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-955/35 text-blue-800 dark:text-blue-300 border border-blue-200/30">
           <Info className="h-3 w-3" />
@@ -148,7 +152,7 @@ export default function RequestsPage() {
       return new Date(isoString).toLocaleDateString("en-US", {
         month: "short",
         day: "2-digit",
-        year: "numeric"
+        year: "numeric",
       });
     } catch {
       return "N/A";
@@ -157,59 +161,67 @@ export default function RequestsPage() {
 
   // Local state filtering and search
   const filteredRequests = requests.filter((r) => {
-    const matchesSearch = 
-      r.ticketId.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch =
+      r.ticketId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.subject.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory = 
-      categoryFilter === "ALL" || 
+    const matchesCategory =
+      categoryFilter === "ALL" ||
       r.category.toLowerCase() === categoryFilter.toLowerCase();
 
-    const matchesPriority = 
-      priorityFilter === "ALL" || 
+    const matchesPriority =
+      priorityFilter === "ALL" ||
       r.priority.toUpperCase() === priorityFilter.toUpperCase();
 
-    const matchesScope = 
-      scopeFilter === "ALL" || 
-      (scopeFilter === "WATCHING" && r.isWatcher);
+    const matchesScope =
+      scopeFilter === "ALL" || (scopeFilter === "WATCHING" && r.isWatcher);
 
     const matchesStatus = () => {
       if (statusFilter === "ALL") return true;
       const s = r.status.toUpperCase();
-      if (statusFilter === "PENDING") return s === "SUBMITTED" || s === "ASSIGNED" || s === "DRAFT";
-      if (statusFilter === "INVESTIGATION") return s === "UNDER_REVIEW" || s === "IN_PROGRESS" || s === "WAITING_FOR_STUDENT";
-      if (statusFilter === "RESOLVED") return s === "RESOLVED" || s === "CLOSED";
+      if (statusFilter === "PENDING")
+        return s === "SUBMITTED" || s === "ASSIGNED" || s === "DRAFT";
+      if (statusFilter === "INVESTIGATION")
+        return (
+          s === "UNDER_REVIEW" ||
+          s === "IN_PROGRESS" ||
+          s === "WAITING_FOR_STUDENT"
+        );
+      if (statusFilter === "RESOLVED")
+        return s === "RESOLVED" || s === "CLOSED";
       return s === "REJECTED" || s === "CANCELLED";
     };
 
-    return matchesSearch && matchesCategory && matchesPriority && matchesScope && matchesStatus();
+    return (
+      matchesSearch &&
+      matchesCategory &&
+      matchesPriority &&
+      matchesScope &&
+      matchesStatus()
+    );
   });
 
   const isStudent = userRole === "STUDENT";
 
   return (
     <div className="space-y-6">
-      
       {/* Title Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
           {isStudent ? "My Grievances" : "All Student Requests"}
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          {isStudent 
-            ? "Track resolution stages and timeline history of complaints filed by you or watched by you" 
-            : "Review, assign, and address student complaints and query requests"
-          }
+          {isStudent
+            ? "Track resolution stages and timeline history of complaints filed by you or watched by you"
+            : "Review, assign, and address student complaints and query requests"}
         </p>
       </div>
 
       {/* Main card panel */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm flex flex-col min-h-[450px]">
-        
         {/* Controls Bar: Search and Dynamic Filters */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            
             {/* Search Input */}
             <div className="relative lg:col-span-1 group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -293,7 +305,6 @@ export default function RequestsPage() {
                 <option value="REJECTED">Closed / Rejected</option>
               </select>
             </div>
-
           </div>
         </div>
 
@@ -301,20 +312,27 @@ export default function RequestsPage() {
         {isPageLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 py-20">
             <Loader2 className="h-8 w-8 text-primary animate-spin" />
-            <p className="text-sm text-slate-450 font-medium">Fetching tickets database...</p>
+            <p className="text-sm text-slate-450 font-medium">
+              Fetching tickets database...
+            </p>
           </div>
         ) : errorMsg ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 text-center gap-2 px-4">
             <AlertTriangle className="h-10 w-10 text-red-500" />
-            <h4 className="font-bold text-slate-700 dark:text-slate-450 text-sm">Failed to retrieve records</h4>
+            <h4 className="font-bold text-slate-700 dark:text-slate-450 text-sm">
+              Failed to retrieve records
+            </h4>
             <p className="text-xs text-slate-400 max-w-xs mt-1">{errorMsg}</p>
           </div>
         ) : filteredRequests.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 text-center gap-2 px-4">
             <Inbox className="h-10 w-10 text-slate-350 dark:text-slate-650" />
-            <h4 className="font-bold text-slate-700 dark:text-slate-405 text-sm">No Grievances Found</h4>
+            <h4 className="font-bold text-slate-700 dark:text-slate-405 text-sm">
+              No Grievances Found
+            </h4>
             <p className="text-xs text-slate-400 max-w-xs mt-1">
-              No matching tickets found under the selected filters or search parameters.
+              No matching tickets found under the selected filters or search
+              parameters.
             </p>
           </div>
         ) : (
@@ -334,12 +352,13 @@ export default function RequestsPage() {
               </thead>
               <tbody className="divide-y divide-slate-155 dark:divide-slate-850">
                 {filteredRequests.map((item) => (
-                  <tr 
-                    key={item.id} 
-                    onClick={() => router.push(`/dashboard/requests/${item.id}`)}
+                  <tr
+                    key={item.id}
+                    onClick={() =>
+                      router.push(`/dashboard/requests/${item.id}`)
+                    }
                     className="hover:bg-slate-50/30 dark:hover:bg-slate-800/10 cursor-pointer transition-colors text-sm"
                   >
-                    
                     {/* ID & Subject */}
                     <td className="py-4 px-6 max-w-xs">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -399,16 +418,13 @@ export default function RequestsPage() {
                     <td className="py-4 px-6 text-slate-400">
                       <ChevronRight className="h-4 w-4" />
                     </td>
-
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-
       </div>
-
     </div>
   );
 }

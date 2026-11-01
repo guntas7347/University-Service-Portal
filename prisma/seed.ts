@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma/prisma";
+import prisma from "@/lib/prisma";
 
 const main = async () => {
   try {

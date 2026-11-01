@@ -1,26 +1,26 @@
 "use client";
 
 import React, { useState, useEffect, FormEvent } from "react";
-import { 
-  Landmark, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  Landmark,
+  Plus,
+  Edit,
+  Trash2,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   Hash,
   FileText,
   X,
-  User
+  User,
 } from "lucide-react";
 import { useForm } from "@/hooks/useForm";
-import { 
-  getDepartments, 
-  createDepartment, 
-  updateDepartment, 
-  deleteDepartment 
-} from "@/lib/prisma/actions/departments";
+import {
+  getDepartments,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+} from "@/lib/actions/departments";
 
 interface DepartmentType {
   id: string;
@@ -43,7 +43,7 @@ export default function DepartmentsPage() {
   // Form management hook
   const { form, handleChange, setFields, resetFormFields } = useForm({
     code: "",
-    name: ""
+    name: "",
   });
 
   // Fetch departments on page load
@@ -79,13 +79,13 @@ export default function DepartmentsPage() {
         // Update existing record
         response = await updateDepartment(editingId, {
           code: form.code,
-          name: form.name
+          name: form.name,
         });
       } else {
         // Create new record
         response = await createDepartment({
           code: form.code,
-          name: form.name
+          name: form.name,
         });
       }
 
@@ -111,7 +111,7 @@ export default function DepartmentsPage() {
     setEditingId(dept.id);
     setFields({
       code: dept.code,
-      name: dept.name
+      name: dept.name,
     });
   };
 
@@ -147,20 +147,19 @@ export default function DepartmentsPage() {
 
   return (
     <div className="space-y-6">
-      
       {/* Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
           Manage Departments
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Configure academic departments and administrative offices inside the university
+          Configure academic departments and administrative offices inside the
+          university
         </p>
       </div>
 
       {/* Grid Layout: Form on Left, List on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-login-gap">
-        
         {/* Left Column: Form Card */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
           <div className="mb-6 flex justify-between items-center">
@@ -168,8 +167,8 @@ export default function DepartmentsPage() {
               {editingId ? "Edit Department" : "Add New Department"}
             </h2>
             {editingId && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={handleCancelEdit}
                 className="p-1 text-slate-450 hover:text-slate-655 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
                 title="Cancel Edit"
@@ -198,7 +197,10 @@ export default function DepartmentsPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Department Code */}
             <div>
-              <label htmlFor="code" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="code"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Department Code
               </label>
               <div className="relative group">
@@ -221,7 +223,10 @@ export default function DepartmentsPage() {
 
             {/* Department Name */}
             <div>
-              <label htmlFor="name" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+              <label
+                htmlFor="name"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+              >
                 Department Name
               </label>
               <div className="relative group">
@@ -279,7 +284,6 @@ export default function DepartmentsPage() {
 
         {/* Right Column: List Table */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm lg:col-span-2 overflow-hidden flex flex-col min-h-[450px]">
-          
           <div className="p-6 border-b border-slate-200 dark:border-slate-800">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
               Department Listings
@@ -292,14 +296,19 @@ export default function DepartmentsPage() {
           {isPageLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2 py-20">
               <Loader2 className="h-8 w-8 text-primary animate-spin" />
-              <p className="text-sm text-slate-450 font-medium">Loading department records...</p>
+              <p className="text-sm text-slate-450 font-medium">
+                Loading department records...
+              </p>
             </div>
           ) : departments.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center py-20 text-center gap-2 px-4">
               <Landmark className="h-10 w-10 text-slate-350 dark:text-slate-650" />
-              <h4 className="font-bold text-slate-700 dark:text-slate-405 text-sm">No Departments Registered</h4>
+              <h4 className="font-bold text-slate-700 dark:text-slate-405 text-sm">
+                No Departments Registered
+              </h4>
               <p className="text-xs text-slate-400 max-w-xs mt-1">
-                Create a department using the panel on the left to start organizing faculty members and offices.
+                Create a department using the panel on the left to start
+                organizing faculty members and offices.
               </p>
             </div>
           ) : (
@@ -315,8 +324,10 @@ export default function DepartmentsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-150 dark:divide-slate-850">
                   {departments.map((dept) => (
-                    <tr key={dept.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm">
-                      
+                    <tr
+                      key={dept.id}
+                      className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm"
+                    >
                       {/* Name */}
                       <td className="py-4 px-6 font-bold text-slate-900 dark:text-slate-100">
                         <div className="flex items-center gap-2">
@@ -340,7 +351,9 @@ export default function DepartmentsPage() {
                             <span>{dept.hodName}</span>
                           </div>
                         ) : (
-                          <span className="text-slate-400 text-xs italic">Unassigned (Manage in Users)</span>
+                          <span className="text-slate-400 text-xs italic">
+                            Unassigned (Manage in Users)
+                          </span>
                         )}
                       </td>
 
@@ -365,7 +378,6 @@ export default function DepartmentsPage() {
                           </button>
                         </div>
                       </td>
-
                     </tr>
                   ))}
                 </tbody>
