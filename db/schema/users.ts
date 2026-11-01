@@ -9,7 +9,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 import { Gender, UserStatus } from "./enums";
-import { Department, Course } from "./academics";
+import { Department } from "./academics";
 import { Request } from "./requests";
 import {
   RequestActivity,
@@ -25,22 +25,24 @@ export const User = pgTable("User", {
     .primaryKey()
     .$defaultFn(() => createId()),
   ssoId: text("ssoId").unique(),
-  fullName: text("fullName").notNull(),
+  username: text("username").unique(),
+  fullName: text("fullName"),
+  fatherName: text("fatherName"),
+  role: text("role").notNull().default("STUDENT"),
   email: text("email").notNull().unique(),
+  degree: text("degree"),
+  specialization: text("specialization"),
+  mobile: text("mobile"),
+  photo: text("photo"),
   rollNumber: text("rollNumber").unique(),
-  mobileNumber: text("mobileNumber").unique(),
+  mobileNumber: text("mobileNumber"),
   batch: integer("batch"),
   dateOfBirth: timestamp("dateOfBirth", { precision: 3 }),
   gender: Gender("gender"),
-  role: text("role").notNull().default("STUDENT"),
   status: UserStatus("status").notNull().default("PENDING"),
   designation: text("designation"),
   rights: text("rights").array().notNull().default([]),
   departmentId: text("departmentId").references((): AnyPgColumn => Department.id, {
-    onDelete: "cascade",
-    onUpdate: "cascade",
-  }),
-  courseId: text("courseId").references((): AnyPgColumn => Course.id, {
     onDelete: "cascade",
     onUpdate: "cascade",
   }),
@@ -59,10 +61,6 @@ export const UserRelations = relations(User, ({ one, many }) => ({
     relationName: "DepartmentUsers",
     fields: [User.departmentId],
     references: [Department.id],
-  }),
-  course: one(Course, {
-    fields: [User.courseId],
-    references: [Course.id],
   }),
   requests: many(Request, {
     relationName: "CreatedRequests",
@@ -87,3 +85,4 @@ export const UserRelations = relations(User, ({ one, many }) => ({
   }),
   routingRules: many(RoutingRule),
 }));
+

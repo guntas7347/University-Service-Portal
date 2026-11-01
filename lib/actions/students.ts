@@ -24,7 +24,6 @@ export async function getStudents() {
       where: and(...conditions),
       with: {
         department: true,
-        course: true,
       },
       orderBy: [desc(User.createdAt)],
     });
@@ -33,18 +32,20 @@ export async function getStudents() {
       success: true,
       students: students.map((u: any) => ({
         id: u.id,
-        name: u.fullName,
+        name: u.fullName || "",
         email: u.email,
         rollNumber: u.rollNumber || "",
-        mobileNumber: u.mobileNumber || "",
+        mobileNumber: u.mobile || u.mobileNumber || "",
         batch: u.batch || null,
         role: u.role,
         status: u.status,
         gender: u.gender || "",
         departmentId: u.departmentId || "",
         departmentName: u.department?.name || "",
-        courseId: u.courseId || "",
-        courseName: u.course?.name || "",
+        degree: u.degree || "",
+        specialization: u.specialization || "",
+        courseId: u.degree || "",
+        courseName: u.specialization || u.degree || "",
       })),
       userRole: activeUser.role,
       userRights: activeUser.rights || [],
@@ -73,6 +74,8 @@ export async function updateStudent(
     gender?: string;
     departmentId?: string;
     courseId?: string;
+    degree?: string;
+    specialization?: string;
     status?: string;
   },
 ) {
@@ -176,11 +179,13 @@ export async function updateStudent(
         fullName: data.name.trim(),
         email: data.email.trim(),
         rollNumber: data.rollNumber.trim(),
+        mobile: data.mobileNumber?.trim() || null,
         mobileNumber: data.mobileNumber?.trim() || null,
         batch: data.batch ? Number(data.batch) : null,
         gender: genderEnum,
         departmentId: targetDeptId || null,
-        courseId: data.courseId || null,
+        degree: data.degree || undefined,
+        specialization: data.specialization || undefined,
         status: statusEnum,
       })
       .where(eq(User.id, id))

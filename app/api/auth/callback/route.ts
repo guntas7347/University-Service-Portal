@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForUser } from "@/lib/auth/sso";
 import { createJWT, TokenPayload } from "@/lib/auth/auth";
-import { db, User, eq, or } from "@/db/drizzel";
+import { upsertUser } from "@/lib/actions/users";
 
 export const runtime = "nodejs";
 
@@ -60,123 +60,13 @@ async function processCallback(req: NextRequest, code: string | null) {
       throw new Error("Empty user payload returned from SSO");
     }
 
-    // Determine unique user identifier from SSO
-    const ssoId = String(
-      ssoUser.ssoId ||
-        ssoUser.userId ||
-        ssoUser.id ||
-        ssoUser.username ||
-        ssoUser.email ||
-        "",
-    ).trim();
-
-    if (!ssoId) {
-      throw new Error("Invalid SSO user payload: missing user identifier");
-    }
-
-    const ssoRole = ssoUser.role
-      ? String(ssoUser.role).toUpperCase()
-      : "STUDENT";
-    const role: string = ssoRole || "STUDENT";
-
-    // Set initial administrative rights if new administrator/super_admin
-    const initialRights =
-      role === "ADMIN" || role === "SUPER_ADMIN"
-        ? [
-            "ADMIN",
-            "MANAGE_CONFIGS",
-            "MANAGE_DEPARTMENT",
-            "MANAGE_USERS",
-            "MANAGE_STUDENTS",
-            "MANAGE_ROUTING",
-            "RESOLVE_GRIEVANCES",
-            "VIEW_ALL_REQUESTS",
-          ]
-        : [];
-
-    const email = (
-      ssoUser.email ||
-      (ssoUser.username
-        ? `${ssoUser.username}@sbsstc.ac.in`
-        : `${ssoId}@sbsstc.ac.in`)
-    )
-      .trim()
-      .toLowerCase();
-
-    const fullName =
-      ssoUser.fullName || ssoUser.name || ssoUser.username || "User";
-
-    const rollNumber =
-      ssoUser.rollNumber ||
-      (role === "STUDENT" && ssoUser.username ? ssoUser.username : null) ||
-      (ssoUser.username && /^\d+$/.test(ssoUser.username)
-        ? ssoUser.username
-        : null);
-
-    const mobileNumber = ssoUser.mobileNumber || ssoUser.mobile || null;
-    const profileImage = ssoUser.photoUrl || ssoUser.photo || null;
-
-    // Look up existing user by ssoId, email, or rollNumber
-    const lookupConditions = [eq(User.ssoId, ssoId)];
-    if (email) {
-      lookupConditions.push(eq(User.email, email));
-    }
-    if (rollNumber) {
-      lookupConditions.push(eq(User.rollNumber, rollNumber));
-    }
-
-    let user = await db.query.User.findFirst({
-      where: or(...lookupConditions),
-    });
-
-    if (!user) {
-      const [newUser] = await db
-        .insert(User)
-        .values({
-          ssoId,
-          email,
-          fullName,
-          rollNumber,
-          mobileNumber,
-          profileImage,
-          role,
-          rights: initialRights,
-        })
-        .returning();
-      user = newUser;
-      console.log(
-        "SSO Callback: Created new user account:",
-        user.id,
-        user.email,
-      );
-    } else {
-      const updateData: Partial<typeof User.$inferInsert> = {
-        ssoId,
-      };
-      if (fullName) updateData.fullName = fullName;
-      if (email) updateData.email = email;
-      if (rollNumber) updateData.rollNumber = rollNumber;
-      if (mobileNumber) updateData.mobileNumber = mobileNumber;
-      if (profileImage) updateData.profileImage = profileImage;
-
-      const [updatedUser] = await db
-        .update(User)
-        .set(updateData)
-        .where(eq(User.id, user.id))
-        .returning();
-      user = updatedUser;
-      console.log(
-        "SSO Callback: Updated existing user account:",
-        user.id,
-        user.email,
-      );
-    }
+    const user = await upsertUser(ssoUser);
 
     // Embed internal database user ID (user.id) in session JWT payload
     const payload: TokenPayload = {
       userId: user.id,
       email: user.email,
-      fullName: user.fullName,
+      fullName: user.fullName || undefined,
       rollNumber: user.rollNumber || undefined,
       role: user.role,
     };

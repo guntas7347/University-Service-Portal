@@ -230,17 +230,6 @@ export default function DashboardLayout({
           />
           {user &&
             (user.rights?.includes("ADMIN") ||
-              user.rights?.includes("MANAGE_CONFIGS") ||
-              user.rights?.includes("MANAGE_DEPARTMENT")) && (
-              <SidebarLink
-                href="/dashboard/courses"
-                icon={<BookOpen className="h-4 w-4" />}
-                label="Manage Courses"
-                onClick={() => setIsSidebarOpen(false)}
-              />
-            )}
-          {user &&
-            (user.rights?.includes("ADMIN") ||
               user.rights?.includes("MANAGE_CONFIGS")) && (
               <SidebarLink
                 href="/dashboard/category"

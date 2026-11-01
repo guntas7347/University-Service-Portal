@@ -163,36 +163,57 @@ export const fetchSSOToken = async (code: string) => {
       where: or(...lookupConditions),
     });
 
+    const email = (ssoUser.email || `${ssoId}@sbsstc.ac.in`).trim().toLowerCase();
+    const username = ssoUser.username || null;
+    const fullName = ssoUser.fullName || ssoUser.name || null;
+    const fatherName = ssoUser.fatherName || null;
+    const degree = ssoUser.degree || null;
+    const specialization = ssoUser.specialization || null;
+    const mobile = ssoUser.mobile || ssoUser.mobileNumber || null;
+    const photo = ssoUser.photo || null;
+    const rollNumber = ssoUser.rollNumber || ssoUser.username || null;
+
     if (!user) {
       const [newUser] = await db
         .insert(User)
         .values({
-          ssoId: ssoId,
-          email: ssoUser.email || `${ssoId}@sbsstc.ac.in`,
-          fullName: ssoUser.fullName || ssoUser.name || "User",
-          rollNumber: ssoUser.rollNumber || null,
-          mobileNumber: ssoUser.mobileNumber || null,
-          role: role,
+          ssoId,
+          username,
+          fullName,
+          fatherName,
+          role,
+          email,
+          degree,
+          specialization,
+          mobile,
+          photo,
+          rollNumber,
+          mobileNumber: mobile,
+          profileImage: photo,
           rights: initialRights,
         })
         .returning();
       user = newUser;
     } else {
       const updateData: Partial<typeof User.$inferInsert> = {
-        ssoId: ssoId,
+        ssoId,
       };
-      if (ssoUser.fullName || ssoUser.name) {
-        updateData.fullName = ssoUser.fullName || ssoUser.name;
+      if (username) updateData.username = username;
+      if (fullName) updateData.fullName = fullName;
+      if (fatherName) updateData.fatherName = fatherName;
+      if (role) updateData.role = role;
+      if (email) updateData.email = email;
+      if (degree) updateData.degree = degree;
+      if (specialization) updateData.specialization = specialization;
+      if (mobile) {
+        updateData.mobile = mobile;
+        updateData.mobileNumber = mobile;
       }
-      if (ssoUser.email) {
-        updateData.email = ssoUser.email;
+      if (photo) {
+        updateData.photo = photo;
+        updateData.profileImage = photo;
       }
-      if (ssoUser.rollNumber) {
-        updateData.rollNumber = ssoUser.rollNumber;
-      }
-      if (ssoUser.mobileNumber) {
-        updateData.mobileNumber = ssoUser.mobileNumber;
-      }
+      if (rollNumber) updateData.rollNumber = rollNumber;
 
       const [updatedUser] = await db
         .update(User)
@@ -206,7 +227,7 @@ export const fetchSSOToken = async (code: string) => {
     const payload: TokenPayload = {
       userId: user.id,
       email: user.email,
-      fullName: user.fullName,
+      fullName: user.fullName || undefined,
       rollNumber: user.rollNumber || undefined,
       role: user.role,
     };

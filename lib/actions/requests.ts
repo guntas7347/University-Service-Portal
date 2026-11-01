@@ -12,7 +12,6 @@ import {
   Department,
   Category,
   User,
-  Course,
   RequestType,
   Priority,
   RequestStatus,
@@ -74,7 +73,6 @@ function isHodForRequest(
       id?: string;
       departmentId?: string | null;
       department?: { id: string; hodId?: string | null } | null;
-      course?: { departmentId?: string | null } | null;
     } | null;
   },
 ): boolean {
@@ -86,9 +84,7 @@ function isHodForRequest(
   if (request.department?.hodId === user.id) return true;
 
   // 2. Direct match on student's department who raised the grievance
-  const studentDeptId =
-    request.createdBy?.departmentId ||
-    request.createdBy?.course?.departmentId;
+  const studentDeptId = request.createdBy?.departmentId;
 
   if (studentDeptId && managedDeptIds.includes(studentDeptId)) return true;
   if (
@@ -442,14 +438,10 @@ export async function getAllRequests() {
         db
           .select({ id: User.id })
           .from(User)
-          .leftJoin(Course, eq(User.courseId, Course.id))
           .where(
             and(
               eq(User.id, Request.createdById),
-              or(
-                inArray(User.departmentId, managedDeptIds),
-                inArray(Course.departmentId, managedDeptIds),
-              ),
+              inArray(User.departmentId, managedDeptIds),
             ),
           ),
       );
@@ -595,7 +587,6 @@ export async function getRequestDetails(requestId: string) {
         createdBy: {
           with: {
             department: true,
-            course: true,
           },
         },
         assignments: {
@@ -738,7 +729,7 @@ export async function getRequestDetails(requestId: string) {
         mobileNumber: reqDetails.isAnonymous
           ? "N/A"
           : reqDetails.createdBy?.mobileNumber || "N/A",
-        courseName: reqDetails.createdBy?.course?.name || "N/A",
+        courseName: reqDetails.createdBy?.specialization || reqDetails.createdBy?.degree || "N/A",
         departmentId: reqDetails.createdBy?.departmentId || "",
         departmentName: reqDetails.createdBy?.department?.name || "N/A",
       },
@@ -756,8 +747,8 @@ export async function getRequestDetails(requestId: string) {
           : reqDetails.createdBy?.rollNumber || "N/A",
         mobileNumber: reqDetails.isAnonymous
           ? "N/A"
-          : reqDetails.createdBy?.mobileNumber || "N/A",
-        courseName: reqDetails.createdBy?.course?.name || "N/A",
+          : reqDetails.createdBy?.mobile || reqDetails.createdBy?.mobileNumber || "N/A",
+        courseName: reqDetails.createdBy?.specialization || reqDetails.createdBy?.degree || "N/A",
         departmentId: reqDetails.createdBy?.departmentId || "",
         departmentName: reqDetails.createdBy?.department?.name || "N/A",
       },
@@ -1153,7 +1144,7 @@ export async function updateRequestStatus(
       with: {
         assignments: true,
         watchers: true,
-        createdBy: { with: { course: true } },
+        createdBy: true,
         department: true,
       },
     });
@@ -1235,7 +1226,7 @@ export async function assignRequest(
         },
         watchers: true,
         createdBy: {
-          with: { department: true, course: true },
+          with: { department: true },
         },
         department: true,
       },
@@ -1403,7 +1394,7 @@ export async function addRequestComment(
       with: {
         assignments: true,
         watchers: true,
-        createdBy: { with: { course: true } },
+        createdBy: true,
         department: true,
       },
     });
@@ -1489,7 +1480,7 @@ export async function addRequestAttachment(
       with: {
         assignments: true,
         watchers: true,
-        createdBy: { with: { course: true } },
+        createdBy: true,
         department: true,
       },
     });
@@ -1576,7 +1567,7 @@ export async function unassignRequest(requestId: string, userId: string) {
 
     const request = await db.query.Request.findFirst({
       where: eq(Request.id, requestId),
-      with: { createdBy: { with: { course: true } }, department: true },
+      with: { createdBy: true, department: true },
     });
     if (!request) return { success: false, message: "Request not found." };
 
@@ -1635,7 +1626,7 @@ export async function addRequestWatcher(requestId: string, userId: string) {
       with: {
         assignments: true,
         watchers: true,
-        createdBy: { with: { course: true } },
+        createdBy: true,
         department: true,
       },
     });
@@ -1724,7 +1715,7 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
       // Check if caller is department manager
       const req = await db.query.Request.findFirst({
         where: eq(Request.id, requestId),
-        with: { createdBy: { with: { course: true } }, department: true },
+        with: { createdBy: true, department: true },
       });
       const managedDeptIds = await getHodDepartmentIds(activeUser);
       const isDeptManager = req ? isHodForRequest(activeUser, managedDeptIds, req) : false;
@@ -1787,7 +1778,7 @@ export async function updateRequestTarget(
       with: {
         category: true,
         department: true,
-        createdBy: { with: { course: true } },
+        createdBy: true,
       },
     });
     if (!request) return { success: false, message: "Request not found." };

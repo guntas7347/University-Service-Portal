@@ -20,7 +20,6 @@ export async function getAuthenticatedUser() {
       where: eq(User.id, payload.userId),
       with: {
         department: true,
-        course: true,
         managedDepartment: true,
       },
     });

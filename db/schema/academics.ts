@@ -2,7 +2,6 @@ import { createId } from "@paralleldrive/cuid2";
 import { relations } from "drizzle-orm";
 import {
   type AnyPgColumn,
-  integer,
   pgTable,
   text,
   timestamp,
@@ -15,7 +14,6 @@ export const Department = pgTable("Department", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => createId()),
-  code: text("code").notNull().unique(),
   name: text("name").notNull(),
   hodId: text("hodId")
     .unique()
@@ -24,24 +22,6 @@ export const Department = pgTable("Department", {
       onUpdate: "cascade",
     }),
   specializations: text("specializations").array().notNull().default([]),
-  createdAt: timestamp("createdAt", { precision: 3 }).notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt", { precision: 3 })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
-
-export const Course = pgTable("Course", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => createId()),
-  code: text("code").notNull().unique(),
-  name: text("name").notNull(),
-  duration: integer("duration"),
-  departmentId: text("departmentId").references((): AnyPgColumn => Department.id, {
-    onDelete: "cascade",
-    onUpdate: "cascade",
-  }),
   createdAt: timestamp("createdAt", { precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { precision: 3 })
     .notNull()
@@ -71,19 +51,11 @@ export const DepartmentRelations = relations(Department, ({ one, many }) => ({
   users: many(User, {
     relationName: "DepartmentUsers",
   }),
-  courses: many(Course),
   requests: many(Request),
-}));
-
-export const CourseRelations = relations(Course, ({ one, many }) => ({
-  department: one(Department, {
-    fields: [Course.departmentId],
-    references: [Department.id],
-  }),
-  students: many(User),
 }));
 
 export const CategoryRelations = relations(Category, ({ many }) => ({
   requests: many(Request),
   routingRules: many(RoutingRule),
 }));
+

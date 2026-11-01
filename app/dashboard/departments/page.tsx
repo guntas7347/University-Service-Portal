@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent, KeyboardEvent } from "react";
 import {
   Landmark,
   Plus,
@@ -9,65 +9,139 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Hash,
   FileText,
   X,
   User,
+  GraduationCap,
+  ShieldCheck,
+  Tag,
 } from "lucide-react";
-import { useForm } from "@/hooks/useForm";
 import {
   getDepartments,
   createDepartment,
   updateDepartment,
   deleteDepartment,
 } from "@/lib/actions/departments";
+import { getStaffUsers } from "@/lib/actions/staff";
 
 interface DepartmentType {
   id: string;
-  code: string;
   name: string;
   hodId: string;
   hodName: string;
+  specializations: string[];
+}
+
+interface StaffUserOption {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  designation: string;
+  departmentId: string;
 }
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<DepartmentType[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUserOption[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Alerts feedback
+  // Form states
+  const [name, setName] = useState("");
+  const [hodId, setHodId] = useState("");
+  const [specializations, setSpecializations] = useState<string[]>([]);
+  const [specInput, setSpecInput] = useState("");
+
+  // Feedback states
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Form management hook
-  const { form, handleChange, setFields, resetFormFields } = useForm({
-    code: "",
-    name: "",
-  });
-
-  // Fetch departments on page load
-  const loadDepartments = async () => {
+  // Fetch departments and staff users on load
+  const loadInitialData = async () => {
     setIsPageLoading(true);
-    const response = await getDepartments();
-    if (response.success && response.departments) {
-      setDepartments(response.departments as DepartmentType[]);
+    try {
+      const [deptRes, staffRes] = await Promise.all([
+        getDepartments(),
+        getStaffUsers(),
+      ]);
+
+      if (deptRes.success && deptRes.departments) {
+        setDepartments(deptRes.departments as DepartmentType[]);
+      }
+      if (staffRes.success && staffRes.staff) {
+        setStaffUsers(staffRes.staff as StaffUserOption[]);
+      }
+    } catch (err) {
+      console.error("Failed to load department management data:", err);
+    } finally {
+      setIsPageLoading(false);
     }
-    setIsPageLoading(false);
   };
 
   useEffect(() => {
-    loadDepartments();
+    loadInitialData();
   }, []);
 
-  // Form submission handler: handles both Create and Update
+  // Handle adding a specialization tag
+  const handleAddSpecialization = () => {
+    const trimmed = specInput.trim();
+    if (!trimmed) return;
+
+    setErrorMsg(null);
+
+    // 1. Check if already added in current form
+    const existsLocally = specializations.some(
+      (s) => s.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (existsLocally) {
+      setErrorMsg(`Specialization '${trimmed}' is already in this department's list.`);
+      return;
+    }
+
+    // 2. Check if already allotted to another department (duplication prevention)
+    const duplicateDept = departments.find(
+      (d) =>
+        d.id !== editingId &&
+        d.specializations?.some(
+          (s) => s.trim().toLowerCase() === trimmed.toLowerCase(),
+        ),
+    );
+
+    if (duplicateDept) {
+      setErrorMsg(
+        `Specialization '${trimmed}' is already allotted to department '${duplicateDept.name}'. Specializations cannot be duplicated among departments.`,
+      );
+      return;
+    }
+
+    setSpecializations((prev) => [...prev, trimmed]);
+    setSpecInput("");
+  };
+
+  const handleKeyDownSpec = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddSpecialization();
+    }
+  };
+
+  const handleRemoveSpecialization = (indexToRemove: number) => {
+    setSpecializations((prev) =>
+      prev.filter((_, idx) => idx !== indexToRemove),
+    );
+  };
+
+  // Form submission: handles both Create and Update
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSuccessMsg(null);
     setErrorMsg(null);
 
-    if (!form.code.trim() || !form.name.trim()) {
-      setErrorMsg("Department code and name are required.");
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setErrorMsg("Department name is required.");
       return;
     }
 
@@ -76,54 +150,59 @@ export default function DepartmentsPage() {
     try {
       let response;
       if (editingId) {
-        // Update existing record
         response = await updateDepartment(editingId, {
-          code: form.code,
-          name: form.name,
+          name: trimmedName,
+          hodId: hodId || null,
+          specializations,
         });
       } else {
-        // Create new record
         response = await createDepartment({
-          code: form.code,
-          name: form.name,
+          name: trimmedName,
+          hodId: hodId || null,
+          specializations,
         });
       }
 
       if (response.success) {
         setSuccessMsg(response.message);
-        resetFormFields();
-        setEditingId(null);
-        await loadDepartments(); // Reload table
+        handleCancelEdit();
+        // Refresh department list
+        const refreshed = await getDepartments();
+        if (refreshed.success && refreshed.departments) {
+          setDepartments(refreshed.departments as DepartmentType[]);
+        }
       } else {
         setErrorMsg(response.message);
       }
-    } catch (err) {
-      setErrorMsg("An unexpected error occurred. Please try again.");
+    } catch (err: any) {
+      setErrorMsg(err.message || "An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Click handler to switch form into Edit Mode
+  // Edit existing department
   const handleEditClick = (dept: DepartmentType) => {
     setSuccessMsg(null);
     setErrorMsg(null);
     setEditingId(dept.id);
-    setFields({
-      code: dept.code,
-      name: dept.name,
-    });
+    setName(dept.name);
+    setHodId(dept.hodId || "");
+    setSpecializations(dept.specializations || []);
+    setSpecInput("");
   };
 
-  // Cancel editing handler
+  // Cancel edit mode
   const handleCancelEdit = () => {
     setEditingId(null);
-    resetFormFields();
-    setSuccessMsg(null);
+    setName("");
+    setHodId("");
+    setSpecializations([]);
+    setSpecInput("");
     setErrorMsg(null);
   };
 
-  // Delete click handler
+  // Delete department
   const handleDeleteClick = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this department?")) {
       return;
@@ -136,7 +215,10 @@ export default function DepartmentsPage() {
       const response = await deleteDepartment(id);
       if (response.success) {
         setSuccessMsg(response.message);
-        await loadDepartments();
+        const refreshed = await getDepartments();
+        if (refreshed.success && refreshed.departments) {
+          setDepartments(refreshed.departments as DepartmentType[]);
+        }
       } else {
         setErrorMsg(response.message);
       }
@@ -146,23 +228,22 @@ export default function DepartmentsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12 font-sans">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
           Manage Departments
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Configure academic departments and administrative offices inside the
-          university
+          Configure university departments, assign Heads of Departments (HOD), and allot unique specializations.
         </p>
       </div>
 
       {/* Grid Layout: Form on Left, List on Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-login-gap">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Form Card */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
-          <div className="mb-6 flex justify-between items-center">
+          <div className="mb-5 flex justify-between items-center">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
               {editingId ? "Edit Department" : "Add New Department"}
             </h2>
@@ -195,39 +276,13 @@ export default function DepartmentsPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Department Code */}
-            <div>
-              <label
-                htmlFor="code"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Department Code
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Hash className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                </div>
-                <input
-                  type="text"
-                  id="code"
-                  name="code"
-                  required
-                  disabled={isSubmitting}
-                  value={form.code}
-                  onChange={handleChange}
-                  placeholder="e.g. CSE"
-                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-                />
-              </div>
-            </div>
-
             {/* Department Name */}
             <div>
               <label
-                htmlFor="name"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+                htmlFor="deptName"
+                className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
               >
-                Department Name
+                Department Name <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -235,16 +290,121 @@ export default function DepartmentsPage() {
                 </div>
                 <input
                   type="text"
-                  id="name"
-                  name="name"
+                  id="deptName"
                   required
                   disabled={isSubmitting}
-                  value={form.name}
-                  onChange={handleChange}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Computer Science & Engineering"
                   className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
                 />
               </div>
+            </div>
+
+            {/* Assign HOD */}
+            <div>
+              <label
+                htmlFor="hodSelect"
+                className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+              >
+                Assign Head of Department (HOD)
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                </div>
+                <select
+                  id="hodSelect"
+                  disabled={isSubmitting}
+                  value={hodId}
+                  onChange={(e) => setHodId(e.target.value)}
+                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <option value="">-- No HOD Assigned --</option>
+                  {staffUsers.map((staff) => {
+                    // Check if already HOD of another department
+                    const otherDeptHod = departments.find(
+                      (d) => d.id !== editingId && d.hodId === staff.id,
+                    );
+                    return (
+                      <option
+                        key={staff.id}
+                        value={staff.id}
+                        disabled={!!otherDeptHod}
+                      >
+                        {staff.name} {staff.designation ? `(${staff.designation})` : `(${staff.email})`}
+                        {otherDeptHod ? ` — [Already HOD of ${otherDeptHod.name}]` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Faculty assigned as HOD will manage grievance routing for this department.
+              </p>
+            </div>
+
+            {/* Allot Specializations */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Allot Specializations
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1 group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Tag className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    disabled={isSubmitting}
+                    value={specInput}
+                    onChange={(e) => setSpecInput(e.target.value)}
+                    onKeyDown={handleKeyDownSpec}
+                    placeholder="e.g. Artificial Intelligence"
+                    className="w-full h-10 pl-9 pr-3 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddSpecialization}
+                  disabled={isSubmitting || !specInput.trim()}
+                  className="h-10 px-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-login-radius text-xs transition-all disabled:opacity-40 cursor-pointer flex items-center gap-1 shrink-0"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add</span>
+                </button>
+              </div>
+
+              {/* Specialization Chips List */}
+              <div className="mt-2.5 min-h-[50px] p-2.5 bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/80 dark:border-slate-800 rounded-login-radius flex flex-wrap gap-1.5">
+                {specializations.length === 0 ? (
+                  <span className="text-[11px] text-slate-400 italic my-auto">
+                    No specializations allotted yet. Enter one above and press Add.
+                  </span>
+                ) : (
+                  specializations.map((spec, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 dark:bg-primary/20 text-primary border border-primary/20 rounded-lg text-xs font-medium animate-fade-in"
+                    >
+                      <GraduationCap className="h-3 w-3 shrink-0" />
+                      <span>{spec}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSpecialization(idx)}
+                        disabled={isSubmitting}
+                        className="hover:text-red-500 rounded-full transition-colors cursor-pointer ml-0.5"
+                        title="Remove specialization"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Students enrolling with any of these specializations will be automatically allotted to this department.
+              </p>
             </div>
 
             {/* Submit Action Block */}
@@ -274,7 +434,7 @@ export default function DepartmentsPage() {
                 ) : (
                   <>
                     <Plus className="h-4 w-4" />
-                    <span>{editingId ? "Save Changes" : "Add Department"}</span>
+                    <span>{editingId ? "Save Changes" : "Create Department"}</span>
                   </>
                 )}
               </button>
@@ -289,7 +449,7 @@ export default function DepartmentsPage() {
               Department Listings
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Registered university departments and administrative offices
+              Registered university departments, assigned HODs, and allotted specializations
             </p>
           </div>
 
@@ -307,8 +467,7 @@ export default function DepartmentsPage() {
                 No Departments Registered
               </h4>
               <p className="text-xs text-slate-400 max-w-xs mt-1">
-                Create a department using the panel on the left to start
-                organizing faculty members and offices.
+                Create a department using the panel on the left to start organizing faculty members and specializations.
               </p>
             </div>
           ) : (
@@ -316,9 +475,9 @@ export default function DepartmentsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-955/20 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase">
-                    <th className="py-3.5 px-6">Department</th>
-                    <th className="py-3.5 px-6">Code</th>
-                    <th className="py-3.5 px-6">Current HOD</th>
+                    <th className="py-3.5 px-6">Department Name</th>
+                    <th className="py-3.5 px-6">Head of Dept (HOD)</th>
+                    <th className="py-3.5 px-6">Allotted Specializations</th>
                     <th className="py-3.5 px-6 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -336,29 +495,42 @@ export default function DepartmentsPage() {
                         </div>
                       </td>
 
-                      {/* Code */}
-                      <td className="py-4 px-6 whitespace-nowrap">
-                        <span className="inline-flex px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-bold tracking-wider font-mono border border-slate-200/20">
-                          {dept.code}
-                        </span>
-                      </td>
-
                       {/* Current HOD */}
                       <td className="py-4 px-6 whitespace-nowrap">
                         {dept.hodName ? (
-                          <div className="flex items-center gap-1.5 text-xs text-slate-655 dark:text-slate-300 font-semibold">
-                            <User className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200 font-semibold bg-amber-50 dark:bg-amber-955/20 border border-amber-200/50 dark:border-amber-800/40 px-2.5 py-1 rounded-lg w-fit">
+                            <ShieldCheck className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                             <span>{dept.hodName}</span>
                           </div>
                         ) : (
                           <span className="text-slate-400 text-xs italic">
-                            Unassigned (Manage in Users)
+                            Unassigned
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Allotted Specializations */}
+                      <td className="py-4 px-6">
+                        {dept.specializations && dept.specializations.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 max-w-sm">
+                            {dept.specializations.map((spec, sIdx) => (
+                              <span
+                                key={sIdx}
+                                className="inline-block px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-medium border border-slate-200/50 dark:border-slate-700/50"
+                              >
+                                {spec}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs italic">
+                            No specializations allotted
                           </span>
                         )}
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 px-6 text-right">
+                      <td className="py-4 px-6 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"

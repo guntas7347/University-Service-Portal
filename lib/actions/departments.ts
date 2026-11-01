@@ -17,7 +17,7 @@ export async function getDepartments() {
 
     // Auto-seed default departments if table is empty
     if (depts.length === 0) {
-      const defaultDepts = [{ code: "ADMIN", name: "Administration" }];
+      const defaultDepts = [{ name: "Administration" }];
 
       await db.insert(Department).values(defaultDepts);
 
@@ -33,8 +33,9 @@ export async function getDepartments() {
       success: true,
       departments: depts.map((d: any) => ({
         id: d.id,
-        code: d.code,
+        code: d.id,
         name: d.name,
+        specializations: d.specializations || [],
         hodId: d.hodId || "",
         hodName: d.hod?.fullName || "",
       })),
@@ -51,35 +52,97 @@ export async function getDepartments() {
 /**
  * Create a new department
  */
-export async function createDepartment(data: { code: string; name: string }) {
+export async function createDepartment(data: {
+  name: string;
+  hodId?: string | null;
+  specializations?: string[];
+  code?: string;
+}) {
   try {
     await requireRights(["MANAGE_CONFIGS"]);
 
-    if (!data.code.trim() || !data.name.trim()) {
+    if (!data.name || !data.name.trim()) {
       return {
         success: false,
-        message: "Department code and name are required fields.",
+        message: "Department name is required.",
       };
     }
 
-    const upperCode = data.code.trim().toUpperCase();
-    const existing = await db.query.Department.findFirst({
-      where: eq(Department.code, upperCode),
-    });
+    const trimmedName = data.name.trim();
 
-    if (existing) {
+    // Fetch all existing departments for uniqueness validations
+    const allDepts = await db.query.Department.findMany();
+
+    const existingName = allDepts.find(
+      (d) => d.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (existingName) {
       return {
         success: false,
-        message: "A department with this code already exists.",
+        message: "A department with this name already exists.",
       };
     }
 
-    await db.insert(Department).values({
-      code: upperCode,
-      name: data.name.trim(),
-    });
+    // Clean and deduplicate input specializations
+    const specializations = Array.from(
+      new Set(
+        (data.specializations || [])
+          .map((s) => s.trim())
+          .filter(Boolean)
+      )
+    );
 
-    return { success: true, message: "Department created successfully!" };
+    // Check for duplicate specializations across any other department
+    for (const spec of specializations) {
+      const specLower = spec.toLowerCase();
+      for (const dept of allDepts) {
+        if (
+          dept.specializations?.some(
+            (s) => s.trim().toLowerCase() === specLower
+          )
+        ) {
+          return {
+            success: false,
+            message: `Specialization '${spec}' is already allotted to department '${dept.name}'. Duplicates across departments are not permitted.`,
+          };
+        }
+      }
+    }
+
+    // Check if selected HOD is already HOD of another department
+    const hodId = data.hodId && data.hodId.trim() ? data.hodId.trim() : null;
+    if (hodId) {
+      const existingHod = allDepts.find((d) => d.hodId === hodId);
+      if (existingHod) {
+        return {
+          success: false,
+          message: `The selected user is already the HOD of '${existingHod.name}'. A faculty member can only lead one department.`,
+        };
+      }
+    }
+
+    const [newDept] = await db
+      .insert(Department)
+      .values({
+        name: trimmedName,
+        hodId,
+        specializations,
+      })
+      .returning();
+
+    // If HOD was assigned, set user's department
+    if (hodId) {
+      await db
+        .update(User)
+        .set({ departmentId: newDept.id })
+        .where(eq(User.id, hodId));
+    }
+
+    return {
+      success: true,
+      message: "Department created successfully!",
+      department: newDept,
+    };
   } catch (error: any) {
     console.error("Error creating department:", error);
     return {
@@ -94,7 +157,12 @@ export async function createDepartment(data: { code: string; name: string }) {
  */
 export async function updateDepartment(
   id: string,
-  data: { code: string; name: string },
+  data: {
+    name: string;
+    hodId?: string | null;
+    specializations?: string[];
+    code?: string;
+  },
 ) {
   try {
     if (!id) {
@@ -103,32 +171,83 @@ export async function updateDepartment(
 
     await requireRights(["MANAGE_CONFIGS"]);
 
-    if (!data.code.trim() || !data.name.trim()) {
+    if (!data.name || !data.name.trim()) {
       return {
         success: false,
-        message: "Department code and name are required fields.",
+        message: "Department name is required.",
       };
     }
 
-    const upperCode = data.code.trim().toUpperCase();
-    const existing = await db.query.Department.findFirst({
-      where: eq(Department.code, upperCode),
-    });
+    const trimmedName = data.name.trim();
 
-    if (existing && existing.id !== id) {
+    // Fetch all existing departments for uniqueness validations
+    const allDepts = await db.query.Department.findMany();
+
+    const existingName = allDepts.find(
+      (d) => d.id !== id && d.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (existingName) {
       return {
         success: false,
-        message: "A department with this code already exists.",
+        message: "A department with this name already exists.",
       };
+    }
+
+    // Clean and deduplicate input specializations
+    const specializations = Array.from(
+      new Set(
+        (data.specializations || [])
+          .map((s) => s.trim())
+          .filter(Boolean)
+      )
+    );
+
+    // Check for duplicate specializations across any other department
+    for (const spec of specializations) {
+      const specLower = spec.toLowerCase();
+      for (const dept of allDepts) {
+        if (
+          dept.id !== id &&
+          dept.specializations?.some(
+            (s) => s.trim().toLowerCase() === specLower
+          )
+        ) {
+          return {
+            success: false,
+            message: `Specialization '${spec}' is already allotted to department '${dept.name}'. Duplicates across departments are not permitted.`,
+          };
+        }
+      }
+    }
+
+    // Check if selected HOD is already HOD of another department
+    const hodId = data.hodId && data.hodId.trim() ? data.hodId.trim() : null;
+    if (hodId) {
+      const existingHod = allDepts.find((d) => d.id !== id && d.hodId === hodId);
+      if (existingHod) {
+        return {
+          success: false,
+          message: `The selected user is already the HOD of '${existingHod.name}'. A faculty member can only lead one department.`,
+        };
+      }
     }
 
     await db
       .update(Department)
       .set({
-        code: upperCode,
-        name: data.name.trim(),
+        name: trimmedName,
+        hodId,
+        specializations,
       })
       .where(eq(Department.id, id));
+
+    // If HOD was assigned, set user's department
+    if (hodId) {
+      await db
+        .update(User)
+        .set({ departmentId: id })
+        .where(eq(User.id, hodId));
+    }
 
     return { success: true, message: "Department updated successfully!" };
   } catch (error: any) {

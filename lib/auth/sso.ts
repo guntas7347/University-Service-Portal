@@ -1,7 +1,6 @@
 export interface SSOUserPayload {
   username?: string;
   fullName?: string;
-  name?: string;
   fatherName?: string;
   role?: string;
   email: string;
@@ -9,8 +8,6 @@ export interface SSOUserPayload {
   specialization?: string;
   mobile?: string;
   photo?: string;
-  photoUrl?: string;
-  [key: string]: any;
 }
 
 export interface SSOTokenResponse {
