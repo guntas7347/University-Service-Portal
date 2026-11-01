@@ -225,7 +225,7 @@ export default function DashboardLayout({
           <SidebarLink
             href="/dashboard/profile"
             icon={<User className="h-4 w-4" />}
-            label="Edit Profile"
+            label="My Profile"
             onClick={() => setIsSidebarOpen(false)}
           />
           {user &&

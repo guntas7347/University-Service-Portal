@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect } from "react";
 import {
   User,
   Mail,
@@ -9,418 +9,408 @@ import {
   Calendar,
   GraduationCap,
   Loader2,
-  CheckCircle2,
-  AlertCircle,
   Briefcase,
   Shield,
   Landmark,
+  CheckCircle2,
+  Info,
+  Lock,
+  Award,
 } from "lucide-react";
-import { useForm } from "@/hooks/useForm";
-import { getProfile, updateUserProfile } from "@/lib/actions/users";
+import { getProfile } from "@/lib/actions/users";
+
+export interface ProfileUser {
+  id: string;
+  email: string;
+  name: string;
+  username: string;
+  fatherName: string;
+  rollNumber: string;
+  mobileNumber: string;
+  dob: string;
+  gender: string;
+  degree: string;
+  specialization: string;
+  enrolledCourse: string;
+  photo: string;
+  role: string;
+  designation: string;
+  departmentId: string;
+  departmentName: string;
+  rights: string[];
+}
 
 export default function ProfilePage() {
-  // Store the complete unmutated profile for read-only keys
-  const [fullProfile, setFullProfile] = useState<any>(null);
+  const [user, setUser] = useState<ProfileUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [photoError, setPhotoError] = useState(false);
 
-  // Use Form hook with editable state fields only
-  const { form, handleChange, setFields, error, checkError, setCheckError } =
-    useForm({
-      name: "",
-      gender: "",
-      dob: "",
-      mobileNumber: "",
-      designation: "",
-    });
-
-  // UI state variables
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // Fetch actual profile data on mount
   useEffect(() => {
     const loadProfile = async () => {
-      const response = await getProfile();
-      if (response.success && response.user) {
-        setFullProfile(response.user);
-
-        // Map db gender string/enum to UI selection format
-        let mappedGender = "";
-        if (response.user.gender) {
-          const g = response.user.gender.toUpperCase();
-          if (g === "MALE") mappedGender = "Male";
-          else if (g === "FEMALE") mappedGender = "Female";
-          else if (g === "OTHER") mappedGender = "Other";
+      setIsLoading(true);
+      try {
+        const response = await getProfile();
+        if (response.success && response.user) {
+          setUser(response.user as ProfileUser);
         }
-
-        setFields({
-          name: response.user.name,
-          gender: mappedGender,
-          dob: response.user.dob,
-          mobileNumber: response.user.mobileNumber,
-          designation: response.user.designation || "",
-        });
+      } catch (err) {
+        console.error("Error loading profile:", err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsProfileLoading(false);
     };
     loadProfile();
-  }, [setFields]);
+  }, []);
 
-  // Handle updates to profile fields
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSuccessMsg(null);
-    setErrorMsg(null);
-    setCheckError(false);
-
-    // 1. Basic validation checks using hook error mapping (Name is required)
-    if (!form.name.trim()) {
-      setCheckError(true);
-      setErrorMsg("Full Name is a required field.");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await updateUserProfile({
-        name: form.name,
-        email: fullProfile?.email || "", // Keep existing email
-        mobileNumber: form.mobileNumber || undefined,
-        dob: form.dob || undefined,
-        gender: form.gender || undefined,
-        designation: form.designation || undefined,
-      });
-
-      if (response.success) {
-        setSuccessMsg(response.message);
-        // Refresh details
-        const updated = await getProfile();
-        if (updated.success && updated.user) {
-          setFullProfile(updated.user);
-        }
-      } else {
-        setErrorMsg(response.message);
-      }
-    } catch (err) {
-      setErrorMsg("An error occurred while saving. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Helper check for highlighting invalid inputs
-  const isFieldInvalid = (fieldName: keyof typeof form) => {
-    return checkError && error[fieldName];
-  };
-
-  if (isProfileLoading) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
         <Loader2 className="h-8 w-8 text-primary animate-spin" />
         <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-          Loading profile parameters...
+          Loading profile records...
         </p>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Title Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
-          My Profile
-        </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Review and update your university registration parameters
+  if (!user) {
+    return (
+      <div className="max-w-xl mx-auto py-16 text-center space-y-3">
+        <div className="p-3 bg-red-100 dark:bg-red-950/30 text-red-600 rounded-full w-fit mx-auto">
+          <Info className="h-6 w-6" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+          Profile Not Found
+        </h2>
+        <p className="text-xs text-slate-500">
+          Unable to retrieve your university account parameters. Please sign in again.
         </p>
       </div>
+    );
+  }
 
-      {/* Card Form Wrapper */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 md:p-8 shadow-sm">
-        {/* Status Alerts */}
-        {errorMsg && (
-          <div className="mb-6 flex items-start gap-3 p-3 bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-800/30 rounded-login-radius text-red-800 dark:text-red-300 text-sm animate-fade-in">
-            <AlertCircle className="h-5 w-5 shrink-0 text-red-650 dark:text-red-450 mt-0.5" />
-            <span>{errorMsg}</span>
+  // Display enrolled course cleanly as degree + specialization
+  const enrolledCourse =
+    user.enrolledCourse?.trim() ||
+    [user.degree, user.specialization].filter(Boolean).map((s) => s.trim()).join(" ") ||
+    "Not Enrolled";
+
+  // Initials for avatar fallback
+  const initials = (user.name || "U")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 pb-12 font-sans">
+      {/* Title Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
+            My Profile
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Official university registration and enrollment parameters
+          </p>
+        </div>
+
+        {/* View Only Badge */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold w-fit border border-slate-200 dark:border-slate-700/60 shadow-xs">
+          <Lock className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+          <span>Official Record • View Only</span>
+        </div>
+      </div>
+
+      {/* Hero Profile Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 sm:p-8 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
+          {/* Avatar / Photo */}
+          <div className="relative shrink-0">
+            {user.photo && !photoError ? (
+              <img
+                src={user.photo}
+                alt={user.name}
+                onError={() => setPhotoError(true)}
+                className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl object-cover border-2 border-primary/20 shadow-sm"
+              />
+            ) : (
+              <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl bg-gradient-to-br from-primary/90 to-primary text-white font-extrabold text-3xl flex items-center justify-center shadow-md shadow-primary/20">
+                {initials}
+              </div>
+            )}
+            <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1 rounded-full border-2 border-white dark:border-slate-900" title="Active Account">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
           </div>
-        )}
 
-        {successMsg && (
-          <div className="mb-6 flex items-start gap-3 p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 rounded-login-radius text-emerald-800 dark:text-emerald-300 text-sm animate-fade-in">
-            <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-655 dark:text-emerald-450 mt-0.5" />
-            <span>{successMsg}</span>
-          </div>
-        )}
+          {/* User Primary Identity */}
+          <div className="space-y-2 flex-1">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+                {user.name}
+              </h2>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                {user.role}
+              </span>
+            </div>
 
-        {/* Profile Edit Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Section: Personal Info (Editable) */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary border-b border-slate-100 dark:border-slate-800 pb-2">
-              Personal Information
-            </h3>
+            {user.fatherName && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                Father&apos;s Name: <span className="text-slate-700 dark:text-slate-200 font-semibold">{user.fatherName}</span>
+              </p>
+            )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
-              {/* Full Name */}
-              <div>
-                <label
-                  htmlFor="name"
-                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                >
-                  Full Name
-                </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <User className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                  </div>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    required
-                    disabled={isLoading}
-                    value={form.name}
-                    onChange={handleChange}
-                    className={`w-full h-login-input-h pl-10 pr-4 py-3 bg-slate-50/50 dark:bg-slate-955/50 border rounded-login-radius text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all ${
-                      isFieldInvalid("name")
-                        ? "border-red-500"
-                        : "border-slate-200 dark:border-slate-800"
-                    }`}
-                  />
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-xs text-slate-500 dark:text-slate-400 pt-1">
+              {user.rollNumber && (
+                <div className="flex items-center gap-1.5 font-mono bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700">
+                  <Hash className="h-3.5 w-3.5 text-slate-400" />
+                  <span>{user.rollNumber}</span>
                 </div>
-              </div>
-
-              {/* Gender */}
-              <div>
-                <label
-                  htmlFor="gender"
-                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                >
-                  Gender
-                </label>
-                <select
-                  id="gender"
-                  name="gender"
-                  disabled={isLoading}
-                  value={form.gender}
-                  onChange={handleChange}
-                  className="w-full h-login-input-h px-4 py-3 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              {/* Date of Birth */}
-              <div>
-                <label
-                  htmlFor="dob"
-                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                >
-                  Date of Birth
-                </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Calendar className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                  </div>
-                  <input
-                    type="date"
-                    id="dob"
-                    name="dob"
-                    disabled={isLoading}
-                    value={form.dob}
-                    onChange={handleChange}
-                    className="w-full h-login-input-h pl-10 pr-4 py-3 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  />
+              )}
+              {user.departmentName && (
+                <div className="flex items-center gap-1.5 font-medium bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700">
+                  <Landmark className="h-3.5 w-3.5 text-slate-400" />
+                  <span>{user.departmentName}</span>
                 </div>
-              </div>
-
-              {/* Designation (Staff only, editable) */}
-              {fullProfile?.role !== "STUDENT" && (
-                <div>
-                  <label
-                    htmlFor="designation"
-                    className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                  >
-                    Designation
-                  </label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <Briefcase className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                    </div>
-                    <input
-                      type="text"
-                      id="designation"
-                      name="designation"
-                      disabled={isLoading}
-                      value={form.designation}
-                      onChange={handleChange}
-                      placeholder="e.g. Professor"
-                      className="w-full h-login-input-h pl-10 pr-4 py-3 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                    />
-                  </div>
+              )}
+              {user.designation && (
+                <div className="flex items-center gap-1.5 font-medium bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700">
+                  <Briefcase className="h-3.5 w-3.5 text-slate-400" />
+                  <span>{user.designation}</span>
                 </div>
               )}
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Section: Contact Info (Editable) */}
-          <div className="space-y-4 pt-2">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary border-b border-slate-100 dark:border-slate-800 pb-2">
+      {/* Grid of Sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Section 1: Academic Enrollment */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <GraduationCap className="h-5 w-5 text-primary" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
+              Academic Enrollment
+            </h3>
+          </div>
+
+          <div className="space-y-3.5">
+            {/* Prominent Enrolled Course */}
+            <div className="p-3.5 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-primary mb-1">
+                Enrolled Course (Degree & Specialization)
+              </span>
+              <p className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                {enrolledCourse}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                  Degree
+                </span>
+                <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  {user.degree || "—"}
+                </span>
+              </div>
+
+              <div>
+                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                  Specialization
+                </span>
+                <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  {user.specialization || "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100 dark:border-slate-800/60">
+              <div>
+                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                  Department
+                </span>
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  {user.departmentName || "General / Unassigned"}
+                </span>
+              </div>
+
+              <div>
+                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                  Roll / Username
+                </span>
+                <span className="text-sm font-mono font-semibold text-slate-800 dark:text-slate-200">
+                  {user.rollNumber || user.username || "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 2: Contact Information */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <Mail className="h-5 w-5 text-primary" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
               Contact Information
             </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
-              {/* Mobile Number (Editable) */}
-              <div>
-                <label
-                  htmlFor="mobileNumber"
-                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                >
-                  Mobile Number
-                </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Smartphone className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                  </div>
-                  <input
-                    type="tel"
-                    id="mobileNumber"
-                    name="mobileNumber"
-                    disabled={isLoading}
-                    value={form.mobileNumber}
-                    onChange={handleChange}
-                    className="w-full h-login-input-h pl-10 pr-4 py-3 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  />
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Section: Academic Details (Read-Only, if student enrollment exists) */}
-          {(fullProfile?.rollNumber || fullProfile?.enrolledCourse) && (
-            <div className="space-y-4 pt-2">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2">
-                Academic Details (Read-Only)
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
-                {/* Roll Number */}
-                <div>
-                  <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
-                    Roll Number
-                  </span>
-                  <div className="px-4 py-3 bg-slate-100 dark:bg-slate-855 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-semibold select-none flex items-center gap-2">
-                    <Hash className="h-4 w-4 text-slate-400 shrink-0" />
-                    <span>{fullProfile?.rollNumber || "Not Provided"}</span>
-                  </div>
-                </div>
-
-                {/* Enrolled Course */}
-                <div>
-                  <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
-                    Enrolled Course
-                  </span>
-                  <div className="px-4 py-3 bg-slate-100 dark:bg-slate-855 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-semibold select-none flex items-center gap-2">
-                    <GraduationCap className="h-4.5 w-4.5 text-slate-400 shrink-0" />
-                    <span>{fullProfile?.enrolledCourse || "Unenrolled"}</span>
-                  </div>
-                </div>
+          <div className="space-y-4">
+            <div>
+              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                Official Email Address
+              </span>
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                <span>{user.email}</span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-md border border-emerald-200/50 dark:border-emerald-800/40">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Verified
+                </span>
               </div>
             </div>
-          )}
 
-          {/* Section: Account details (Read-Only, Shared) */}
-          <div className="space-y-4 pt-2">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2">
-              Account Details (Read-Only)
+            <div>
+              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                Registered Mobile Number
+              </span>
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                <Smartphone className="h-4 w-4 text-slate-400" />
+                <span>{user.mobileNumber || "Not Provided"}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                SSO Identity Reference
+              </span>
+              <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
+                {user.username || user.email}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Personal Information */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <User className="h-5 w-5 text-primary" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
+              Personal Information
             </h3>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
-              {/* Role */}
-              <div>
-                <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
-                  System Role (Display Title)
-                </span>
-                <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-semibold select-none">
-                  {fullProfile?.role?.replace("_", " ") || "Loading..."}
-                </div>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                Full Name
+              </span>
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                {user.name || "—"}
+              </span>
+            </div>
 
-              {/* Email Address */}
-              <div>
-                <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
-                  Registered Email
-                </span>
-                <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-semibold select-none flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-slate-400 shrink-0" />
-                  <span>{fullProfile?.email || ""}</span>
-                </div>
-              </div>
+            <div>
+              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                Father&apos;s Name
+              </span>
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                {user.fatherName || "—"}
+              </span>
+            </div>
 
-              {/* Department (If assigned) */}
-              {fullProfile?.departmentName && (
-                <div>
-                  <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
-                    Department
-                  </span>
-                  <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-semibold select-none flex items-center gap-2">
-                    <Landmark className="h-4 w-4 text-slate-400 shrink-0" />
-                    <span>{fullProfile?.departmentName}</span>
-                  </div>
-                </div>
-              )}
+            <div>
+              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                Gender
+              </span>
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                {user.gender ? user.gender.charAt(0).toUpperCase() + user.gender.slice(1).toLowerCase() : "Not Specified"}
+              </span>
+            </div>
 
-              {/* Assigned Rights */}
-              <div>
-                <span className="block text-xs font-semibold text-slate-500 dark:text-slate-455 mb-1.5">
-                  Assigned Rights
-                </span>
-                <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800/80 rounded-login-radius text-slate-655 dark:text-slate-350 text-sm font-medium select-none">
-                  {!fullProfile?.rights || fullProfile.rights.length === 0 ? (
-                    <span className="text-slate-455 italic text-xs">
-                      No administrative rights (Standard Student / User Access)
-                    </span>
-                  ) : (
-                    <div className="flex flex-wrap gap-1">
-                      {fullProfile.rights.map((right: string) => (
-                        <span
-                          key={right}
-                          className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider font-mono"
-                        >
-                          {right.replace("_", " ")}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
+            <div>
+              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                Date of Birth
+              </span>
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                <span>{user.dob || "—"}</span>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Form Actions */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-6 h-login-input-h bg-primary hover:bg-primary/90 text-white font-semibold rounded-login-radius flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-primary/10 cursor-pointer"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Saving Changes...</span>
-                </>
-              ) : (
-                <span>Save Profile</span>
-              )}
-            </button>
+        {/* Section 4: System Roles & Permissions */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <Shield className="h-5 w-5 text-primary" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
+              System Roles & Access
+            </h3>
           </div>
-        </form>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">
+                  Account Type
+                </span>
+                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  {user.role}
+                </span>
+              </div>
+              {user.designation && (
+                <div className="text-right">
+                  <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">
+                    Designation
+                  </span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {user.designation}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">
+                Assigned Administrative Permissions
+              </span>
+              {!user.rights || user.rights.length === 0 ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 text-xs">
+                  <Award className="h-3.5 w-3.5 text-slate-400" />
+                  Standard Student Grievance Access
+                </span>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {user.rights.map((right) => (
+                    <span
+                      key={right}
+                      className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase tracking-wider font-mono border border-slate-200 dark:border-slate-700"
+                    >
+                      {right.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* University Record Notice Banner */}
+      <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-xs text-slate-600 dark:text-slate-400">
+        <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="font-semibold text-slate-800 dark:text-slate-200">
+            Official University Identity Record
+          </p>
+          <p className="leading-relaxed">
+            All user profile information—including Name, Roll Number, Father&apos;s Name, Enrolled Course, Degree, and Specialization—is officially synchronized from the Shaheed Bhagat Singh State University Single Sign-On (SSO) system. To update your verified university records, please contact the University Academic Registrar.
+          </p>
+        </div>
       </div>
     </div>
   );

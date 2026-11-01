@@ -1,16 +1,34 @@
 "use client";
 
 import React from "react";
-import { User, Mail, Smartphone, Briefcase, Save, Loader2, X, Shield, Landmark } from "lucide-react";
+import {
+  User,
+  Mail,
+  Smartphone,
+  Briefcase,
+  Save,
+  Loader2,
+  X,
+  Shield,
+  Landmark,
+} from "lucide-react";
 
 interface UserFormProps {
   form: any;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  handleChange: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => void;
   isSubmitting: boolean;
   editingId: string | null;
   handleCancelEdit: () => void;
   departments: { id: string; code: string; name: string }[];
-  currentUser: { id?: string; role: string; rights: string[]; departmentId?: string; departmentName?: string } | null;
+  currentUser: {
+    id?: string;
+    role: string;
+    rights: string[];
+    departmentId?: string;
+    departmentName?: string;
+  } | null;
   selectedRights: string[];
   handleRightCheckboxChange: (value: string, checked: boolean) => void;
   rightsOptions: { value: string; label: string }[];
@@ -28,10 +46,14 @@ export default function UserForm({
   selectedRights,
   handleRightCheckboxChange,
   rightsOptions,
-  handleSubmit
+  handleSubmit,
 }: UserFormProps) {
-  const isDeptManager = currentUser?.rights?.includes("MANAGE_DEPARTMENT") && !currentUser?.rights?.includes("ADMIN");
-  const isAdmin = currentUser?.rights?.includes("ADMIN") || currentUser?.rights?.includes("MANAGE_USERS");
+  const isDeptManager =
+    currentUser?.rights?.includes("MANAGE_DEPARTMENT") &&
+    !currentUser?.rights?.includes("ADMIN");
+  const isAdmin =
+    currentUser?.rights?.includes("ADMIN") ||
+    currentUser?.rights?.includes("MANAGE_USERS");
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
@@ -39,8 +61,8 @@ export default function UserForm({
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
           Edit Staff Account
         </h2>
-        <button 
-          type="button" 
+        <button
+          type="button"
           onClick={handleCancelEdit}
           className="p-1 text-slate-450 hover:text-slate-655 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
           title="Cancel Edit"
@@ -50,10 +72,12 @@ export default function UserForm({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        
         {/* Full Name */}
         <div>
-          <label htmlFor="name" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+          <label
+            htmlFor="name"
+            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+          >
             Full Name
           </label>
           <div className="relative group">
@@ -76,7 +100,10 @@ export default function UserForm({
 
         {/* Email Address */}
         <div>
-          <label htmlFor="email" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+          <label
+            htmlFor="email"
+            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+          >
             Email Address
           </label>
           <div className="relative group">
@@ -99,7 +126,10 @@ export default function UserForm({
 
         {/* Designation */}
         <div>
-          <label htmlFor="designation" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+          <label
+            htmlFor="designation"
+            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+          >
             Designation (Optional)
           </label>
           <div className="relative group">
@@ -121,7 +151,10 @@ export default function UserForm({
 
         {/* Mobile Number */}
         <div>
-          <label htmlFor="mobileNumber" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+          <label
+            htmlFor="mobileNumber"
+            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+          >
             Mobile Number (Optional)
           </label>
           <div className="relative group">
@@ -143,7 +176,10 @@ export default function UserForm({
 
         {/* Role title (Informational label) */}
         <div>
-          <label htmlFor="role" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+          <label
+            htmlFor="role"
+            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+          >
             Display Role / Title (Informational)
           </label>
           {isAdmin ? (
@@ -173,7 +209,10 @@ export default function UserForm({
         {/* Department select */}
         {(isAdmin || isDeptManager) && (
           <div>
-            <label htmlFor="departmentId" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+            <label
+              htmlFor="departmentId"
+              className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+            >
               Assigned Department
             </label>
             {isAdmin ? (
@@ -192,7 +231,7 @@ export default function UserForm({
                   <option value="">No Assigned Department</option>
                   {departments.map((dept) => (
                     <option key={dept.id} value={dept.id}>
-                      {dept.name} ({dept.code})
+                      {dept.name}
                     </option>
                   ))}
                 </select>
@@ -208,7 +247,10 @@ export default function UserForm({
 
         {/* Gender select */}
         <div>
-          <label htmlFor="gender" className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+          <label
+            htmlFor="gender"
+            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
+          >
             Gender (Optional)
           </label>
           <select
@@ -232,22 +274,27 @@ export default function UserForm({
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-350">
               Configure Action Rights
             </label>
-            
+
             <div className="bg-slate-55 bg-slate-50/60 dark:bg-slate-955/30 border border-slate-150 dark:border-slate-850 rounded-login-radius p-3.5 space-y-2.5">
               {rightsOptions.map((item) => {
                 const isChecked = selectedRights.includes(item.value);
                 return (
-                  <div key={item.value} className="flex items-center gap-2.5 select-none">
+                  <div
+                    key={item.value}
+                    className="flex items-center gap-2.5 select-none"
+                  >
                     <input
                       id={`right-${item.value}`}
                       type="checkbox"
                       disabled={isSubmitting}
                       checked={isChecked}
-                      onChange={(e) => handleRightCheckboxChange(item.value, e.target.checked)}
+                      onChange={(e) =>
+                        handleRightCheckboxChange(item.value, e.target.checked)
+                      }
                       className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-slate-800 rounded cursor-pointer"
                     />
-                    <label 
-                      htmlFor={`right-${item.value}`} 
+                    <label
+                      htmlFor={`right-${item.value}`}
                       className="text-xs text-slate-655 dark:text-slate-300 font-medium cursor-pointer"
                     >
                       {item.label}
@@ -287,7 +334,6 @@ export default function UserForm({
             )}
           </button>
         </div>
-
       </form>
     </div>
   );

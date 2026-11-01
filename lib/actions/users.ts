@@ -219,7 +219,12 @@ export async function getProfile() {
         gender: user.gender || "",
         degree: user.degree || "",
         specialization: user.specialization || "",
-        enrolledCourse: user.degree + " " + user.specialization || "",
+        enrolledCourse:
+          [user.degree, user.specialization]
+            .filter(Boolean)
+            .map((s) => String(s).trim())
+            .filter(Boolean)
+            .join(" "),
         photo: user.photo || user.profileImage || "",
         role: user.role,
         designation: user.designation || "",

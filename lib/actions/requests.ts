@@ -729,7 +729,12 @@ export async function getRequestDetails(requestId: string) {
         mobileNumber: reqDetails.isAnonymous
           ? "N/A"
           : reqDetails.createdBy?.mobileNumber || "N/A",
-        courseName: reqDetails.createdBy?.specialization || reqDetails.createdBy?.degree || "N/A",
+        courseName:
+          [reqDetails.createdBy?.degree, reqDetails.createdBy?.specialization]
+            .filter(Boolean)
+            .map((s: any) => String(s).trim())
+            .filter(Boolean)
+            .join(" ") || "N/A",
         departmentId: reqDetails.createdBy?.departmentId || "",
         departmentName: reqDetails.createdBy?.department?.name || "N/A",
       },
@@ -748,7 +753,12 @@ export async function getRequestDetails(requestId: string) {
         mobileNumber: reqDetails.isAnonymous
           ? "N/A"
           : reqDetails.createdBy?.mobile || reqDetails.createdBy?.mobileNumber || "N/A",
-        courseName: reqDetails.createdBy?.specialization || reqDetails.createdBy?.degree || "N/A",
+        courseName:
+          [reqDetails.createdBy?.degree, reqDetails.createdBy?.specialization]
+            .filter(Boolean)
+            .map((s: any) => String(s).trim())
+            .filter(Boolean)
+            .join(" ") || "N/A",
         departmentId: reqDetails.createdBy?.departmentId || "",
         departmentName: reqDetails.createdBy?.department?.name || "N/A",
       },
