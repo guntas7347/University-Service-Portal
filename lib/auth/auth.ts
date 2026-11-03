@@ -89,11 +89,11 @@ export async function loginWithSSO() {
   });
 
   const params = new URLSearchParams({
-    callBack: process.env.SSO_CLIENT_ID!,
+    callBack: process.env.NEXT_PUBLIC_SSO_CLIENT_ID!,
     challenge: codeChallenge,
   });
 
-  return `${process.env.SSO_URL}?${params.toString()}`;
+  return `${process.env.NEXT_PUBLIC_SSO_URL}?${params.toString()}`;
 }
 
 export const fetchSSOToken = async (code: string) => {
@@ -109,13 +109,16 @@ export const fetchSSOToken = async (code: string) => {
       };
     }
 
-    const res = await fetch(`${process.env.SSO_URL}/api/auth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SSO_URL}/api/auth/token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code, code_verifier: codeVerifier }),
       },
-      body: JSON.stringify({ code, code_verifier: codeVerifier }),
-    });
+    );
 
     const data = await res.json();
 

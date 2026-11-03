@@ -17,11 +17,7 @@ export interface SSOTokenResponse {
 }
 
 export function getNormalizedSsoUrl(): string {
-  const rawUrl =
-    process.env.NEXT_PUBLIC_SSO_URL ||
-    process.env.SSO_URL ||
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    "https://sso.sbssu.ac.in";
+  const rawUrl = process.env.NEXT_PUBLIC_SSO_URL || "https://sso.sbssu.ac.in";
   let url = (rawUrl || "").trim();
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     url = `http://${url}`;
@@ -29,13 +25,9 @@ export function getNormalizedSsoUrl(): string {
   return url.replace(/\/+$/, "");
 }
 
-export const getSSOUrl = (customClientId?: string) => {
+export const getSSOUrl = () => {
   const baseUrl = getNormalizedSsoUrl();
-  const clientId =
-    customClientId ||
-    process.env.NEXT_PUBLIC_SSO_CLIENT_ID ||
-    process.env.SSO_CLIENT_ID ||
-    "grievance-dev-live";
+  const clientId = process.env.NEXT_PUBLIC_SSO_CLIENT_ID || "grievance";
   return `${baseUrl}/?callBack=${encodeURIComponent(clientId)}`;
 };
 
