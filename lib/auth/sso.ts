@@ -1,3 +1,5 @@
+"use server";
+
 export interface SSOUserPayload {
   username?: string;
   fullName?: string;
@@ -16,8 +18,8 @@ export interface SSOTokenResponse {
   user?: SSOUserPayload;
 }
 
-export function getNormalizedSsoUrl(): string {
-  const rawUrl = process.env.NEXT_PUBLIC_SSO_URL || "https://sso.sbssu.ac.in";
+function getNormalizedSsoUrl(): string {
+  const rawUrl = process.env.SSO_URL || "https://sso.sbssu.ac.in";
   let url = (rawUrl || "").trim();
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     url = `http://${url}`;
@@ -25,9 +27,9 @@ export function getNormalizedSsoUrl(): string {
   return url.replace(/\/+$/, "");
 }
 
-export const getSSOUrl = () => {
+export const getSSOUrl = async () => {
   const baseUrl = getNormalizedSsoUrl();
-  const clientId = process.env.NEXT_PUBLIC_SSO_CLIENT_ID || "grievance";
+  const clientId = process.env.SSO_CLIENT_ID || "grievance";
   return `${baseUrl}/?callBack=${encodeURIComponent(clientId)}`;
 };
 

@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { CheckCircle2, GraduationCap, Loader2, Sun, Moon, AlertCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  GraduationCap,
+  Loader2,
+  Sun,
+  Moon,
+  AlertCircle,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/hooks/useTheme";
 import { handleLoginInit } from "@/lib/auth/auth";
@@ -60,18 +67,20 @@ export default function LoginPage() {
           window.location.href = init.redirectUrl;
         }
       })
-      .catch((err) => {
+      .catch(async (err) => {
         console.error("Login initialization error:", err);
-        const ssoUrl = getSSOUrl();
+        const ssoUrl = await getSSOUrl();
         window.location.href = ssoUrl;
       });
   }, [router]);
 
-  const handleRetry = () => {
+  const handleRetry = async () => {
     setHasError(false);
     setIsRedirecting(true);
-    setStatusMessage("Connecting to Shaheed Bhagat Singh SSO portal. Please wait...");
-    window.location.href = getSSOUrl();
+    setStatusMessage(
+      "Connecting to Shaheed Bhagat Singh SSO portal. Please wait...",
+    );
+    window.location.href = await getSSOUrl();
   };
 
   return (
