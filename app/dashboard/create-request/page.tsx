@@ -563,7 +563,7 @@ export default function CreateRequestPage() {
             </div>
 
             {/* Add Request Watchers */}
-            {staffList.length > 0 && (
+            {/* {staffList.length > 0 && (
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-slate-600 dark:text-slate-400">
                   Request Watchers (Optional)
@@ -599,10 +599,10 @@ export default function CreateRequestPage() {
                   ))}
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* Checkbox: Anonymous Reporting */}
-            <div className="bg-slate-50/50 dark:bg-slate-955/30 border border-slate-200/60 dark:border-slate-850 rounded-login-radius p-4 flex items-start gap-3.5 select-none transition-colors">
+            {/* <div className="bg-slate-50/50 dark:bg-slate-955/30 border border-slate-200/60 dark:border-slate-850 rounded-login-radius p-4 flex items-start gap-3.5 select-none transition-colors">
               <div className="flex items-center h-5">
                 <input
                   id="isAnonymous"
@@ -630,7 +630,7 @@ export default function CreateRequestPage() {
                   your public ticket ID will be displayed.
                 </p>
               </div>
-            </div>
+            </div> */}
 
             {/* Form actions */}
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">

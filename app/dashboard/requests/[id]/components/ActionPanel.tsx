@@ -14,7 +14,7 @@ import {
   Eye,
   Search,
 } from "lucide-react";
-import { AssignOfficerModal } from "./AssignOfficerModal";
+import { SelectStaffModal } from "../../../../../components/dashboard/SelectStaffModal";
 
 interface ActionPanelProps {
   request: any;
@@ -726,7 +726,7 @@ export function ActionPanel({
       </div>
 
       {/* Assign Resolution Officer Modal */}
-      <AssignOfficerModal
+      <SelectStaffModal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
         staffOptions={staffOptions}
@@ -737,7 +737,7 @@ export function ActionPanel({
       />
 
       {/* Forward Request Modal */}
-      <AssignOfficerModal
+      <SelectStaffModal
         isOpen={isForwardModalOpen}
         onClose={() => setIsForwardModalOpen(false)}
         staffOptions={staffOptions}

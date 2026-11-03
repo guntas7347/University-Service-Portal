@@ -26,6 +26,7 @@ import {
   exists,
 } from "@/db/drizzel";
 import { getAuthenticatedUser } from "./auth";
+import { getConfig } from "./configs";
 
 /**
  * Helper to fetch all department IDs an HOD manages or belongs to
@@ -963,20 +964,38 @@ export async function escalateRequest(requestId: string, reason?: string) {
       };
     }
 
-    // 7-day cooldown check
-    const baseDate = req.lastEscalatedAt || req.createdAt;
-    const msPassed = Date.now() - new Date(baseDate).getTime();
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        const escalationDaysConfig = await getConfig("escalationDays");
 
-    if (msPassed < sevenDaysMs && !isAdmin) {
-      const daysLeft = Math.ceil(
-        (sevenDaysMs - msPassed) / (24 * 60 * 60 * 1000),
-      );
-      return {
-        success: false,
-        message: `Escalation is available after 7 days from previous action (${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining).`,
-      };
-    }
+        const escalationDays = Number(
+          escalationDaysConfig.data?.escalationDays,
+        );
+
+        if (
+          !escalationDaysConfig.success ||
+          !Number.isFinite(escalationDays) ||
+          escalationDays <= 0
+        ) {
+          throw new Error("Valid escalationDays config not set");
+        }
+
+
+
+        // Cooldown check
+        const baseDate = req.lastEscalatedAt || req.createdAt;
+        const msPassed = Date.now() - new Date(baseDate).getTime();
+
+        const cooldownMs = escalationDays * 24 * 60 * 60 * 1000;
+
+        if (msPassed < cooldownMs && !isAdmin) {
+          const daysLeft = Math.ceil(
+            (cooldownMs - msPassed) / (24 * 60 * 60 * 1000),
+          );
+
+          return {
+            success: false,
+            message: `Escalation is available after ${escalationDays} days from previous action (${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining).`,
+          };
+        }
 
     const currentEscalation = req.escalationLevel;
     const nextEscalation = currentEscalation + 1;

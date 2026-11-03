@@ -26,14 +26,7 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
   const initialRights =
     role === "ADMIN" || role === "SUPER_ADMIN"
       ? [
-          "ADMIN",
-          "MANAGE_CONFIGS",
-          "MANAGE_DEPARTMENT",
-          "MANAGE_USERS",
-          "MANAGE_STUDENTS",
-          "MANAGE_ROUTING",
-          "RESOLVE_GRIEVANCES",
-          "VIEW_ALL_REQUESTS",
+          "ADMIN"
         ]
       : [];
 
@@ -101,6 +94,7 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
         rollNumber,
         departmentId: allottedDepartmentId,
         rights: initialRights,
+        status: "ACTIVE"
       })
       .returning();
     user = newUser;

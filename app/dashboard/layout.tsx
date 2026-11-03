@@ -23,6 +23,7 @@ import {
   ShieldAlert,
   Landmark,
   Shuffle,
+  Settings2,
 } from "lucide-react";
 import { getProfile, logoutUser } from "@/lib/actions/users";
 import { useTheme } from "@/hooks/useTheme";
@@ -290,6 +291,16 @@ export default function DashboardLayout({
                 onClick={() => setIsSidebarOpen(false)}
               />
             )}
+
+ {user &&
+            (user.rights?.includes("ADMIN") &&              <SidebarLink
+                href="/dashboard/configs"
+                icon={<Settings2 className="h-4 w-4" />}
+                label="Configs"
+                onClick={() => setIsSidebarOpen(false)}
+              />
+            )}
+
           <SidebarLink
             href="/dashboard/requests"
             icon={<Inbox className="h-4 w-4" />}

@@ -22,13 +22,14 @@ export interface StaffOption {
   departmentId?: string;
   departmentName?: string;
   mobile?: string;
+  photo?:string
 }
 
-interface AssignOfficerModalProps {
+interface SelectStaffModalProps {
   isOpen: boolean;
   onClose: () => void;
   staffOptions: StaffOption[];
-  selectedStaffId: string;
+  selectedStaffId?: string;
   onSelectStaff: (staffId: string) => void;
   title?: string;
   description?: string;
@@ -36,26 +37,26 @@ interface AssignOfficerModalProps {
   isSubmitting?: boolean;
 }
 
-export function AssignOfficerModal({
+export function SelectStaffModal({
   isOpen,
   onClose,
   staffOptions,
   selectedStaffId,
   onSelectStaff,
-  title = "Select Resolution Officer",
-  description = "Search faculty and staff members to assign as resolution handler",
+  title = "Select Staff",
+  description = "Search faculty and staff members to select them",
   onConfirm,
   isSubmitting = false,
-}: AssignOfficerModalProps) {
+}: SelectStaffModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("ALL");
-  const [tempSelectedId, setTempSelectedId] = useState(selectedStaffId);
+  const [tempSelectedId, setTempSelectedId] = useState( selectedStaffId ?? "");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Sync internal state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setTempSelectedId(selectedStaffId);
+      setTempSelectedId(selectedStaffId ?? "");
       setSearchQuery("");
       setSelectedDept("ALL");
       setTimeout(() => {
@@ -428,7 +429,7 @@ export function AssignOfficerModal({
               className="px-4 py-2 text-xs font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1.5"
             >
               <Check className="h-3.5 w-3.5" />
-              <span>Confirm Officer</span>
+              <span>Confirm Selection</span>
             </button>
           </div>
         </div>
