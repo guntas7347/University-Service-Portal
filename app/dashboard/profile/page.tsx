@@ -16,17 +16,21 @@ import {
   Info,
   Lock,
   Award,
+  Pencil,
+  Trash2,
+  Check,
+  AlertCircle,
 } from "lucide-react";
-import { getProfile } from "@/lib/actions/users";
+import { getProfile, updateSecondaryEmail } from "@/lib/actions/users";
 
 export interface ProfileUser {
   id: string;
   email: string;
+  email2?: string;
   name: string;
   username: string;
   fatherName: string;
   rollNumber: string;
-  mobileNumber: string;
   dob: string;
   gender: string;
   degree: string;
@@ -37,6 +41,7 @@ export interface ProfileUser {
   designation: string;
   departmentId: string;
   departmentName: string;
+  mobile: string;
   rights: string[];
 }
 
@@ -45,13 +50,24 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [photoError, setPhotoError] = useState(false);
 
+  // Secondary email state
+  const [isEditingEmail2, setIsEditingEmail2] = useState(false);
+  const [email2Input, setEmail2Input] = useState("");
+  const [isSavingEmail2, setIsSavingEmail2] = useState(false);
+  const [email2Feedback, setEmail2Feedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
   useEffect(() => {
     const loadProfile = async () => {
       setIsLoading(true);
       try {
         const response = await getProfile();
         if (response.success && response.user) {
-          setUser(response.user as ProfileUser);
+          const profile = response.user as ProfileUser;
+          setUser(profile);
+          setEmail2Input(profile.email2 || "");
         }
       } catch (err) {
         console.error("Error loading profile:", err);
@@ -61,6 +77,63 @@ export default function ProfilePage() {
     };
     loadProfile();
   }, []);
+
+  const handleSaveEmail2 = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingEmail2(true);
+    setEmail2Feedback(null);
+    try {
+      const res = await updateSecondaryEmail(email2Input);
+      if (res.success) {
+        setEmail2Feedback({ type: "success", message: res.message });
+        setUser((prev) =>
+          prev ? { ...prev, email2: res.email2 || "" } : prev,
+        );
+        setEmail2Input(res.email2 || "");
+        setIsEditingEmail2(false);
+      } else {
+        setEmail2Feedback({ type: "error", message: res.message });
+      }
+    } catch (err: any) {
+      setEmail2Feedback({
+        type: "error",
+        message: err.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setIsSavingEmail2(false);
+    }
+  };
+
+  const handleRemoveEmail2 = async () => {
+    if (
+      !confirm("Are you sure you want to remove your secondary personal email?")
+    ) {
+      return;
+    }
+    setIsSavingEmail2(true);
+    setEmail2Feedback(null);
+    try {
+      const res = await updateSecondaryEmail("");
+      if (res.success) {
+        setEmail2Feedback({
+          type: "success",
+          message: "Secondary email removed.",
+        });
+        setUser((prev) => (prev ? { ...prev, email2: "" } : prev));
+        setEmail2Input("");
+        setIsEditingEmail2(false);
+      } else {
+        setEmail2Feedback({ type: "error", message: res.message });
+      }
+    } catch (err: any) {
+      setEmail2Feedback({
+        type: "error",
+        message: err.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setIsSavingEmail2(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -83,7 +156,8 @@ export default function ProfilePage() {
           Profile Not Found
         </h2>
         <p className="text-xs text-slate-500">
-          Unable to retrieve your university account parameters. Please sign in again.
+          Unable to retrieve your university account parameters. Please sign in
+          again.
         </p>
       </div>
     );
@@ -92,7 +166,10 @@ export default function ProfilePage() {
   // Display enrolled course cleanly as degree + specialization
   const enrolledCourse =
     user.enrolledCourse?.trim() ||
-    [user.degree, user.specialization].filter(Boolean).map((s) => s.trim()).join(" ") ||
+    [user.degree, user.specialization]
+      .filter(Boolean)
+      .map((s) => s.trim())
+      .join(" ") ||
     "Not Enrolled";
 
   // Initials for avatar fallback
@@ -140,7 +217,10 @@ export default function ProfilePage() {
                 {initials}
               </div>
             )}
-            <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1 rounded-full border-2 border-white dark:border-slate-900" title="Active Account">
+            <div
+              className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1 rounded-full border-2 border-white dark:border-slate-900"
+              title="Active Account"
+            >
               <CheckCircle2 className="h-4 w-4" />
             </div>
           </div>
@@ -158,7 +238,10 @@ export default function ProfilePage() {
 
             {user.fatherName && (
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Father&apos;s Name: <span className="text-slate-700 dark:text-slate-200 font-semibold">{user.fatherName}</span>
+                Father&apos;s Name:{" "}
+                <span className="text-slate-700 dark:text-slate-200 font-semibold">
+                  {user.fatherName}
+                </span>
               </p>
             )}
 
@@ -260,17 +343,141 @@ export default function ProfilePage() {
           </div>
 
           <div className="space-y-4">
+            {/* Primary Official University Email */}
             <div>
               <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                Official Email Address
+                Official Email Address (Primary)
               </span>
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
                 <span>{user.email}</span>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-md border border-emerald-200/50 dark:border-emerald-800/40">
                   <CheckCircle2 className="h-3 w-3" />
-                  Verified
+                  SSO Verified
                 </span>
               </div>
+            </div>
+
+            {/* Secondary (Personal) Email */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 rounded-xl space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Secondary (Personal) Email
+                  </span>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    Editable
+                  </span>
+                </div>
+                {!isEditingEmail2 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmail2Input(user.email2 || "");
+                        setIsEditingEmail2(true);
+                        setEmail2Feedback(null);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded hover:bg-primary/5 cursor-pointer"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      <span>{user.email2 ? "Edit" : "Add Email"}</span>
+                    </button>
+                    {user.email2 && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveEmail2}
+                        disabled={isSavingEmail2}
+                        className="p-1 text-slate-400 hover:text-red-500 transition-colors rounded hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer disabled:opacity-50"
+                        title="Remove secondary email"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {!isEditingEmail2 ? (
+                <div>
+                  {user.email2 ? (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 break-all">
+                        {user.email2}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">
+                      No personal email linked. You can add one for personal
+                      updates and recovery.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <form onSubmit={handleSaveEmail2} className="space-y-2 pt-1">
+                  <div>
+                    <input
+                      type="email"
+                      value={email2Input}
+                      onChange={(e) => setEmail2Input(e.target.value)}
+                      placeholder="e.g. personal.name@gmail.com"
+                      autoFocus
+                      disabled={isSavingEmail2}
+                      className="w-full h-9 px-3 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={isSavingEmail2}
+                      onClick={() => {
+                        setIsEditingEmail2(false);
+                        setEmail2Input(user.email2 || "");
+                        setEmail2Feedback(null);
+                      }}
+                      className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-md transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingEmail2}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary hover:bg-primary/90 text-white text-xs font-semibold rounded-md transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSavingEmail2 ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-3 w-3" />
+                          <span>Save</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Feedback messages */}
+              {email2Feedback && (
+                <div
+                  className={`flex items-start gap-1.5 p-2 rounded-lg text-[11px] leading-tight ${
+                    email2Feedback.type === "success"
+                      ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                      : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+                  }`}
+                >
+                  {email2Feedback.type === "success" ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-500 mt-0.5" />
+                  )}
+                  <span>{email2Feedback.message}</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -279,7 +486,7 @@ export default function ProfilePage() {
               </span>
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
                 <Smartphone className="h-4 w-4 text-slate-400" />
-                <span>{user.mobileNumber || "Not Provided"}</span>
+                <span>{user.mobile || "Not Provided"}</span>
               </div>
             </div>
 
@@ -327,7 +534,10 @@ export default function ProfilePage() {
                 Gender
               </span>
               <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                {user.gender ? user.gender.charAt(0).toUpperCase() + user.gender.slice(1).toLowerCase() : "Not Specified"}
+                {user.gender
+                  ? user.gender.charAt(0).toUpperCase() +
+                    user.gender.slice(1).toLowerCase()
+                  : "Not Specified"}
               </span>
             </div>
 
@@ -408,7 +618,12 @@ export default function ProfilePage() {
             Official University Identity Record
           </p>
           <p className="leading-relaxed">
-            All user profile information—including Name, Roll Number, Father&apos;s Name, Enrolled Course, Degree, and Specialization—is officially synchronized from the Shaheed Bhagat Singh State University Single Sign-On (SSO) system. To update your verified university records, please contact the University Academic Registrar.
+            All user profile information—including Name, Roll Number,
+            Father&apos;s Name, Enrolled Course, Degree, and Specialization—is
+            officially synchronized from the Shaheed Bhagat Singh State
+            University Single Sign-On (SSO) system. To update your verified
+            university records, please contact the University Academic
+            Registrar.
           </p>
         </div>
       </div>

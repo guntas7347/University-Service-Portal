@@ -163,13 +163,15 @@ export const fetchSSOToken = async (code: string) => {
       where: or(...lookupConditions),
     });
 
-    const email = (ssoUser.email || `${ssoId}@sbsstc.ac.in`).trim().toLowerCase();
+    const email = (ssoUser.email || `${ssoId}@sbsstc.ac.in`)
+      .trim()
+      .toLowerCase();
     const username = ssoUser.username || null;
     const fullName = ssoUser.fullName || ssoUser.name || null;
     const fatherName = ssoUser.fatherName || null;
     const degree = ssoUser.degree || null;
     const specialization = ssoUser.specialization || null;
-    const mobile = ssoUser.mobile || ssoUser.mobileNumber || null;
+    const mobile = ssoUser.mobile || ssoUser.mobile || null;
     const photo = ssoUser.photo || null;
     const rollNumber = ssoUser.rollNumber || ssoUser.username || null;
 
@@ -188,8 +190,6 @@ export const fetchSSOToken = async (code: string) => {
           mobile,
           photo,
           rollNumber,
-          mobileNumber: mobile,
-          profileImage: photo,
           rights: initialRights,
         })
         .returning();
@@ -207,11 +207,9 @@ export const fetchSSOToken = async (code: string) => {
       if (specialization) updateData.specialization = specialization;
       if (mobile) {
         updateData.mobile = mobile;
-        updateData.mobileNumber = mobile;
       }
       if (photo) {
         updateData.photo = photo;
-        updateData.profileImage = photo;
       }
       if (rollNumber) updateData.rollNumber = rollNumber;
 

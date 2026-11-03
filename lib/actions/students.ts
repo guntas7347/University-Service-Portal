@@ -8,10 +8,14 @@ import { requireRights } from "./auth";
  */
 export async function getStudents() {
   try {
-    const activeUser = await requireRights(["MANAGE_STUDENTS", "MANAGE_DEPARTMENT"]);
+    const activeUser = await requireRights([
+      "MANAGE_STUDENTS",
+      "MANAGE_DEPARTMENT",
+    ]);
 
     const rights = activeUser.rights || [];
-    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
+    const isAdmin =
+      rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
     const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
     const conditions = [eq(User.role, "STUDENT")];
@@ -35,7 +39,7 @@ export async function getStudents() {
         name: u.fullName || "",
         email: u.email,
         rollNumber: u.rollNumber || "",
-        mobileNumber: u.mobile || u.mobileNumber || "",
+        mobile: u.mobile || u.mobile || "",
         batch: u.batch || null,
         role: u.role,
         status: u.status,
@@ -55,7 +59,8 @@ export async function getStudents() {
     console.error("Error fetching students:", error);
     return {
       success: false,
-      message: error.message || "Failed to retrieve student records from database.",
+      message:
+        error.message || "Failed to retrieve student records from database.",
     };
   }
 }
@@ -69,7 +74,7 @@ export async function updateStudent(
     name: string;
     email: string;
     rollNumber: string;
-    mobileNumber?: string;
+    mobile?: string;
     batch?: number;
     gender?: string;
     departmentId?: string;
@@ -82,10 +87,14 @@ export async function updateStudent(
   try {
     if (!id) return { success: false, message: "Student ID is required." };
 
-    const activeUser = await requireRights(["MANAGE_STUDENTS", "MANAGE_DEPARTMENT"]);
+    const activeUser = await requireRights([
+      "MANAGE_STUDENTS",
+      "MANAGE_DEPARTMENT",
+    ]);
 
     const rights = activeUser.rights || [];
-    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
+    const isAdmin =
+      rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
     const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
     const existingStudent = await db.query.User.findFirst({
@@ -139,9 +148,9 @@ export async function updateStudent(
     }
 
     // Check mobile number uniqueness
-    if (data.mobileNumber?.trim()) {
+    if (data.mobile?.trim()) {
       const mobileDup = await db.query.User.findFirst({
-        where: eq(User.mobileNumber, data.mobileNumber.trim()),
+        where: eq(User.mobile, data.mobile.trim()),
       });
       if (mobileDup && mobileDup.id !== id) {
         return {
@@ -169,9 +178,8 @@ export async function updateStudent(
     }
 
     // Target department: Department managers can assign to their department
-    const targetDeptId = isDeptManager && !isAdmin
-      ? activeUser.departmentId
-      : data.departmentId;
+    const targetDeptId =
+      isDeptManager && !isAdmin ? activeUser.departmentId : data.departmentId;
 
     const [updatedStudent] = await db
       .update(User)
@@ -179,8 +187,7 @@ export async function updateStudent(
         fullName: data.name.trim(),
         email: data.email.trim(),
         rollNumber: data.rollNumber.trim(),
-        mobile: data.mobileNumber?.trim() || null,
-        mobileNumber: data.mobileNumber?.trim() || null,
+        mobile: data.mobile?.trim() || null,
         batch: data.batch ? Number(data.batch) : null,
         gender: genderEnum,
         departmentId: targetDeptId || null,
@@ -197,7 +204,9 @@ export async function updateStudent(
     console.error("Error updating student:", error);
     return {
       success: false,
-      message: error.message || "Failed to update student account due to database error.",
+      message:
+        error.message ||
+        "Failed to update student account due to database error.",
     };
   }
 }
@@ -209,10 +218,14 @@ export async function deleteStudent(id: string) {
   try {
     if (!id) return { success: false, message: "Student ID is required." };
 
-    const activeUser = await requireRights(["MANAGE_STUDENTS", "MANAGE_DEPARTMENT"]);
+    const activeUser = await requireRights([
+      "MANAGE_STUDENTS",
+      "MANAGE_DEPARTMENT",
+    ]);
 
     const rights = activeUser.rights || [];
-    const isAdmin = rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
+    const isAdmin =
+      rights.includes("ADMIN") || rights.includes("MANAGE_STUDENTS");
     const isDeptManager = rights.includes("MANAGE_DEPARTMENT");
 
     const student = await db.query.User.findFirst({

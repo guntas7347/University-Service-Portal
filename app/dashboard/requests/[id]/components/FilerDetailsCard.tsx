@@ -6,7 +6,10 @@ interface FilerDetailsCardProps {
   isStudent: boolean;
 }
 
-export function FilerDetailsCard({ request, isStudent }: FilerDetailsCardProps) {
+export function FilerDetailsCard({
+  request,
+  isStudent,
+}: FilerDetailsCardProps) {
   const studentName =
     request.creator?.fullName ||
     request.creator?.name ||
@@ -15,8 +18,9 @@ export function FilerDetailsCard({ request, isStudent }: FilerDetailsCardProps) 
     "N/A";
 
   const email = request.creator?.email || request.student?.email || "N/A";
-  const mobile = request.creator?.mobileNumber || request.student?.mobileNumber || "N/A";
-  const course = request.creator?.courseName || request.student?.courseName || "N/A";
+  const mobile = request.creator?.mobile || request.student?.mobile || "N/A";
+  const course =
+    request.creator?.courseName || request.student?.courseName || "N/A";
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
@@ -30,7 +34,8 @@ export function FilerDetailsCard({ request, isStudent }: FilerDetailsCardProps) 
           <div className="space-y-1">
             <span className="font-bold">Identity Masked</span>
             <p className="leading-relaxed">
-              This ticket was filed anonymously. Administrative staff will not see your Name, Roll Number, or contact information.
+              This ticket was filed anonymously. Administrative staff will not
+              see your Name, Roll Number, or contact information.
             </p>
           </div>
         </div>

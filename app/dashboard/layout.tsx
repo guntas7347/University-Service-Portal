@@ -110,6 +110,7 @@ export default function DashboardLayout({
         setIsAuthLoading(false);
       } else {
         // Redirect to login if not authenticated
+        await logoutUser();
         router.push("/login");
       }
     };
@@ -448,7 +449,7 @@ export default function DashboardLayout({
                     Mobile Number
                   </span>
                   <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    {user?.mobileNumber || "N/A"}
+                    {user?.mobile || "N/A"}
                   </span>
                 </div>
 

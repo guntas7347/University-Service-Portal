@@ -27,7 +27,7 @@ export async function getStaffUsers() {
         id: u.id,
         name: u.fullName,
         email: u.email,
-        mobileNumber: u.mobileNumber || "",
+        mobile: u.mobile || "",
         role: u.role,
         rights: u.rights,
         status: u.status,
@@ -59,7 +59,7 @@ export async function updateStaffUser(
     role: string;
     designation?: string;
     departmentId?: string;
-    mobileNumber?: string;
+    mobile?: string;
     gender?: string;
     rights: string[];
   },
@@ -72,10 +72,14 @@ export async function updateStaffUser(
       return { success: false, message: "Name and Email are required." };
     }
 
-    const activeUser = await requireRights(["MANAGE_USERS", "MANAGE_DEPARTMENT"]);
+    const activeUser = await requireRights([
+      "MANAGE_USERS",
+      "MANAGE_DEPARTMENT",
+    ]);
 
     const callerRights = activeUser.rights || [];
-    const isAdmin = callerRights.includes("ADMIN") || callerRights.includes("MANAGE_USERS");
+    const isAdmin =
+      callerRights.includes("ADMIN") || callerRights.includes("MANAGE_USERS");
     const isDeptManager = callerRights.includes("MANAGE_DEPARTMENT");
 
     // Check email uniqueness constraint (excluding active edit user)
@@ -91,10 +95,14 @@ export async function updateStaffUser(
 
     // Department manager safety check
     if (isDeptManager && !isAdmin) {
-      if (existingUser && existingUser.departmentId !== activeUser.departmentId) {
+      if (
+        existingUser &&
+        existingUser.departmentId !== activeUser.departmentId
+      ) {
         return {
           success: false,
-          message: "Access Denied. You can only manage staff within your department.",
+          message:
+            "Access Denied. You can only manage staff within your department.",
         };
       }
     }
@@ -113,7 +121,9 @@ export async function updateStaffUser(
     // Rights assignment: non-admins cannot assign rights they don't hold or cannot assign ADMIN
     let assignedRights = data.rights || [];
     if (!isAdmin) {
-      assignedRights = assignedRights.filter((r) => r !== "ADMIN" && r !== "MANAGE_USERS");
+      assignedRights = assignedRights.filter(
+        (r) => r !== "ADMIN" && r !== "MANAGE_USERS",
+      );
     }
 
     const updatedUser = await db.transaction(async (tx) => {
@@ -136,7 +146,7 @@ export async function updateStaffUser(
           role: roleStr,
           designation: data.designation?.trim() || null,
           departmentId: data.departmentId || null,
-          mobileNumber: data.mobileNumber?.trim() || null,
+          mobile: data.mobile?.trim() || null,
           gender: genderEnum,
           rights: isAdmin ? assignedRights : oldUser?.rights || [],
         })
@@ -144,19 +154,28 @@ export async function updateStaffUser(
         .returning();
 
       // Sync department HOD link if HOD role or MANAGE_DEPARTMENT right is set
-      const isHodDesignation = roleStr === "HOD" || assignedRights.includes("MANAGE_DEPARTMENT");
+      const isHodDesignation =
+        roleStr === "HOD" || assignedRights.includes("MANAGE_DEPARTMENT");
       if (isHodDesignation && data.departmentId) {
         // Set this user as HOD of the target department
         await tx
           .update(Department)
           .set({ hodId: id })
           .where(eq(Department.id, data.departmentId));
-      } else if (oldUser?.departmentId && (!data.departmentId || (!isHodDesignation))) {
+      } else if (
+        oldUser?.departmentId &&
+        (!data.departmentId || !isHodDesignation)
+      ) {
         // Clear HOD link from previous department if no longer HOD
         await tx
           .update(Department)
           .set({ hodId: null })
-          .where(and(eq(Department.id, oldUser.departmentId), eq(Department.hodId, id)));
+          .where(
+            and(
+              eq(Department.id, oldUser.departmentId),
+              eq(Department.hodId, id),
+            ),
+          );
       }
 
       return user;
@@ -191,7 +210,8 @@ export async function deleteStaffUser(id: string) {
     if (activeUser.id === id) {
       return {
         success: false,
-        message: "Security boundary: You cannot delete your own active account.",
+        message:
+          "Security boundary: You cannot delete your own active account.",
       };
     }
 

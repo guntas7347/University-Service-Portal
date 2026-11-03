@@ -38,7 +38,7 @@ interface StudentType {
   name: string;
   email: string;
   rollNumber: string;
-  mobileNumber: string;
+  mobile: string;
   batch: number | null;
   role: string;
   status: string;
@@ -81,7 +81,7 @@ export default function StudentsPage() {
     name: "",
     email: "",
     rollNumber: "",
-    mobileNumber: "",
+    mobile: "",
     gender: "",
     departmentId: "",
     courseId: "",
@@ -175,7 +175,7 @@ export default function StudentsPage() {
         name: form.name,
         email: form.email,
         rollNumber: form.rollNumber,
-        mobileNumber: form.mobileNumber || undefined,
+        mobile: form.mobile || undefined,
         batch: batchNum,
         gender: form.gender || undefined,
         departmentId: finalDeptId,
@@ -214,7 +214,7 @@ export default function StudentsPage() {
       name: student.name,
       email: student.email,
       rollNumber: student.rollNumber,
-      mobileNumber: student.mobileNumber,
+      mobile: student.mobile,
       gender: student.gender,
       departmentId: student.departmentId || "",
       courseId: student.courseId || "",
@@ -430,7 +430,7 @@ export default function StudentsPage() {
               {/* Mobile Number */}
               <div>
                 <label
-                  htmlFor="mobileNumber"
+                  htmlFor="mobile"
                   className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
                 >
                   Mobile Number
@@ -441,10 +441,10 @@ export default function StudentsPage() {
                   </div>
                   <input
                     type="tel"
-                    id="mobileNumber"
-                    name="mobileNumber"
+                    id="mobile"
+                    name="mobile"
                     disabled={isSubmitting}
-                    value={form.mobileNumber}
+                    value={form.mobile}
                     onChange={handleChange}
                     placeholder="e.g. +91 9876543210"
                     className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
@@ -707,9 +707,9 @@ export default function StudentsPage() {
                           <div className="text-xs text-slate-450 mt-0.5">
                             {student.email}
                           </div>
-                          {student.mobileNumber && (
+                          {student.mobile && (
                             <div className="text-[10px] text-slate-400 font-medium mt-0.5 font-mono">
-                              {student.mobileNumber}
+                              {student.mobile}
                             </div>
                           )}
                         </td>

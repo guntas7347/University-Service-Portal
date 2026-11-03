@@ -1,7 +1,16 @@
 "use client";
 
 import React from "react";
-import { Search, Filter, Loader2, Users, Edit, Trash2, FileText, Landmark } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Loader2,
+  Users,
+  Edit,
+  Trash2,
+  FileText,
+  Landmark,
+} from "lucide-react";
 
 interface UserTableProps {
   filteredStaff: any[];
@@ -12,7 +21,12 @@ interface UserTableProps {
   setRoleFilter: (val: string) => void;
   handleEditClick: (u: any) => void;
   handleDeleteClick: (id: string) => void;
-  currentUser: { id?: string; role?: string; rights?: string[]; departmentId?: string } | null;
+  currentUser: {
+    id?: string;
+    role?: string;
+    rights?: string[];
+    departmentId?: string;
+  } | null;
   getRoleBadge: (role: string) => React.ReactNode;
   className?: string;
 }
@@ -31,7 +45,8 @@ export default function UserTable({
   className = "",
 }: UserTableProps) {
   const userRights = currentUser?.rights || [];
-  const isAdmin = userRights.includes("ADMIN") || userRights.includes("MANAGE_USERS");
+  const isAdmin =
+    userRights.includes("ADMIN") || userRights.includes("MANAGE_USERS");
   const isDeptManager = userRights.includes("MANAGE_DEPARTMENT");
 
   // Helper check to determine if a staff row can be edited/deleted by the current user
@@ -51,8 +66,9 @@ export default function UserTable({
   };
 
   return (
-    <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm overflow-hidden flex flex-col min-h-[450px] ${className || "lg:col-span-2"}`}>
-      
+    <div
+      className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm overflow-hidden flex flex-col min-h-[450px] ${className || "lg:col-span-2"}`}
+    >
       {/* Table Header with Local Search and Filters */}
       <div className="p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
         <div className="flex justify-between items-center">
@@ -62,7 +78,7 @@ export default function UserTable({
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {isDeptManager && !isAdmin
-                ? "Manage faculty members under your department" 
+                ? "Manage faculty members under your department"
                 : "University administrative officers and academic faculty members"}
             </p>
           </div>
@@ -83,7 +99,7 @@ export default function UserTable({
               className="w-full h-10 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-850 dark:text-slate-200 placeholder-slate-405 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
             />
           </div>
-          
+
           {/* Filter (Only show to Admin, HOD's list is already restricted to FACULTY under their department) */}
           {isAdmin && (
             <div className="relative w-full sm:w-44 group">
@@ -110,14 +126,19 @@ export default function UserTable({
       {isPageLoading ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 py-20">
           <Loader2 className="h-8 w-8 text-primary animate-spin" />
-          <p className="text-sm text-slate-450 font-medium">Querying staff accounts...</p>
+          <p className="text-sm text-slate-450 font-medium">
+            Querying staff accounts...
+          </p>
         </div>
       ) : filteredStaff.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-20 text-center gap-2 px-4">
           <Users className="h-10 w-10 text-slate-350 dark:text-slate-650" />
-          <h4 className="font-bold text-slate-700 dark:text-slate-405 text-sm">No Accounts Found</h4>
+          <h4 className="font-bold text-slate-700 dark:text-slate-405 text-sm">
+            No Accounts Found
+          </h4>
           <p className="text-xs text-slate-400 max-w-xs mt-1">
-            No staff members match the query parameters or no registrations exist.
+            No staff members match the query parameters or no registrations
+            exist.
           </p>
         </div>
       ) : (
@@ -134,8 +155,10 @@ export default function UserTable({
             </thead>
             <tbody className="divide-y divide-slate-150 dark:divide-slate-850">
               {filteredStaff.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm">
-                  
+                <tr
+                  key={u.id}
+                  className="hover:bg-slate-50/20 dark:hover:bg-slate-800/5 transition-colors text-sm"
+                >
                   {/* Name & Contact */}
                   <td className="py-4 px-6">
                     <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
@@ -154,9 +177,9 @@ export default function UserTable({
                     <div className="text-xs text-slate-450 font-medium mt-0.5">
                       {u.email}
                     </div>
-                    {u.mobileNumber && (
+                    {u.mobile && (
                       <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        {u.mobileNumber}
+                        {u.mobile}
                       </div>
                     )}
                   </td>
@@ -174,19 +197,23 @@ export default function UserTable({
                         <span>{u.departmentName}</span>
                       </div>
                     ) : (
-                      <span className="text-slate-400 text-xs italic">Unassigned</span>
+                      <span className="text-slate-400 text-xs italic">
+                        Unassigned
+                      </span>
                     )}
                   </td>
 
                   {/* Rights tags */}
                   <td className="py-4 px-6 max-w-xs">
                     {u.rights.length === 0 ? (
-                      <span className="text-slate-400 text-xs italic">No rights assigned</span>
+                      <span className="text-slate-400 text-xs italic">
+                        No rights assigned
+                      </span>
                     ) : (
                       <div className="flex flex-wrap gap-1">
                         {u.rights.map((right: string) => (
-                          <span 
-                            key={right} 
+                          <span
+                            key={right}
                             className="inline-flex px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-semibold tracking-wider font-mono border border-slate-200/20"
                             title={right}
                           >
@@ -220,11 +247,12 @@ export default function UserTable({
                           </button>
                         </>
                       ) : (
-                        <span className="text-slate-400 text-xs italic pr-2 select-none">Locked</span>
+                        <span className="text-slate-400 text-xs italic pr-2 select-none">
+                          Locked
+                        </span>
                       )}
                     </div>
                   </td>
-
                 </tr>
               ))}
             </tbody>

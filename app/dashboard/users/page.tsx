@@ -17,7 +17,7 @@ interface StaffUserType {
   id: string;
   name: string;
   email: string;
-  mobileNumber: string;
+  mobile: string;
   role: string;
   rights: string[];
   status: string;
@@ -80,7 +80,7 @@ export default function UsersPage() {
     name: "",
     email: "",
     designation: "",
-    mobileNumber: "",
+    mobile: "",
     departmentId: "",
     role: "FACULTY",
     gender: "",
@@ -163,7 +163,7 @@ export default function UsersPage() {
         role: targetRole,
         designation: form.designation || undefined,
         departmentId: targetDeptId || undefined,
-        mobileNumber: form.mobileNumber || undefined,
+        mobile: form.mobile || undefined,
         gender: form.gender || undefined,
         rights: selectedRights,
       });
@@ -194,7 +194,7 @@ export default function UsersPage() {
       name: u.name,
       email: u.email,
       designation: u.designation || "",
-      mobileNumber: u.mobileNumber,
+      mobile: u.mobile,
       departmentId: u.departmentId || "",
       role: u.role,
       gender: u.gender,

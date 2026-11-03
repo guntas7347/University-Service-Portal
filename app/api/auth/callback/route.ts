@@ -51,9 +51,6 @@ async function processCallback(req: NextRequest, code: string | null) {
   }
 
   try {
-    console.log(
-      "SSO Callback: Exchanging authorization code for user profile...",
-    );
     const ssoUser = await exchangeCodeForUser(code);
 
     if (!ssoUser) {

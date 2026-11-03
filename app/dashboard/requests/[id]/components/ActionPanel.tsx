@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Send,
   Lock,
@@ -12,7 +12,9 @@ import {
   Check,
   Clock,
   Eye,
+  Search,
 } from "lucide-react";
+import { AssignOfficerModal } from "./AssignOfficerModal";
 
 interface ActionPanelProps {
   request: any;
@@ -100,6 +102,12 @@ export function ActionPanel({
   formatFileSize,
   onRemoveWatcher,
 }: ActionPanelProps) {
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+
+  const selectedAssignOfficer = staffOptions.find((s) => s.id === assignedStaffId);
+  const selectedForwardOfficer = staffOptions.find((s) => s.id === forwardStaffId);
+
   // Feedback alerts
   const renderAlerts = () => (
     <>
@@ -471,73 +479,171 @@ export function ActionPanel({
 
         {/* 2. Assign / Forward Handler Form */}
         {canAssign ? (
-          <form onSubmit={onAssignSubmit} className="space-y-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
-            <label
-              htmlFor="assignStaffSelect"
-              className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-            >
-              Assign Resolution Officer
-            </label>
-            <div className="flex gap-2">
-              <select
-                id="assignStaffSelect"
-                disabled={isSubmitting}
-                value={assignedStaffId}
-                onChange={(e) => setAssignedStaffId(e.target.value)}
-                className="flex-1 h-9 px-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-850 dark:text-slate-200 text-xs focus:outline-none focus:border-primary transition-all disabled:opacity-50"
-              >
-                <option value="" disabled>
-                  Select Staff Member
-                </option>
-                {staffOptions.map((opt) => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.name} ({opt.role.replace("_", " ")})
-                  </option>
-                ))}
-              </select>
+          <form
+            onSubmit={onAssignSubmit}
+            className="space-y-2.5 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Assign Resolution Officer
+              </label>
+              {assignedStaffId && (
+                <button
+                  type="button"
+                  onClick={() => setIsAssignModalOpen(true)}
+                  className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Search className="h-3 w-3" />
+                  Change Officer
+                </button>
+              )}
+            </div>
 
+            {selectedAssignOfficer ? (
+              <div className="p-2.5 bg-white dark:bg-slate-900 border border-primary/30 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0">
+                    {(selectedAssignOfficer.name || "U").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate">
+                        {selectedAssignOfficer.name}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">
+                        {selectedAssignOfficer.role.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {selectedAssignOfficer.departmentName || selectedAssignOfficer.email}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setAssignedStaffId("")}
+                  className="p-1 text-slate-400 hover:text-red-500 rounded-md transition-colors shrink-0 cursor-pointer"
+                  title="Clear selection"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAssignModalOpen(true)}
+                className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 hover:border-primary dark:hover:border-primary rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium flex items-center justify-between group transition-all cursor-pointer shadow-2xs"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-md bg-slate-100 dark:bg-slate-800 group-hover:bg-primary/10 group-hover:text-primary transition-colors text-slate-500">
+                    <Search className="h-3.5 w-3.5" />
+                  </div>
+                  <span>Browse Faculty & Staff Directory...</span>
+                </div>
+                <span className="text-[10px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 group-hover:bg-primary group-hover:text-white transition-all">
+                  {staffOptions.length} Officers
+                </span>
+              </button>
+            )}
+
+            <div className="flex justify-end pt-0.5">
               <button
                 type="submit"
                 disabled={isSubmitting || !assignedStaffId}
-                className="px-3 h-9 bg-primary hover:bg-primary/95 text-white font-semibold text-xs rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-4 h-9 bg-primary hover:bg-primary/95 text-white font-semibold text-xs rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-2xs"
               >
-                Assign
+                {isSubmitting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                <span>Assign Officer</span>
               </button>
             </div>
           </form>
         ) : (
           isAssignedToMe && (
-            <form onSubmit={onForwardSubmit} className="space-y-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
-              <label
-                htmlFor="forwardStaffSelect"
-                className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-              >
-                Forward (Self-Unassign & Watch)
-              </label>
-              <div className="flex gap-2">
-                <select
-                  id="forwardStaffSelect"
-                  disabled={isSubmitting}
-                  value={forwardStaffId}
-                  onChange={(e) => setForwardStaffId(e.target.value)}
-                  className="flex-1 h-9 px-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-850 dark:text-slate-200 text-xs focus:outline-none focus:border-primary transition-all disabled:opacity-50"
-                >
-                  <option value="" disabled>
-                    Select Staff Member
-                  </option>
-                  {staffOptions.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.name} ({opt.role.replace("_", " ")})
-                    </option>
-                  ))}
-                </select>
+            <form
+              onSubmit={onForwardSubmit}
+              className="space-y-2.5 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex flex-col justify-between"
+            >
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Forward (Self-Unassign & Watch)
+                </label>
+                {forwardStaffId && (
+                  <button
+                    type="button"
+                    onClick={() => setIsForwardModalOpen(true)}
+                    className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Search className="h-3 w-3" />
+                    Change Target
+                  </button>
+                )}
+              </div>
 
+              {selectedForwardOfficer ? (
+                <div className="p-2.5 bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center shrink-0">
+                      {(selectedForwardOfficer.name || "U").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate">
+                          {selectedForwardOfficer.name}
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50">
+                          {selectedForwardOfficer.role.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {selectedForwardOfficer.departmentName || selectedForwardOfficer.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setForwardStaffId("")}
+                    className="p-1 text-slate-400 hover:text-red-500 rounded-md transition-colors shrink-0 cursor-pointer"
+                    title="Clear selection"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsForwardModalOpen(true)}
+                  className="w-full h-11 px-3 bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 hover:border-amber-500 dark:hover:border-amber-500 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium flex items-center justify-between group transition-all cursor-pointer shadow-2xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-slate-100 dark:bg-slate-800 group-hover:bg-amber-500/10 group-hover:text-amber-600 transition-colors text-slate-500">
+                      <Search className="h-3.5 w-3.5" />
+                    </div>
+                    <span>Search Officer to Forward to...</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/40">
+                    {staffOptions.length} Officers
+                  </span>
+                </button>
+              )}
+
+              <div className="flex justify-end pt-0.5">
                 <button
                   type="submit"
                   disabled={isSubmitting || !forwardStaffId}
-                  className="px-3 h-9 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-4 h-9 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-lg transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-2xs"
                 >
-                  Forward
+                  {isSubmitting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
+                  <span>Forward Request</span>
                 </button>
               </div>
             </form>
@@ -618,6 +724,28 @@ export function ActionPanel({
           {canUploadAttachment && renderFileUploadBox()}
         </div>
       </div>
+
+      {/* Assign Resolution Officer Modal */}
+      <AssignOfficerModal
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        staffOptions={staffOptions}
+        selectedStaffId={assignedStaffId}
+        onSelectStaff={(id) => setAssignedStaffId(id)}
+        title="Assign Resolution Officer"
+        description="Search faculty and administrative staff directory to assign resolution handler"
+      />
+
+      {/* Forward Request Modal */}
+      <AssignOfficerModal
+        isOpen={isForwardModalOpen}
+        onClose={() => setIsForwardModalOpen(false)}
+        staffOptions={staffOptions}
+        selectedStaffId={forwardStaffId}
+        onSelectStaff={(id) => setForwardStaffId(id)}
+        title="Forward Grievance to Colleague"
+        description="Select another faculty member or department officer to handle this grievance"
+      />
     </div>
   );
 }

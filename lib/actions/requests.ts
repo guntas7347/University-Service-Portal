@@ -79,8 +79,10 @@ function isHodForRequest(
   if (!isUserHod(user, managedDeptIds)) return false;
 
   // 1. Direct match on target department of request
-  if (request.departmentId && managedDeptIds.includes(request.departmentId)) return true;
-  if (request.department?.id && managedDeptIds.includes(request.department.id)) return true;
+  if (request.departmentId && managedDeptIds.includes(request.departmentId))
+    return true;
+  if (request.department?.id && managedDeptIds.includes(request.department.id))
+    return true;
   if (request.department?.hodId === user.id) return true;
 
   // 2. Direct match on student's department who raised the grievance
@@ -403,7 +405,8 @@ export async function getAllRequests() {
     }
 
     const rights = user.rights || [];
-    const isAdmin = rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
+    const isAdmin =
+      rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
     const managedDeptIds = await getHodDepartmentIds(user);
     const isDeptManager = isUserHod(user, managedDeptIds);
 
@@ -528,8 +531,10 @@ export async function getAllRequests() {
           .map((a: any) => a.user?.fullName)
           .filter(Boolean)
           .join(", ");
-        const isWatcher = r.watchers?.some((w: any) => w.userId === user.id) || false;
-        const isAssigned = r.assignments?.some((a: any) => a.userId === user.id) || false;
+        const isWatcher =
+          r.watchers?.some((w: any) => w.userId === user.id) || false;
+        const isAssigned =
+          r.assignments?.some((a: any) => a.userId === user.id) || false;
 
         return {
           id: r.id,
@@ -541,8 +546,12 @@ export async function getAllRequests() {
           description: r.description,
           status: r.status,
           priority: r.priority,
-          studentName: r.isAnonymous ? "Anonymous" : r.createdBy?.fullName || "Student",
-          createdByName: r.isAnonymous ? "Anonymous" : r.createdBy?.fullName || "Student",
+          studentName: r.isAnonymous
+            ? "Anonymous"
+            : r.createdBy?.fullName || "Student",
+          createdByName: r.isAnonymous
+            ? "Anonymous"
+            : r.createdBy?.fullName || "Student",
           studentRoll: r.isAnonymous ? "N/A" : r.createdBy?.rollNumber || "N/A",
           assignedToId: primaryAssignee?.id || null,
           assignedToName: assignedNames || "Unassigned",
@@ -558,7 +567,11 @@ export async function getAllRequests() {
       userRole: user.role,
       userRights: user.rights || [],
       userId: user.id,
-      userDeptId: user.departmentId || user.managedDepartment?.id || (managedDeptIds[0] || ""),
+      userDeptId:
+        user.departmentId ||
+        user.managedDepartment?.id ||
+        managedDeptIds[0] ||
+        "",
     };
   } catch (error: any) {
     console.error("Error fetching all requests:", error);
@@ -668,11 +681,17 @@ export async function getRequestDetails(requestId: string) {
     );
 
     const rights = activeUser.rights || [];
-    const isAdmin = rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
+    const isAdmin =
+      rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
     const managedDeptIds = await getHodDepartmentIds(activeUser);
-    const isDeptManager = isHodForRequest(activeUser, managedDeptIds, reqDetails);
+    const isDeptManager = isHodForRequest(
+      activeUser,
+      managedDeptIds,
+      reqDetails,
+    );
 
-    const hasAccess = isAdmin || isDeptManager || isCreator || isAssigned || isWatcher;
+    const hasAccess =
+      isAdmin || isDeptManager || isCreator || isAssigned || isWatcher;
 
     if (!hasAccess) {
       return {
@@ -722,13 +741,15 @@ export async function getRequestDetails(requestId: string) {
         fullName: reqDetails.isAnonymous
           ? "Anonymous Student"
           : reqDetails.createdBy?.fullName || "Student",
-        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.email || "N/A",
+        email: reqDetails.isAnonymous
+          ? "N/A"
+          : reqDetails.createdBy?.email || "N/A",
         rollNumber: reqDetails.isAnonymous
           ? "N/A"
           : reqDetails.createdBy?.rollNumber || "N/A",
-        mobileNumber: reqDetails.isAnonymous
+        mobile: reqDetails.isAnonymous
           ? "N/A"
-          : reqDetails.createdBy?.mobileNumber || "N/A",
+          : reqDetails.createdBy?.mobile || "N/A",
         courseName:
           [reqDetails.createdBy?.degree, reqDetails.createdBy?.specialization]
             .filter(Boolean)
@@ -746,13 +767,17 @@ export async function getRequestDetails(requestId: string) {
         fullName: reqDetails.isAnonymous
           ? "Anonymous Student"
           : reqDetails.createdBy?.fullName || "Student",
-        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.email || "N/A",
+        email: reqDetails.isAnonymous
+          ? "N/A"
+          : reqDetails.createdBy?.email || "N/A",
         rollNumber: reqDetails.isAnonymous
           ? "N/A"
           : reqDetails.createdBy?.rollNumber || "N/A",
-        mobileNumber: reqDetails.isAnonymous
+        mobile: reqDetails.isAnonymous
           ? "N/A"
-          : reqDetails.createdBy?.mobile || reqDetails.createdBy?.mobileNumber || "N/A",
+          : reqDetails.createdBy?.mobile ||
+            reqDetails.createdBy?.mobile ||
+            "N/A",
         courseName:
           [reqDetails.createdBy?.degree, reqDetails.createdBy?.specialization]
             .filter(Boolean)
@@ -827,7 +852,9 @@ export async function getRequestDetails(requestId: string) {
         createdAt: att.createdAt.toISOString(),
       })),
       escalationLevel: reqDetails.escalationLevel || 0,
-      lastEscalatedAt: reqDetails.lastEscalatedAt ? reqDetails.lastEscalatedAt.toISOString() : null,
+      lastEscalatedAt: reqDetails.lastEscalatedAt
+        ? reqDetails.lastEscalatedAt.toISOString()
+        : null,
       isEscalated: reqDetails.isEscalated || false,
       tags: reqDetails.tags || [],
       isPureWatcher,
@@ -852,7 +879,10 @@ export async function getRequestDetails(requestId: string) {
         const baseDate = reqDetails.lastEscalatedAt || reqDetails.createdAt;
         const msPassed = Date.now() - new Date(baseDate).getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        return Math.max(0, Math.ceil((sevenDaysMs - msPassed) / (24 * 60 * 60 * 1000)));
+        return Math.max(
+          0,
+          Math.ceil((sevenDaysMs - msPassed) / (24 * 60 * 60 * 1000)),
+        );
       })(),
     };
 
@@ -862,7 +892,11 @@ export async function getRequestDetails(requestId: string) {
       userRole: activeUser.role,
       userRights: activeUser.rights,
       userId: activeUser.id,
-      userDeptId: activeUser.departmentId || activeUser.managedDepartment?.id || (managedDeptIds[0] || ""),
+      userDeptId:
+        activeUser.departmentId ||
+        activeUser.managedDepartment?.id ||
+        managedDeptIds[0] ||
+        "",
     };
   } catch (error: any) {
     console.error("Error retrieving request details:", error);
@@ -907,7 +941,8 @@ export async function escalateRequest(requestId: string, reason?: string) {
     if (req.createdById !== activeUser.id && !isAdmin) {
       return {
         success: false,
-        message: "Only the creator of this request or an administrator can escalate it.",
+        message:
+          "Only the creator of this request or an administrator can escalate it.",
       };
     }
 
@@ -997,7 +1032,9 @@ export async function escalateRequest(requestId: string, reason?: string) {
       });
 
       if (centralRules.length > 0) {
-        const assignedUserIds = new Set(req.assignments.map((a: any) => a.userId));
+        const assignedUserIds = new Set(
+          req.assignments.map((a: any) => a.userId),
+        );
         const unassignedCentral = centralRules.filter(
           (r: any) => !assignedUserIds.has(r.userId),
         );
@@ -1039,8 +1076,8 @@ export async function escalateRequest(requestId: string, reason?: string) {
       req.priority === Priority.LOW
         ? Priority.MEDIUM
         : req.priority === Priority.MEDIUM
-        ? Priority.HIGH
-        : Priority.URGENT;
+          ? Priority.HIGH
+          : Priority.URGENT;
 
     await db.transaction(async (tx) => {
       // Update request metadata
@@ -1123,7 +1160,9 @@ export async function escalateRequest(requestId: string, reason?: string) {
       });
     });
 
-    console.log(`Successfully escalated request ${req.ticketId} to Level ${nextEscalation}`);
+    console.log(
+      `Successfully escalated request ${req.ticketId} to Level ${nextEscalation}`,
+    );
     return {
       success: true,
       message: `Request successfully escalated to Level ${nextEscalation}!`,
@@ -1163,17 +1202,23 @@ export async function updateRequestStatus(
     }
 
     const rights = activeUser.rights || [];
-    const isAdmin = rights.includes("ADMIN") || rights.includes("RESOLVE_GRIEVANCES");
-    const isAssigned = request.assignments.some((a: any) => a.userId === activeUser.id);
+    const isAdmin =
+      rights.includes("ADMIN") || rights.includes("RESOLVE_GRIEVANCES");
+    const isAssigned = request.assignments.some(
+      (a: any) => a.userId === activeUser.id,
+    );
     const managedDeptIds = await getHodDepartmentIds(activeUser);
     const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
-    const isWatcher = request.watchers.some((w: any) => w.userId === activeUser.id);
+    const isWatcher = request.watchers.some(
+      (w: any) => w.userId === activeUser.id,
+    );
 
     // Watchers have strictly read-only access
     if (isWatcher && !isAdmin && !isAssigned && !isDeptManager) {
       return {
         success: false,
-        message: "Access Denied. Watchers have read-only access and cannot update ticket status.",
+        message:
+          "Access Denied. Watchers have read-only access and cannot update ticket status.",
       };
     }
 
@@ -1181,7 +1226,8 @@ export async function updateRequestStatus(
     if (!isAdmin && !isAssigned && !isDeptManager) {
       return {
         success: false,
-        message: "Access Denied. You do not have permission to update ticket status.",
+        message:
+          "Access Denied. You do not have permission to update ticket status.",
       };
     }
 
@@ -1270,8 +1316,12 @@ export async function assignRequest(
     }
 
     // Other current assignees to convert to watchers
-    const otherAssignees = request.assignments.filter((a: any) => a.userId !== assignedToId);
-    const existingWatcherUserIds = new Set(request.watchers.map((w: any) => w.userId));
+    const otherAssignees = request.assignments.filter(
+      (a: any) => a.userId !== assignedToId,
+    );
+    const existingWatcherUserIds = new Set(
+      request.watchers.map((w: any) => w.userId),
+    );
 
     // Update request status to ASSIGNED if SUBMITTED
     const nextStatus =
@@ -1317,7 +1367,9 @@ export async function assignRequest(
         );
 
       // 4. Assign new handler as PRIMARY
-      const existingAssignment = request.assignments.find((a: any) => a.userId === assignedToId);
+      const existingAssignment = request.assignments.find(
+        (a: any) => a.userId === assignedToId,
+      );
       if (!existingAssignment) {
         await tx.insert(RequestAssignment).values({
           requestId,
@@ -1348,7 +1400,9 @@ export async function assignRequest(
     });
 
     // Log Assignment Activity
-    const otherNames = otherAssignees.map((a: any) => a.user?.fullName || "staff").join(", ");
+    const otherNames = otherAssignees
+      .map((a: any) => a.user?.fullName || "staff")
+      .join(", ");
     const conversionNote =
       otherAssignees.length > 0
         ? ` Previous assignee(s) (${otherNames}) converted to watchers.`
@@ -1359,7 +1413,8 @@ export async function assignRequest(
       actorId: activeUser.id,
       type: ActivityType.ASSIGNED,
       newValue: staff.fullName,
-      message: message || `Request assigned to ${staff.fullName}.${conversionNote}`,
+      message:
+        message || `Request assigned to ${staff.fullName}.${conversionNote}`,
     });
 
     if (nextStatus !== request.status) {
@@ -1414,16 +1469,21 @@ export async function addRequestComment(
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN");
     const isCreator = request.createdById === activeUser.id;
-    const isAssigned = request.assignments.some((a: any) => a.userId === activeUser.id);
+    const isAssigned = request.assignments.some(
+      (a: any) => a.userId === activeUser.id,
+    );
     const managedDeptIds = await getHodDepartmentIds(activeUser);
     const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
-    const isWatcher = request.watchers.some((w: any) => w.userId === activeUser.id);
+    const isWatcher = request.watchers.some(
+      (w: any) => w.userId === activeUser.id,
+    );
 
     // Watchers have strictly read-only access
     if (isWatcher && !isAdmin && !isCreator && !isAssigned && !isDeptManager) {
       return {
         success: false,
-        message: "Access Denied. Watchers have read-only access to this grievance timeline.",
+        message:
+          "Access Denied. Watchers have read-only access to this grievance timeline.",
       };
     }
 
@@ -1431,12 +1491,19 @@ export async function addRequestComment(
     if (!isAdmin && !isCreator && !isAssigned && !isDeptManager) {
       return {
         success: false,
-        message: "Access Denied. You do not have permission to comment on this request.",
+        message:
+          "Access Denied. You do not have permission to comment on this request.",
       };
     }
 
     // Disallow regular students from posting internal comments
-    if (internal && activeUser.role === "STUDENT" && !isAdmin && !isDeptManager && !isAssigned) {
+    if (
+      internal &&
+      activeUser.role === "STUDENT" &&
+      !isAdmin &&
+      !isDeptManager &&
+      !isAssigned
+    ) {
       return {
         success: false,
         message: "Students cannot post internal comments.",
@@ -1499,16 +1566,21 @@ export async function addRequestAttachment(
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN");
     const isCreator = request.createdById === activeUser.id;
-    const isAssigned = request.assignments.some((a: any) => a.userId === activeUser.id);
+    const isAssigned = request.assignments.some(
+      (a: any) => a.userId === activeUser.id,
+    );
     const managedDeptIds = await getHodDepartmentIds(activeUser);
     const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
-    const isWatcher = request.watchers.some((w: any) => w.userId === activeUser.id);
+    const isWatcher = request.watchers.some(
+      (w: any) => w.userId === activeUser.id,
+    );
 
     // Watchers have read-only access
     if (isWatcher && !isAdmin && !isCreator && !isAssigned && !isDeptManager) {
       return {
         success: false,
-        message: "Access Denied. Watchers have read-only access and cannot upload attachments.",
+        message:
+          "Access Denied. Watchers have read-only access and cannot upload attachments.",
       };
     }
 
@@ -1516,7 +1588,8 @@ export async function addRequestAttachment(
     if (!isAdmin && !isCreator && !isAssigned && !isDeptManager) {
       return {
         success: false,
-        message: "Access Denied. You do not have permission to attach files to this request.",
+        message:
+          "Access Denied. You do not have permission to attach files to this request.",
       };
     }
 
@@ -1645,14 +1718,17 @@ export async function addRequestWatcher(requestId: string, userId: string) {
     const rights = activeUser.rights || [];
     const isAdmin = rights.includes("ADMIN");
     const hasRoutingRight = rights.includes("MANAGE_ROUTING");
-    const isAssigned = request.assignments.some((a: any) => a.userId === activeUser.id);
+    const isAssigned = request.assignments.some(
+      (a: any) => a.userId === activeUser.id,
+    );
     const managedDeptIds = await getHodDepartmentIds(activeUser);
     const isDeptManager = isHodForRequest(activeUser, managedDeptIds, request);
 
     if (!isAdmin && !hasRoutingRight && !isDeptManager && !isAssigned) {
       return {
         success: false,
-        message: "Access Denied. You do not have permission to add watchers to this request.",
+        message:
+          "Access Denied. You do not have permission to add watchers to this request.",
       };
     }
 
@@ -1728,12 +1804,15 @@ export async function removeRequestWatcher(requestId: string, userId: string) {
         with: { createdBy: true, department: true },
       });
       const managedDeptIds = await getHodDepartmentIds(activeUser);
-      const isDeptManager = req ? isHodForRequest(activeUser, managedDeptIds, req) : false;
+      const isDeptManager = req
+        ? isHodForRequest(activeUser, managedDeptIds, req)
+        : false;
 
       if (!isDeptManager) {
         return {
           success: false,
-          message: "Access Denied. You do not have permission to remove this watcher.",
+          message:
+            "Access Denied. You do not have permission to remove this watcher.",
         };
       }
     }
@@ -1917,7 +1996,10 @@ export async function forwardRequest(
     const targetUser = await db.query.User.findFirst({
       where: eq(User.id, targetUserId),
     });
-    if (!targetUser || (targetUser.role === "STUDENT" && targetUser.rights.length === 0)) {
+    if (
+      !targetUser ||
+      (targetUser.role === "STUDENT" && targetUser.rights.length === 0)
+    ) {
       return {
         success: false,
         message: "Cannot forward: Target user is not a valid staff member.",
@@ -1925,8 +2007,12 @@ export async function forwardRequest(
     }
 
     // Current assignees other than target user to be converted to watchers
-    const assigneesToConvert = request.assignments.filter((a: any) => a.userId !== targetUserId);
-    const existingWatcherUserIds = new Set(request.watchers.map((w: any) => w.userId));
+    const assigneesToConvert = request.assignments.filter(
+      (a: any) => a.userId !== targetUserId,
+    );
+    const existingWatcherUserIds = new Set(
+      request.watchers.map((w: any) => w.userId),
+    );
 
     await db.transaction(async (tx) => {
       // 1. Remove all current assignees from assignments
@@ -1966,7 +2052,9 @@ export async function forwardRequest(
         );
 
       // 4. Add target user as assignee
-      const existingTargetAssign = request.assignments.find((a: any) => a.userId === targetUserId);
+      const existingTargetAssign = request.assignments.find(
+        (a: any) => a.userId === targetUserId,
+      );
       if (!existingTargetAssign) {
         await tx.insert(RequestAssignment).values({
           requestId,

@@ -30,25 +30,27 @@ export const User = pgTable("User", {
   fatherName: text("fatherName"),
   role: text("role").notNull().default("STUDENT"),
   email: text("email").notNull().unique(),
+  email2: text("email2"),
   degree: text("degree"),
   specialization: text("specialization"),
   mobile: text("mobile"),
   photo: text("photo"),
   rollNumber: text("rollNumber").unique(),
-  mobileNumber: text("mobileNumber"),
   batch: integer("batch"),
   dateOfBirth: timestamp("dateOfBirth", { precision: 3 }),
   gender: Gender("gender"),
   status: UserStatus("status").notNull().default("PENDING"),
   designation: text("designation"),
   rights: text("rights").array().notNull().default([]),
-  departmentId: text("departmentId").references((): AnyPgColumn => Department.id, {
-    onDelete: "cascade",
-    onUpdate: "cascade",
-  }),
+  departmentId: text("departmentId").references(
+    (): AnyPgColumn => Department.id,
+    {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    },
+  ),
   emailVerified: boolean("emailVerified").notNull().default(false),
   phoneVerified: boolean("phoneVerified").notNull().default(false),
-  profileImage: text("profileImage"),
   createdAt: timestamp("createdAt", { precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { precision: 3 })
     .notNull()
@@ -85,4 +87,3 @@ export const UserRelations = relations(User, ({ one, many }) => ({
   }),
   routingRules: many(RoutingRule),
 }));
-

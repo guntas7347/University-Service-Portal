@@ -152,7 +152,7 @@ export default function UserForm({
         {/* Mobile Number */}
         <div>
           <label
-            htmlFor="mobileNumber"
+            htmlFor="mobile"
             className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
           >
             Mobile Number (Optional)
@@ -163,10 +163,10 @@ export default function UserForm({
             </div>
             <input
               type="tel"
-              id="mobileNumber"
-              name="mobileNumber"
+              id="mobile"
+              name="mobile"
               disabled={isSubmitting}
-              value={form.mobileNumber}
+              value={form.mobile}
               onChange={handleChange}
               placeholder="e.g. 9876543210"
               className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"

@@ -53,12 +53,7 @@ export const RequestStatus = pgEnum("RequestStatus", [
   "CANCELLED",
 ]);
 
-export const Priority = pgEnum("Priority", [
-  "LOW",
-  "MEDIUM",
-  "HIGH",
-  "URGENT",
-]);
+export const Priority = pgEnum("Priority", ["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
 export const ActivityType = pgEnum("ActivityType", [
   "CREATED",
@@ -98,7 +93,7 @@ export const User = pgTable("User", {
   fullName: text("fullName").notNull(),
   email: text("email").notNull().unique(),
   rollNumber: text("rollNumber").unique(),
-  mobileNumber: text("mobileNumber").unique(),
+  mobile: text("mobile").unique(),
   batch: integer("batch"),
   dateOfBirth: timestamp("dateOfBirth", { precision: 3 }),
   gender: Gender("gender"),
@@ -106,17 +101,19 @@ export const User = pgTable("User", {
   status: UserStatus("status").notNull().default("PENDING"),
   designation: text("designation"),
   rights: text("rights").array().notNull().default([]),
-  departmentId: text("departmentId").references((): AnyPgColumn => Department.id, {
-    onDelete: "cascade",
-    onUpdate: "cascade",
-  }),
+  departmentId: text("departmentId").references(
+    (): AnyPgColumn => Department.id,
+    {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    },
+  ),
   courseId: text("courseId").references(() => Course.id, {
     onDelete: "cascade",
     onUpdate: "cascade",
   }),
   emailVerified: boolean("emailVerified").notNull().default(false),
   phoneVerified: boolean("phoneVerified").notNull().default(false),
-  profileImage: text("profileImage"),
   createdAt: timestamp("createdAt", { precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { precision: 3 })
     .notNull()
@@ -234,7 +231,10 @@ export const RequestActivity = pgTable(
     createdAt: timestamp("createdAt", { precision: 3 }).notNull().defaultNow(),
   },
   (t) => [
-    index("RequestActivity_requestId_createdAt_idx").on(t.requestId, t.createdAt),
+    index("RequestActivity_requestId_createdAt_idx").on(
+      t.requestId,
+      t.createdAt,
+    ),
   ],
 );
 
@@ -261,7 +261,10 @@ export const RequestComment = pgTable(
     createdAt: timestamp("createdAt", { precision: 3 }).notNull().defaultNow(),
   },
   (t) => [
-    index("RequestComment_requestId_createdAt_idx").on(t.requestId, t.createdAt),
+    index("RequestComment_requestId_createdAt_idx").on(
+      t.requestId,
+      t.createdAt,
+    ),
   ],
 );
 
@@ -289,9 +292,7 @@ export const RequestAttachment = pgTable(
     fileSize: integer("fileSize").notNull(),
     createdAt: timestamp("createdAt", { precision: 3 }).notNull().defaultNow(),
   },
-  (t) => [
-    index("RequestAttachment_requestId_idx").on(t.requestId),
-  ],
+  (t) => [index("RequestAttachment_requestId_idx").on(t.requestId)],
 );
 
 export const RoutingRule = pgTable(

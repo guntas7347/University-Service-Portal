@@ -13,6 +13,8 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
     throw new Error("Empty user payload returned from SSO");
   }
 
+  console.log(ssoUser);
+
   // Determine unique user identifier from SSO
   const ssoId = String(ssoUser.username || ssoUser.email || "").trim();
   if (!ssoId) {
@@ -52,8 +54,6 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
   const mobile = ssoUser.mobile || null;
   const photo = ssoUser.photo || null;
   const rollNumber = ssoUser.username || "";
-  const mobileNumber = ssoUser.mobile || null;
-  const profileImage = ssoUser.photo || null;
 
   // Check if specialization matches any department's specializations array
   let allottedDepartmentId: string | null = null;
@@ -99,8 +99,6 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
         mobile,
         photo,
         rollNumber,
-        mobileNumber,
-        profileImage,
         departmentId: allottedDepartmentId,
         rights: initialRights,
       })
@@ -129,11 +127,9 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
     }
     if (mobile) {
       updateData.mobile = mobile;
-      updateData.mobileNumber = mobile;
     }
     if (photo) {
       updateData.photo = photo;
-      updateData.profileImage = photo;
     }
     if (rollNumber) updateData.rollNumber = rollNumber;
 
@@ -208,24 +204,24 @@ export async function getProfile() {
       user: {
         id: user.id,
         email: user.email,
+        email2: user.email2 || "",
         name: user.fullName || "",
         username: user.username || "",
         fatherName: user.fatherName || "",
         rollNumber: user.rollNumber || "",
-        mobileNumber: user.mobile || user.mobileNumber || "",
+        mobile: user.mobile || user.mobile || "",
         dob: user.dateOfBirth
           ? user.dateOfBirth.toISOString().split("T")[0]
           : "",
         gender: user.gender || "",
         degree: user.degree || "",
         specialization: user.specialization || "",
-        enrolledCourse:
-          [user.degree, user.specialization]
-            .filter(Boolean)
-            .map((s) => String(s).trim())
-            .filter(Boolean)
-            .join(" "),
-        photo: user.photo || user.profileImage || "",
+        enrolledCourse: [user.degree, user.specialization]
+          .filter(Boolean)
+          .map((s) => String(s).trim())
+          .filter(Boolean)
+          .join(" "),
+        photo: user.photo || "",
         role: user.role,
         designation: user.designation || "",
         departmentId: user.departmentId || "",
@@ -248,7 +244,7 @@ export async function getProfile() {
 export async function updateUserProfile(data: {
   name: string;
   email: string;
-  mobileNumber?: string;
+  mobile?: string;
   dob?: string;
   gender?: string;
   enrolledCourse?: string;
@@ -280,7 +276,7 @@ export async function updateUserProfile(data: {
 
     // 2. Update database record
     const dateOfBirth = data.dob ? new Date(data.dob) : null;
-    const mobileValue = data.mobileNumber || null;
+    const mobileValue = data.mobile || null;
 
     const [updatedUser] = await db
       .update(User)
@@ -288,7 +284,6 @@ export async function updateUserProfile(data: {
         fullName: data.name,
         email: data.email,
         mobile: mobileValue,
-        mobileNumber: mobileValue,
         dateOfBirth,
         gender: genderEnum,
         degree: data.degree || undefined,
@@ -309,6 +304,83 @@ export async function updateUserProfile(data: {
     return {
       success: false,
       message: "Failed to update profile details.",
+    };
+  }
+}
+
+/**
+ * Update authenticated user's secondary (personal) email
+ */
+export async function updateSecondaryEmail(email2: string) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+    if (!token) {
+      return { success: false, message: "Not authenticated." };
+    }
+
+    const payload = await verifyToken(token);
+    if (!payload || !payload.userId) {
+      return { success: false, message: "Invalid session." };
+    }
+
+    const trimmed = (email2 || "").trim();
+
+    // If clearing secondary email
+    if (!trimmed) {
+      await db
+        .update(User)
+        .set({ email2: null })
+        .where(eq(User.id, payload.userId));
+
+      return {
+        success: true,
+        message: "Secondary personal email removed.",
+        email2: "",
+      };
+    }
+
+    // Format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      return {
+        success: false,
+        message: "Please enter a valid email address.",
+      };
+    }
+
+    // Ensure it is not identical to primary email
+    const currentUser = await db.query.User.findFirst({
+      where: eq(User.id, payload.userId),
+      columns: { email: true },
+    });
+
+    if (
+      currentUser &&
+      currentUser.email.toLowerCase() === trimmed.toLowerCase()
+    ) {
+      return {
+        success: false,
+        message:
+          "Secondary email cannot be the same as your primary registered university email.",
+      };
+    }
+
+    await db
+      .update(User)
+      .set({ email2: trimmed.toLowerCase() })
+      .where(eq(User.id, payload.userId));
+
+    return {
+      success: true,
+      message: "Secondary personal email updated successfully!",
+      email2: trimmed.toLowerCase(),
+    };
+  } catch (error: any) {
+    console.error("Error updating secondary email:", error);
+    return {
+      success: false,
+      message: error.message || "Failed to update secondary email.",
     };
   }
 }
