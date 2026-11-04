@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Grievance Portal",
-  description: "Grievance Portal for University",
+  title: "Grievance Portal | SBSSU",
+  description: "Grievance Portal for SBS State University",
   icons: {
     icon: "/sbssu-logo.png",
   },

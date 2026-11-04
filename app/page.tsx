@@ -24,11 +24,11 @@ import {
   Sparkles,
   Lock,
 } from "lucide-react";
+import MadeBy from "@/components/MadeBy";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 export default function Home() {
-  // Theme and UI States
-  const { theme, toggleTheme } = useTheme();
-  const isDarkMode = theme === "dark";
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
   // FAQ Accordion Data
@@ -58,77 +58,8 @@ export default function Home() {
   return (
     <div className="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 min-h-screen font-sans transition-colors duration-300 flex flex-col">
       {/* 1. Header / Navigation */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-800/50 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo Brand */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl group-hover:scale-105 transition-transform">
-              <GraduationCap className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <span className="font-extrabold text-slate-900 dark:text-slate-50 tracking-tight text-base sm:text-lg block leading-none">
-                SBSSU
-              </span>
-              <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider block mt-0.5">
-                Redressal Portal
-              </span>
-            </div>
-          </Link>
 
-          {/* Nav Links - Desktop */}
-          <nav className="hidden md:flex items-center gap-8">
-            <a
-              href="#features"
-              className="text-sm font-semibold hover:text-primary transition-colors"
-            >
-              Features
-            </a>
-            <a
-              href="#workflow"
-              className="text-sm font-semibold hover:text-primary transition-colors"
-            >
-              How It Works
-            </a>
-            <a
-              href="#stats"
-              className="text-sm font-semibold hover:text-primary transition-colors"
-            >
-              Impact
-            </a>
-            <a
-              href="#faqs"
-              className="text-sm font-semibold hover:text-primary transition-colors"
-            >
-              FAQs
-            </a>
-          </nav>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            {/* Theme Switcher */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
-              aria-label="Toggle theme"
-            >
-              {isDarkMode ? (
-                <Sun className="h-5 w-5 text-amber-400" />
-              ) : (
-                <Moon className="h-5 w-5 text-primary" />
-              )}
-            </button>
-
-            {/* Login */}
-            <Link
-              href="/login"
-              className="text-sm font-semibold bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-xl transition-all shadow-md shadow-primary/10 active:scale-95 cursor-pointer"
-            >
-              Sign In
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* 2. Hero Section */}
       <section className="relative py-16 sm:py-24 overflow-hidden">
@@ -542,102 +473,7 @@ export default function Home() {
       </section>
 
       {/* 7. Footer & Contact Details */}
-      <footer className="mt-auto bg-slate-900 dark:bg-slate-955 text-slate-400 border-t border-slate-800 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-10 border-b border-slate-800">
-            {/* Column 1: Brand */}
-            <div className="space-y-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-primary/20 border border-primary/30 rounded-xl text-primary">
-                  <GraduationCap className="h-5 w-5" />
-                </div>
-                <span className="font-extrabold text-slate-100 tracking-tight text-base">
-                  SBS State University
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed max-w-xs">
-                Dedicated to improving student welfare and administrative
-                efficiency through digital accountability.
-              </p>
-            </div>
-
-            {/* Column 2: Navigation Links */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                Quick Navigation
-              </h4>
-              <ul className="space-y-2 text-xs">
-                <li>
-                  <Link
-                    href="/login"
-                    className="hover:text-white transition-colors"
-                  >
-                    Student Login
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/register"
-                    className="hover:text-white transition-colors"
-                  >
-                    Create Student Account
-                  </Link>
-                </li>
-                <li>
-                  <a
-                    href="#features"
-                    className="hover:text-white transition-colors"
-                  >
-                    Core Portal Features
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#workflow"
-                    className="hover:text-white transition-colors"
-                  >
-                    Redressal Process
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 3: Contact Info */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                Support & Contact
-              </h4>
-              <ul className="space-y-2 text-xs">
-                <li className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-primary shrink-0" />
-                  <a
-                    href="mailto:grievance@sbs.university.edu"
-                    className="hover:text-white transition-colors"
-                  >
-                    grievance@sbs.university.edu
-                  </a>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-primary shrink-0" />
-                  <span>+91 1800-244-8899</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary shrink-0" />
-                  <span>SBS University Campus, IT Block, Room 204</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-between pt-6 text-[10px] text-slate-600 gap-4">
-            <p>
-              © {new Date().getFullYear()} Shaheed Bhagat Singh State
-              University. All rights reserved.
-            </p>
-            <p>Developed with excellence by Team Hamilton</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
