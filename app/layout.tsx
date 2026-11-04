@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Grievance Portal",
   description: "Grievance Portal for University",
+  icons: {
+    icon: "/sbssu-logo.png",
+  },
 };
 
 export default function RootLayout({
