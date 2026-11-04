@@ -964,38 +964,34 @@ export async function escalateRequest(requestId: string, reason?: string) {
       };
     }
 
-        const escalationDaysConfig = await getConfig("escalationDays");
+    const escalationDaysConfig = await getConfig("escalationDays");
 
-        const escalationDays = Number(
-          escalationDaysConfig.data?.escalationDays,
-        );
+    const escalationDays = Number(escalationDaysConfig.data?.escalationDays);
 
-        if (
-          !escalationDaysConfig.success ||
-          !Number.isFinite(escalationDays) ||
-          escalationDays <= 0
-        ) {
-          throw new Error("Valid escalationDays config not set");
-        }
+    if (
+      !escalationDaysConfig.success ||
+      !Number.isFinite(escalationDays) ||
+      escalationDays <= 0
+    ) {
+      throw new Error("Valid escalationDays config not set");
+    }
 
+    // Cooldown check
+    const baseDate = req.lastEscalatedAt || req.createdAt;
+    const msPassed = Date.now() - new Date(baseDate).getTime();
 
+    const cooldownMs = escalationDays * 24 * 60 * 60 * 1000;
 
-        // Cooldown check
-        const baseDate = req.lastEscalatedAt || req.createdAt;
-        const msPassed = Date.now() - new Date(baseDate).getTime();
+    if (msPassed < cooldownMs && !isAdmin) {
+      const daysLeft = Math.ceil(
+        (cooldownMs - msPassed) / (24 * 60 * 60 * 1000),
+      );
 
-        const cooldownMs = escalationDays * 24 * 60 * 60 * 1000;
-
-        if (msPassed < cooldownMs && !isAdmin) {
-          const daysLeft = Math.ceil(
-            (cooldownMs - msPassed) / (24 * 60 * 60 * 1000),
-          );
-
-          return {
-            success: false,
-            message: `Escalation is available after ${escalationDays} days from previous action (${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining).`,
-          };
-        }
+      return {
+        success: false,
+        message: `Escalation is available after ${escalationDays} days from previous action (${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining).`,
+      };
+    }
 
     const currentEscalation = req.escalationLevel;
     const nextEscalation = currentEscalation + 1;
