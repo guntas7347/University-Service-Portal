@@ -395,8 +395,9 @@ export async function getStudentRequests() {
   }
 }
 
+
 /**
- * Fetch all requests based on role, department management, assignments, and watchlists
+ * Fetch requests securely based on role and explicit rights.
  */
 export async function getAllRequests() {
   try {
@@ -406,10 +407,8 @@ export async function getAllRequests() {
     }
 
     const rights = user.rights || [];
-    const isAdmin =
-      rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
-    const managedDeptIds = await getHodDepartmentIds(user);
-    const isDeptManager = isUserHod(user, managedDeptIds);
+    const isAdmin = rights.includes("ADMIN");
+    const canViewDeptTickets = rights.includes("VIEW_DEPARTMENT_TICKETS");
 
     const standardWith = {
       category: { columns: { name: true } },
@@ -426,28 +425,28 @@ export async function getAllRequests() {
     let requests;
 
     if (isAdmin) {
-      // Admins see all requests
+      // 1. ADMIN: Sees absolutely everything
       requests = await db.query.Request.findMany({
         with: standardWith,
         orderBy: [desc(Request.createdAt)],
       });
-    } else if (isDeptManager && managedDeptIds.length > 0) {
-      // HOD sees:
-      // 1. Requests targeted to their department
-      // 2. Requests created by students/users of their department
-      // 3. Requests assigned to this HOD
-      // 4. Requests watched by this HOD
-      // 5. Requests created by this HOD
-      const studentInDeptCondition = exists(
+      
+    } else if (canViewDeptTickets && user.departmentId) {
+      // 2. DEPARTMENT MANAGER: Sees department tickets + personal tickets
+      // - Tickets targeting their department
+      // - Tickets created by users in their department
+      // - Their own tickets (assigned, watched, or created)
+      
+      const creatorInDeptCondition = exists(
         db
           .select({ id: User.id })
           .from(User)
           .where(
             and(
               eq(User.id, Request.createdById),
-              inArray(User.departmentId, managedDeptIds),
-            ),
-          ),
+              eq(User.departmentId, user.departmentId)
+            )
+          )
       );
 
       const assignedCondition = exists(
@@ -457,9 +456,9 @@ export async function getAllRequests() {
           .where(
             and(
               eq(RequestAssignment.requestId, Request.id),
-              eq(RequestAssignment.userId, user.id),
-            ),
-          ),
+              eq(RequestAssignment.userId, user.id)
+            )
+          )
       );
 
       const watcherCondition = exists(
@@ -469,24 +468,27 @@ export async function getAllRequests() {
           .where(
             and(
               eq(RequestWatcher.requestId, Request.id),
-              eq(RequestWatcher.userId, user.id),
-            ),
-          ),
+              eq(RequestWatcher.userId, user.id)
+            )
+          )
       );
 
       requests = await db.query.Request.findMany({
         where: or(
-          inArray(Request.departmentId, managedDeptIds),
-          studentInDeptCondition,
-          assignedCondition,
-          watcherCondition,
-          eq(Request.createdById, user.id),
+          eq(Request.departmentId, user.departmentId), // Targeted to Dept
+          creatorInDeptCondition,                      // Raised by Dept Member
+          assignedCondition,                           // Assigned to me
+          watcherCondition,                            // Watched by me
+          eq(Request.createdById, user.id)             // Created by me
         ),
         with: standardWith,
         orderBy: [desc(Request.createdAt)],
       });
+
     } else {
-      // All other faculty, staff, students, and watchers:
+      // 3. EVERYONE ELSE (Students, Standard Faculty, Standard Staff):
+      // - Strictly limited to tickets they are personally involved in
+      
       const assignedCondition = exists(
         db
           .select({ id: RequestAssignment.id })
@@ -494,9 +496,9 @@ export async function getAllRequests() {
           .where(
             and(
               eq(RequestAssignment.requestId, Request.id),
-              eq(RequestAssignment.userId, user.id),
-            ),
-          ),
+              eq(RequestAssignment.userId, user.id)
+            )
+          )
       );
 
       const watcherCondition = exists(
@@ -506,16 +508,16 @@ export async function getAllRequests() {
           .where(
             and(
               eq(RequestWatcher.requestId, Request.id),
-              eq(RequestWatcher.userId, user.id),
-            ),
-          ),
+              eq(RequestWatcher.userId, user.id)
+            )
+          )
       );
 
       requests = await db.query.Request.findMany({
         where: or(
-          assignedCondition,
-          watcherCondition,
-          eq(Request.createdById, user.id),
+          assignedCondition,                // Assigned to me
+          watcherCondition,                 // Watched by me
+          eq(Request.createdById, user.id)  // Created by me
         ),
         with: standardWith,
         orderBy: [desc(Request.createdAt)],
@@ -525,17 +527,14 @@ export async function getAllRequests() {
     return {
       success: true,
       requests: requests.map((r: any) => {
-        const primaryAssignee = r.assignments.find(
-          (a: any) => a.role === "PRIMARY",
-        )?.user;
+        const primaryAssignee = r.assignments.find((a: any) => a.role === "PRIMARY")?.user;
         const assignedNames = r.assignments
           .map((a: any) => a.user?.fullName)
           .filter(Boolean)
           .join(", ");
-        const isWatcher =
-          r.watchers?.some((w: any) => w.userId === user.id) || false;
-        const isAssigned =
-          r.assignments?.some((a: any) => a.userId === user.id) || false;
+          
+        const isWatcher = r.watchers?.some((w: any) => w.userId === user.id) || false;
+        const isAssigned = r.assignments?.some((a: any) => a.userId === user.id) || false;
 
         return {
           id: r.id,
@@ -547,12 +546,8 @@ export async function getAllRequests() {
           description: r.description,
           status: r.status,
           priority: r.priority,
-          studentName: r.isAnonymous
-            ? "Anonymous"
-            : r.createdBy?.fullName || "Student",
-          createdByName: r.isAnonymous
-            ? "Anonymous"
-            : r.createdBy?.fullName || "Student",
+          studentName: r.isAnonymous ? "Anonymous" : r.createdBy?.fullName || "User",
+          createdByName: r.isAnonymous ? "Anonymous" : r.createdBy?.fullName || "User",
           studentRoll: r.isAnonymous ? "N/A" : r.createdBy?.rollNumber || "N/A",
           assignedToId: primaryAssignee?.id || null,
           assignedToName: assignedNames || "Unassigned",
@@ -566,13 +561,9 @@ export async function getAllRequests() {
         };
       }),
       userRole: user.role,
-      userRights: user.rights || [],
+      userRights: rights,
       userId: user.id,
-      userDeptId:
-        user.departmentId ||
-        user.managedDepartment?.id ||
-        managedDeptIds[0] ||
-        "",
+      userDeptId: user.departmentId || "",
     };
   } catch (error: any) {
     console.error("Error fetching all requests:", error);
@@ -582,6 +573,7 @@ export async function getAllRequests() {
     };
   }
 }
+
 
 /**
  * Fetch detailed request data including comments, activities and files
@@ -599,69 +591,33 @@ export async function getRequestDetails(requestId: string) {
         category: true,
         department: true,
         createdBy: {
-          with: {
-            department: true,
-          },
+          with: { department: true },
         },
         assignments: {
           with: {
-            user: {
-              columns: {
-                id: true,
-                fullName: true,
-                role: true,
-                designation: true,
-                email: true,
-              },
-            },
+            user: { columns: { id: true, fullName: true, role: true, designation: true, email: true } },
           },
         },
         watchers: {
           with: {
-            user: {
-              columns: {
-                id: true,
-                fullName: true,
-                role: true,
-                designation: true,
-                email: true,
-              },
-            },
+            user: { columns: { id: true, fullName: true, role: true, designation: true, email: true } },
           },
         },
         comments: {
           with: {
-            author: {
-              columns: {
-                id: true,
-                fullName: true,
-                role: true,
-                designation: true,
-              },
-            },
+            author: { columns: { id: true, fullName: true, role: true, designation: true } },
           },
           orderBy: [asc(RequestComment.createdAt)],
         },
         activities: {
           with: {
-            actor: {
-              columns: {
-                id: true,
-                fullName: true,
-                role: true,
-              },
-            },
+            actor: { columns: { id: true, fullName: true, role: true } },
           },
           orderBy: [desc(RequestActivity.createdAt)],
         },
         attachments: {
           with: {
-            uploadedBy: {
-              columns: {
-                fullName: true,
-                role: true,
-              },
-            },
+            uploadedBy: { columns: { fullName: true, role: true } },
           },
           orderBy: [desc(RequestAttachment.createdAt)],
         },
@@ -672,52 +628,53 @@ export async function getRequestDetails(requestId: string) {
       return { success: false, message: "Request not found." };
     }
 
-    // Access control evaluation
-    const isCreator = reqDetails.createdById === activeUser.id;
-    const isAssigned = reqDetails.assignments.some(
-      (a: any) => a.userId === activeUser.id,
-    );
-    const isWatcher = reqDetails.watchers.some(
-      (w: any) => w.userId === activeUser.id,
-    );
-
+    // ==========================================
+    // 1. RBAC ACCESS CONTROL EVALUATION
+    // ==========================================
     const rights = activeUser.rights || [];
-    const isAdmin =
-      rights.includes("ADMIN") || rights.includes("VIEW_ALL_REQUESTS");
-    const managedDeptIds = await getHodDepartmentIds(activeUser);
-    const isDeptManager = isHodForRequest(
-      activeUser,
-      managedDeptIds,
-      reqDetails,
-    );
+    const isAdmin = rights.includes("ADMIN");
+    const canViewDeptTickets = rights.includes("VIEW_DEPARTMENT_TICKETS");
 
-    const hasAccess =
-      isAdmin || isDeptManager || isCreator || isAssigned || isWatcher;
+    const isCreator = reqDetails.createdById === activeUser.id;
+    const isAssigned = reqDetails.assignments.some((a: any) => a.userId === activeUser.id);
+    const isWatcher = reqDetails.watchers.some((w: any) => w.userId === activeUser.id);
+    
+    const isTargetDept = canViewDeptTickets && reqDetails.departmentId === activeUser.departmentId;
+    const isCreatorInMyDept = canViewDeptTickets && reqDetails.createdBy?.departmentId === activeUser.departmentId;
+
+    // A user can view the ticket if they are an Admin, a Dept Manager (where ticket belongs to or was created by their dept), or explicitly involved.
+    const hasAccess = isAdmin || isTargetDept || isCreatorInMyDept || isCreator || isAssigned || isWatcher;
 
     if (!hasAccess) {
       return {
         success: false,
-        message:
-          "Access Denied. You do not have permission to view this ticket.",
+        message: "Access Denied. You do not have permission to view this ticket.",
       };
     }
 
-    // Pure watcher: in watchers list, but NOT an admin, NOT department HOD, NOT assigned handler, NOT creator
-    const isPureWatcher =
-      isWatcher && !isAdmin && !isDeptManager && !isAssigned && !isCreator;
+    // ==========================================
+    // 2. COMMENT & WATCHER VISIBILITY RULES
+    // ==========================================
+    
+    // Pure watcher: involved, but not an admin, dept manager, assigned handler, or creator
+    const isPureWatcher = isWatcher && !isAdmin && !isTargetDept && !isCreatorInMyDept && !isAssigned && !isCreator;
 
-    // Internal comments visibility: Staff, HOD, Admin, and Assignees can view internal notes; students cannot
-    const canViewInternalComments =
-      isAdmin ||
-      isDeptManager ||
-      isAssigned ||
-      (activeUser.role !== "STUDENT" && (rights.length > 0 || isWatcher));
+    // Internal comments visibility: Staff/Faculty can view internal notes if they are involved or manage the dept. Students cannot.
+    const canViewInternalComments = 
+      isAdmin || 
+      isTargetDept || 
+      isCreatorInMyDept || 
+      isAssigned || 
+      (activeUser.role !== "STUDENT" && isWatcher);
 
     const visibleComments = reqDetails.comments.filter((c: any) => {
       if (!c.internal) return true;
       return canViewInternalComments;
     });
 
+    // ==========================================
+    // 3. MAPPING & ESCALATION LOGIC
+    // ==========================================
     const mappedDetails = {
       id: reqDetails.id,
       ticketId: reqDetails.ticketId,
@@ -736,23 +693,12 @@ export async function getRequestDetails(requestId: string) {
       departmentHodId: reqDetails.department?.hodId || "",
       student: {
         id: reqDetails.createdById,
-        name: reqDetails.isAnonymous
-          ? "Anonymous Student"
-          : reqDetails.createdBy?.fullName || "Student",
-        fullName: reqDetails.isAnonymous
-          ? "Anonymous Student"
-          : reqDetails.createdBy?.fullName || "Student",
-        email: reqDetails.isAnonymous
-          ? "N/A"
-          : reqDetails.createdBy?.email || "N/A",
-        rollNumber: reqDetails.isAnonymous
-          ? "N/A"
-          : reqDetails.createdBy?.rollNumber || "N/A",
-        mobile: reqDetails.isAnonymous
-          ? "N/A"
-          : reqDetails.createdBy?.mobile || "N/A",
-        courseName:
-          [reqDetails.createdBy?.degree, reqDetails.createdBy?.specialization]
+        name: reqDetails.isAnonymous ? "Anonymous Student" : reqDetails.createdBy?.fullName || "Student",
+        fullName: reqDetails.isAnonymous ? "Anonymous Student" : reqDetails.createdBy?.fullName || "Student",
+        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.email || "N/A",
+        rollNumber: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.rollNumber || "N/A",
+        mobile: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.mobile || "N/A",
+        courseName: [reqDetails.createdBy?.degree, reqDetails.createdBy?.specialization]
             .filter(Boolean)
             .map((s: any) => String(s).trim())
             .filter(Boolean)
@@ -760,27 +706,14 @@ export async function getRequestDetails(requestId: string) {
         departmentId: reqDetails.createdBy?.departmentId || "",
         departmentName: reqDetails.createdBy?.department?.name || "N/A",
       },
-      creator: {
+      creator: { // Duplicate for backward compatibility in your frontend
         id: reqDetails.createdById,
-        name: reqDetails.isAnonymous
-          ? "Anonymous Student"
-          : reqDetails.createdBy?.fullName || "Student",
-        fullName: reqDetails.isAnonymous
-          ? "Anonymous Student"
-          : reqDetails.createdBy?.fullName || "Student",
-        email: reqDetails.isAnonymous
-          ? "N/A"
-          : reqDetails.createdBy?.email || "N/A",
-        rollNumber: reqDetails.isAnonymous
-          ? "N/A"
-          : reqDetails.createdBy?.rollNumber || "N/A",
-        mobile: reqDetails.isAnonymous
-          ? "N/A"
-          : reqDetails.createdBy?.mobile ||
-            reqDetails.createdBy?.mobile ||
-            "N/A",
-        courseName:
-          [reqDetails.createdBy?.degree, reqDetails.createdBy?.specialization]
+        name: reqDetails.isAnonymous ? "Anonymous Student" : reqDetails.createdBy?.fullName || "Student",
+        fullName: reqDetails.isAnonymous ? "Anonymous Student" : reqDetails.createdBy?.fullName || "Student",
+        email: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.email || "N/A",
+        rollNumber: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.rollNumber || "N/A",
+        mobile: reqDetails.isAnonymous ? "N/A" : reqDetails.createdBy?.mobile || "N/A",
+        courseName: [reqDetails.createdBy?.degree, reqDetails.createdBy?.specialization]
             .filter(Boolean)
             .map((s: any) => String(s).trim())
             .filter(Boolean)
@@ -853,24 +786,18 @@ export async function getRequestDetails(requestId: string) {
         createdAt: att.createdAt.toISOString(),
       })),
       escalationLevel: reqDetails.escalationLevel || 0,
-      lastEscalatedAt: reqDetails.lastEscalatedAt
-        ? reqDetails.lastEscalatedAt.toISOString()
-        : null,
+      lastEscalatedAt: reqDetails.lastEscalatedAt ? reqDetails.lastEscalatedAt.toISOString() : null,
       isEscalated: reqDetails.isEscalated || false,
       tags: reqDetails.tags || [],
       isPureWatcher,
       canEscalate: (() => {
         const isTerminal = (
-          [
-            RequestStatus.RESOLVED,
-            RequestStatus.CLOSED,
-            RequestStatus.REJECTED,
-            RequestStatus.CANCELLED,
-          ] as RequestStatus[]
-        ).includes(reqDetails.status);
+          [RequestStatus.RESOLVED, RequestStatus.CLOSED, RequestStatus.REJECTED, RequestStatus.CANCELLED] as RequestStatus[]
+        ).includes(reqDetails.status as RequestStatus);
+        
         if (isTerminal) return false;
-        const isCreatorOrAdmin = isCreator || rights.includes("ADMIN");
-        if (!isCreatorOrAdmin) return false;
+        if (!isCreator && !isAdmin) return false;
+        
         const baseDate = reqDetails.lastEscalatedAt || reqDetails.createdAt;
         const msPassed = Date.now() - new Date(baseDate).getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
@@ -880,10 +807,7 @@ export async function getRequestDetails(requestId: string) {
         const baseDate = reqDetails.lastEscalatedAt || reqDetails.createdAt;
         const msPassed = Date.now() - new Date(baseDate).getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        return Math.max(
-          0,
-          Math.ceil((sevenDaysMs - msPassed) / (24 * 60 * 60 * 1000)),
-        );
+        return Math.max(0, Math.ceil((sevenDaysMs - msPassed) / (24 * 60 * 60 * 1000)));
       })(),
     };
 
@@ -893,11 +817,7 @@ export async function getRequestDetails(requestId: string) {
       userRole: activeUser.role,
       userRights: activeUser.rights,
       userId: activeUser.id,
-      userDeptId:
-        activeUser.departmentId ||
-        activeUser.managedDepartment?.id ||
-        managedDeptIds[0] ||
-        "",
+      userDeptId: activeUser.departmentId || "",
     };
   } catch (error: any) {
     console.error("Error retrieving request details:", error);

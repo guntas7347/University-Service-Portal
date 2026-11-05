@@ -43,7 +43,6 @@ function getPublicOrigin(req: NextRequest): string {
 
 async function processCallback(req: NextRequest, code: string | null) {
   if (!code) {
-    console.warn("SSO Callback: No authorization code received in request.");
     const origin = getPublicOrigin(req);
     const loginUrl = new URL("/login", origin);
     loginUrl.searchParams.set("error", "Missing authorization code from SSO");
@@ -83,7 +82,6 @@ async function processCallback(req: NextRequest, code: string | null) {
     const finalRedirectUrl = new URL(destination, origin).toString();
     const response = NextResponse.redirect(finalRedirectUrl);
 
-    // Persist 7-day session token cookie
     response.cookies.set("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -91,12 +89,7 @@ async function processCallback(req: NextRequest, code: string | null) {
       path: "/",
     });
 
-    console.log(
-      "SSO Callback: Successfully authenticated user",
-      user.id,
-      "- redirecting to",
-      destination,
-    );
+  
     return response;
   } catch (error: unknown) {
     console.error("SSO Callback error:", error);
