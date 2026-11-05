@@ -10,19 +10,31 @@ import {
   FileText,
   AlertTriangle,
   ArrowRight,
-  EyeOff,
-  Eye,
   Bookmark,
   Landmark,
   FolderOpen,
   User,
   Users,
+  X,
 } from "lucide-react";
 import { useForm } from "@/hooks/useForm";
 import { getCategories } from "@/lib/actions/categories";
 import { getDepartments } from "@/lib/actions/departments";
 import { getStaffUsers } from "@/lib/actions/staff";
 import { createRequest } from "@/lib/actions/requests";
+import { SelectStaffModal } from "@/components/dashboard/SelectStaffModal";
+
+export interface StaffOption {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  designation?: string;
+  departmentId?: string;
+  departmentName?: string;
+  mobile?: string;
+  photo?: string;
+}
 
 interface CategoryOption {
   id: string;
@@ -37,43 +49,36 @@ interface DepartmentOption {
   hodName: string;
 }
 
-interface StaffOption {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  designation: string;
-  departmentId: string;
-}
-
 export default function CreateRequestPage() {
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
+
+  // Selection states
   const [selectedWatchers, setSelectedWatchers] = useState<string[]>([]);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [isWatcherModalOpen, setIsWatcherModalOpen] = useState(false);
 
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
 
-  // Submission result states
+  // Result states
   const [ticketId, setTicketId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Form management hook
   const { form, handleChange, setFields, resetFormFields } = useForm({
     type: "COMPLAINT",
-    raiseMode: "CATEGORY", // "CATEGORY" | "DEPARTMENT"
+    raiseMode: "CATEGORY",
     categoryId: "",
     departmentId: "",
-    assignedUserId: "", // Empty or "HOD" defaults to HOD, otherwise specific faculty ID
+    assignedUserId: "",
     subject: "",
     description: "",
     priority: "MEDIUM",
   });
 
-  // Load all dependencies on mount
   useEffect(() => {
     const fetchDependencies = async () => {
       setIsDataLoading(true);
@@ -86,16 +91,7 @@ export default function CreateRequestPage() {
       if (catRes.success && catRes.categories) {
         setCategories(catRes.categories);
         if (catRes.categories.length > 0) {
-          setFields({
-            type: "COMPLAINT",
-            raiseMode: "CATEGORY",
-            categoryId: catRes.categories[0].id,
-            departmentId: "",
-            assignedUserId: "",
-            subject: "",
-            description: "",
-            priority: "MEDIUM",
-          });
+          setFields({ categoryId: catRes.categories[0].id });
         }
       }
       if (deptRes.success && deptRes.departments) {
@@ -109,27 +105,27 @@ export default function CreateRequestPage() {
     fetchDependencies();
   }, [setFields]);
 
-  // Submit action handler
+  // Derived faculty list for the currently selected department
+  const departmentFaculty = staffList.filter(
+    (s) => s.departmentId === form.departmentId,
+  );
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSuccessMsg(null);
     setErrorMsg(null);
 
     if (form.raiseMode === "CATEGORY" && !form.categoryId) {
-      setErrorMsg("Please select a grievance category classification.");
+      setErrorMsg("Please select a grievance category.");
       return;
     }
     if (form.raiseMode === "DEPARTMENT" && !form.departmentId) {
-      setErrorMsg("Please select a target university department.");
+      setErrorMsg("Please select a target department.");
       return;
     }
-    if (!form.subject.trim()) {
-      setErrorMsg("A short subject heading is required.");
-      return;
-    }
-    if (form.description.trim().length < 15) {
+    if (!form.subject.trim() || form.description.trim().length < 15) {
       setErrorMsg(
-        "Please write a detailed description of the issue (minimum 15 characters).",
+        "Subject and a detailed description (min 15 chars) are required.",
       );
       return;
     }
@@ -137,9 +133,7 @@ export default function CreateRequestPage() {
     setIsSubmitting(true);
 
     const assignedUserIds =
-      form.raiseMode === "DEPARTMENT" &&
-      form.assignedUserId &&
-      form.assignedUserId !== "HOD"
+      form.raiseMode === "DEPARTMENT" && form.assignedUserId
         ? [form.assignedUserId]
         : [];
 
@@ -161,98 +155,82 @@ export default function CreateRequestPage() {
       if (response.success && response.ticketId) {
         setSuccessMsg(response.message);
         setTicketId(response.ticketId);
-        resetFormFields();
-        setIsAnonymous(false);
-        setSelectedWatchers([]);
+        window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
         setErrorMsg(response.message);
       }
     } catch (err) {
-      setErrorMsg(
-        "An unexpected error occurred during submission. Please try again.",
-      );
+      setErrorMsg("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Switch form back to clean state
   const handleResetForm = () => {
     setTicketId(null);
     setSuccessMsg(null);
     setErrorMsg(null);
     setSelectedWatchers([]);
+    resetFormFields();
     setFields({
       type: "COMPLAINT",
       raiseMode: "CATEGORY",
       categoryId: categories.length > 0 ? categories[0].id : "",
-      departmentId: "",
-      assignedUserId: "",
-      subject: "",
-      description: "",
       priority: "MEDIUM",
     });
   };
 
-  // Filter staff to selected department (for direct assignee selection)
-  const departmentFaculty = staffList.filter(
-    (s) => s.departmentId === form.departmentId,
-  );
+  // Render assigned user display for department mode
+  const selectedFaculty = staffList.find((s) => s.id === form.assignedUserId);
 
-  // 1. Loading active category tracks
   if (isDataLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="h-8 w-8 text-primary animate-spin" />
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+        <p className="text-sm text-slate-500 font-medium">
           Loading form dependencies...
         </p>
       </div>
     );
   }
 
-  // 2. Success state layout (displays generated Ticket tracking ID card)
+  // Success State
   if (ticketId && successMsg) {
     return (
-      <div className="max-w-xl mx-auto space-y-6">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-8 shadow-sm text-center flex flex-col items-center space-y-5">
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-100 dark:border-emerald-900/30">
+      <div className="max-w-xl mx-auto space-y-6 pt-10">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm text-center flex flex-col items-center space-y-5 animate-in zoom-in-95 duration-300">
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-full">
             <CheckCircle2 className="h-12 w-12" />
           </div>
-
           <div className="space-y-2">
             <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-50">
               {successMsg}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+            <p className="text-sm text-slate-500 max-w-sm mx-auto">
               Your ticket has been logged into the university redressal cells.
-              Use this tracking ID for official references:
+              Use this tracking ID for official references.
             </p>
           </div>
-
-          {/* Ticket ID display card */}
-          <div className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-login-radius py-4 px-6 select-all cursor-pointer group hover:border-primary transition-colors">
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-1">
+          <div className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-5 px-6">
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block mb-1">
               Public Ticket ID
             </span>
-            <span className="text-lg font-mono font-extrabold text-primary group-hover:scale-105 transition-transform block">
+            <span className="text-2xl font-mono font-extrabold text-primary select-all">
               {ticketId}
             </span>
           </div>
-
-          <div className="w-full pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-2">
+          <div className="w-full pt-4 flex gap-3">
             <button
-              type="button"
               onClick={handleResetForm}
-              className="flex-1 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] cursor-pointer"
+              className="flex-1 h-11 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-sm transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"
             >
-              File Another Request
+              File Another
             </button>
             <Link
               href="/dashboard"
-              className="flex-1 h-11 bg-primary hover:bg-primary/95 text-white font-semibold rounded-login-radius text-sm flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-primary/10"
+              className="flex-1 h-11 bg-primary text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-1.5 transition-colors hover:bg-primary/90"
             >
-              <span>Back to Dashboard</span>
+              <span>Dashboard</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -262,87 +240,73 @@ export default function CreateRequestPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Title Header */}
+    <div className="max-w-3xl mx-auto space-y-6 pb-12">
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
           File a Request
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        <p className="text-xs text-slate-500 mt-1">
           Submit official complaints, inquiries, or feedback to administration
           departments
         </p>
       </div>
 
-      {/* Main card wrapper */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 md:p-8 shadow-sm">
-        {categories.length === 0 && departments.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
-            <AlertTriangle className="h-10 w-10 text-amber-500" />
-            <div className="space-y-1">
-              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
-                No Categories or Departments
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
-                Before filing a request, categories or departments must be
-                configured in the portal dashboard.
-              </p>
+      {categories.length === 0 && departments.length === 0 ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 text-center space-y-4">
+          <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
+          <h3 className="font-bold text-slate-800 dark:text-slate-200">
+            System Not Ready
+          </h3>
+          <p className="text-sm text-slate-500">
+            Categories and Departments must be configured before requests can be
+            filed.
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {errorMsg && (
+            <div className="flex items-start gap-2.5 p-4 bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-800/30 rounded-xl text-red-800 dark:text-red-300 text-sm animate-in fade-in">
+              <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
+              <span>{errorMsg}</span>
             </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Feedback Alerts */}
-            {errorMsg && (
-              <div className="mb-4 flex items-start gap-2.5 p-3 bg-red-50 dark:bg-red-955/20 border border-red-200 dark:border-red-800/30 rounded-xl text-red-800 dark:text-red-300 text-xs">
-                <AlertCircle className="h-4.5 w-4.5 shrink-0 text-red-650 dark:text-red-400 mt-0.5" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
+          )}
 
-            {/* Split Form Elements */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-login-gap">
-              {/* Request Type Selection */}
+          {/* SECTION 1: Classification & Target */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-3">
+              1. Classification
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label
-                  htmlFor="type"
-                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                >
-                  Request Type Classification
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                  Request Type
                 </label>
                 <select
-                  id="type"
                   name="type"
                   required
-                  disabled={isSubmitting}
                   value={form.type}
                   onChange={handleChange}
-                  className="w-full h-11 px-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+                  className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary outline-none"
                 >
                   <option value="COMPLAINT">Complaint</option>
                   <option value="GRIEVANCE">Grievance</option>
                   <option value="SERVICE_REQUEST">Service Request</option>
                   <option value="INQUIRY">Inquiry</option>
                   <option value="SUGGESTION">Suggestion</option>
-                  <option value="APPEAL">Appeal</option>
                 </select>
               </div>
 
-              {/* Priority Select */}
               <div>
-                <label
-                  htmlFor="priority"
-                  className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                >
-                  Priority Urgency
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                  Priority
                 </label>
                 <select
-                  id="priority"
                   name="priority"
                   required
-                  disabled={isSubmitting}
                   value={form.priority}
                   onChange={handleChange}
-                  className="w-full h-11 px-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+                  className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary outline-none"
                 >
                   <option value="LOW">Low</option>
                   <option value="MEDIUM">Medium</option>
@@ -351,18 +315,13 @@ export default function CreateRequestPage() {
                 </select>
               </div>
 
-              {/* Raise Mode selector */}
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2.5">
-                  Filing Option (Grievance Target)
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                  Filing Mode
                 </label>
-                <div className="grid grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label
-                    className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all select-none ${
-                      form.raiseMode === "CATEGORY"
-                        ? "border-primary bg-primary/5 dark:bg-primary/5"
-                        : "border-slate-200 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-950/20"
-                    }`}
+                    className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${form.raiseMode === "CATEGORY" ? "border-primary bg-primary/5" : "border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50"}`}
                   >
                     <input
                       type="radio"
@@ -370,25 +329,20 @@ export default function CreateRequestPage() {
                       value="CATEGORY"
                       checked={form.raiseMode === "CATEGORY"}
                       onChange={handleChange}
-                      className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-slate-800 cursor-pointer"
+                      className="h-4 w-4 text-primary"
                     />
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <FolderOpen className="h-3.5 w-3.5 text-primary shrink-0" />
-                        Raise by Category
+                      <span className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <FolderOpen className="h-4 w-4 text-primary" /> By
+                        Category
                       </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                        Auto-route assign based on rules
+                      <span className="text-xs text-slate-500 mt-0.5">
+                        Auto-routes to correct staff
                       </span>
                     </div>
                   </label>
-
                   <label
-                    className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all select-none ${
-                      form.raiseMode === "DEPARTMENT"
-                        ? "border-primary bg-primary/5 dark:bg-primary/5"
-                        : "border-slate-200 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-950/20"
-                    }`}
+                    className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${form.raiseMode === "DEPARTMENT" ? "border-primary bg-primary/5" : "border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50"}`}
                   >
                     <input
                       type="radio"
@@ -396,271 +350,262 @@ export default function CreateRequestPage() {
                       value="DEPARTMENT"
                       checked={form.raiseMode === "DEPARTMENT"}
                       onChange={handleChange}
-                      className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-slate-800 cursor-pointer"
+                      className="h-4 w-4 text-primary"
                     />
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <Landmark className="h-3.5 w-3.5 text-primary shrink-0" />
-                        Raise by Department
+                      <span className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <Landmark className="h-4 w-4 text-primary" /> By
+                        Department
                       </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                        Assign directly to HOD or Faculty
+                      <span className="text-xs text-slate-500 mt-0.5">
+                        Send directly to department
                       </span>
                     </div>
                   </label>
                 </div>
               </div>
 
-              {/* Category Dropdown Selection */}
-              {form.raiseMode === "CATEGORY" && (
-                <div className="md:col-span-2">
-                  <label
-                    htmlFor="categoryId"
-                    className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                  >
-                    Grievance Category classification
+              {/* Dynamic Target Selection */}
+              {form.raiseMode === "CATEGORY" ? (
+                <div className="sm:col-span-2 animate-in fade-in slide-in-from-top-2">
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                    Select Category
                   </label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <FolderOpen className="h-4 w-4 text-slate-400" />
-                    </div>
+                  <select
+                    name="categoryId"
+                    required
+                    value={form.categoryId}
+                    onChange={handleChange}
+                    className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary outline-none"
+                  >
+                    <option value="">Choose category...</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="sm:col-span-2 space-y-5 animate-in fade-in slide-in-from-top-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                      Select Department
+                    </label>
                     <select
-                      id="categoryId"
-                      name="categoryId"
-                      required={form.raiseMode === "CATEGORY"}
-                      disabled={isSubmitting}
-                      value={form.categoryId}
-                      onChange={handleChange}
-                      className="w-full h-11 pl-10 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+                      name="departmentId"
+                      required
+                      value={form.departmentId}
+                      onChange={(e) => {
+                        handleChange(e);
+                        setFields({ assignedUserId: "" });
+                      }}
+                      className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary outline-none"
                     >
-                      <option value="">Select Category</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
+                      <option value="">Choose department...</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} ({d.code})
                         </option>
                       ))}
                     </select>
                   </div>
+
+                  {form.departmentId && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 flex justify-between">
+                        <span>Direct Handler (Optional)</span>
+                        <span className="text-primary font-normal">
+                          Defaults to HOD if empty
+                        </span>
+                      </label>
+                      <div
+                        onClick={() => setIsStaffModalOpen(true)}
+                        className="w-full h-11 px-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm flex items-center justify-between cursor-pointer hover:border-primary transition-colors"
+                      >
+                        {selectedFaculty ? (
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-slate-400" />
+                            <span className="font-medium text-slate-800 dark:text-slate-200">
+                              {selectedFaculty.name}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              ({selectedFaculty.designation || "Faculty"})
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">
+                            Click to assign specific faculty member...
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {/* Department Dropdown Selection */}
-              {form.raiseMode === "DEPARTMENT" && (
-                <>
-                  <div>
-                    <label
-                      htmlFor="departmentId"
-                      className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                    >
-                      Target Department / Office
-                    </label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                        <Landmark className="h-4 w-4 text-slate-400" />
-                      </div>
-                      <select
-                        id="departmentId"
-                        name="departmentId"
-                        required={form.raiseMode === "DEPARTMENT"}
-                        disabled={isSubmitting}
-                        value={form.departmentId}
-                        onChange={handleChange}
-                        className="w-full h-11 pl-10 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-                      >
-                        <option value="">Select Department</option>
-                        {departments.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name} ({d.code})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="assignedUserId"
-                      className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-                    >
-                      Assign Handlers
-                    </label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                        <User className="h-4 w-4 text-slate-400" />
-                      </div>
-                      <select
-                        id="assignedUserId"
-                        name="assignedUserId"
-                        disabled={isSubmitting || !form.departmentId}
-                        value={form.assignedUserId}
-                        onChange={handleChange}
-                        className="w-full h-11 pl-10 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-                      >
-                        <option value="">Faculty Default HOD (Auto)</option>
-                        {departmentFaculty.map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {f.name}{" "}
-                            {f.designation ? `(${f.designation})` : `(Faculty)`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </>
               )}
             </div>
+          </div>
 
-            {/* Subject heading */}
+          {/* SECTION 2: Details */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-3">
+              2. Details
+            </h3>
+
             <div>
-              <label
-                htmlFor="subject"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Subject Heading
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                Subject
               </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Bookmark className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                </div>
+              <div className="relative">
+                <Bookmark className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
-                  id="subject"
                   name="subject"
                   required
-                  disabled={isSubmitting}
                   value={form.subject}
                   onChange={handleChange}
-                  placeholder="e.g. Wifi issue in Room 101"
-                  className="w-full h-11 pl-10 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-450 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+                  placeholder="Brief summary of issue..."
+                  className="w-full h-11 pl-11 pr-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary outline-none"
                 />
               </div>
             </div>
 
-            {/* Description textarea */}
             <div>
-              <label
-                htmlFor="description"
-                className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-              >
-                Grievance Description Detail
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                Description (Attachment can be added after submission)
               </label>
-              <div className="relative group">
-                <div className="absolute top-3 left-3 pointer-events-none">
-                  <FileText className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                </div>
+              <div className="relative">
+                <FileText className="absolute left-4 top-4 h-4 w-4 text-slate-400" />
                 <textarea
-                  id="description"
                   name="description"
                   required
-                  disabled={isSubmitting}
                   value={form.description}
                   onChange={handleChange}
-                  placeholder="Provide comprehensive details about the issue. Mention specific dates, locations, or code courses to speed up resolution tracks..."
+                  placeholder="Provide detailed context..."
                   rows={6}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-450 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 resize-y"
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary outline-none resize-y"
                 />
               </div>
             </div>
+          </div>
 
-            {/* Add Request Watchers */}
-            {/* {staffList.length > 0 && (
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400">
-                  Request Watchers (Optional)
-                </label>
-                <div className="bg-slate-50/50 dark:bg-slate-955/20 border border-slate-200 dark:border-slate-800 rounded-login-radius p-3 max-h-36 overflow-y-auto space-y-2">
-                  {staffList.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2">
-                      <input
-                        id={`watcher-${s.id}`}
-                        type="checkbox"
-                        checked={selectedWatchers.includes(s.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedWatchers((prev) => [...prev, s.id]);
-                          } else {
-                            setSelectedWatchers((prev) =>
-                              prev.filter((id) => id !== s.id),
-                            );
-                          }
-                        }}
-                        className="h-3.5 w-3.5 text-primary border-slate-350 dark:border-slate-850 rounded cursor-pointer focus:ring-primary"
-                      />
-                      <label
-                        htmlFor={`watcher-${s.id}`}
-                        className="text-xs text-slate-705 dark:text-slate-300 font-medium cursor-pointer select-none"
+          {/* SECTION 3: Watchers (Optional) */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 mb-2">
+              <Users className="h-4 w-4 text-primary" />
+              <h3 className="text-xs font-bold text-slate-900 dark:text-slate-50 uppercase tracking-wider">
+                3. Watchers (Optional)
+              </h3>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Add faculty or staff members who should receive notifications and
+              track this request's progress.
+            </p>
+
+            <div className="space-y-4">
+              {/* Selected Watchers Chips */}
+              {selectedWatchers.length > 0 && (
+                <div className="flex flex-wrap gap-2.5">
+                  {selectedWatchers.map((watcherId) => {
+                    const watcher = staffList.find((s) => s.id === watcherId);
+                    if (!watcher) return null;
+                    return (
+                      <div
+                        key={watcherId}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm animate-in zoom-in-95"
                       >
-                        {s.name}{" "}
-                        {s.designation
-                          ? `(${s.designation})`
-                          : `(${s.role.replace("_", " ")})`}
-                      </label>
-                    </div>
-                  ))}
+                        <User className="h-3.5 w-3.5 text-slate-400" />
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          {watcher.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedWatchers((prev) =>
+                              prev.filter((id) => id !== watcherId),
+                            )
+                          }
+                          className="ml-1 p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-md transition-colors cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            )} */}
+              )}
 
-            {/* Checkbox: Anonymous Reporting */}
-            {/* <div className="bg-slate-50/50 dark:bg-slate-955/30 border border-slate-200/60 dark:border-slate-850 rounded-login-radius p-4 flex items-start gap-3.5 select-none transition-colors">
-              <div className="flex items-center h-5">
-                <input
-                  id="isAnonymous"
-                  type="checkbox"
-                  disabled={isSubmitting}
-                  checked={isAnonymous}
-                  onChange={(e) => setIsAnonymous(e.target.checked)}
-                  className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-slate-800 rounded cursor-pointer"
-                />
-              </div>
-              <div className="space-y-0.5">
-                <label
-                  htmlFor="isAnonymous"
-                  className="block text-xs font-bold text-slate-800 dark:text-slate-250 cursor-pointer flex items-center gap-1"
-                >
-                  <span>File Anonymously</span>
-                  {isAnonymous ? (
-                    <EyeOff className="h-3.5 w-3.5 text-amber-500" />
-                  ) : (
-                    <Eye className="h-3.5 w-3.5 text-slate-400" />
-                  )}
-                </label>
-                <p className="text-[10px] text-slate-500 dark:text-slate-450 leading-relaxed">
-                  Your identity details will be masked from administrators. Only
-                  your public ticket ID will be displayed.
-                </p>
-              </div>
-            </div> */}
-
-            {/* Form actions */}
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-              <Link
-                href="/dashboard"
-                className="px-5 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-login-radius text-sm flex items-center justify-center transition-all active:scale-[0.98] cursor-pointer"
-              >
-                Cancel
-              </Link>
+              {/* Add Watcher Trigger */}
               <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-6 h-11 bg-primary hover:bg-primary/95 text-white font-semibold rounded-login-radius text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 shadow-md shadow-primary/10 cursor-pointer"
+                type="button"
+                onClick={() => setIsWatcherModalOpen(true)}
+                className="h-11 px-5 bg-slate-50 dark:bg-slate-950 border border-dashed border-slate-300 dark:border-slate-700 hover:border-primary dark:hover:border-primary hover:text-primary rounded-xl text-sm flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 transition-colors cursor-pointer w-full sm:w-auto"
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Submitting Request...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Submit Complaint</span>
-                    <PlusCircle className="h-4 w-4" />
-                  </>
-                )}
+                <PlusCircle className="h-4 w-4" />
+                <span className="font-medium">Add Watcher</span>
               </button>
             </div>
-          </form>
-        )}
-      </div>
+          </div>
+
+          {/* Action Footer */}
+          <div className="flex justify-end gap-3 pt-2">
+            <Link
+              href="/dashboard"
+              className="px-6 h-12 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-sm flex items-center transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-8 h-12 bg-primary text-white font-bold rounded-xl text-sm flex items-center gap-2 transition-all hover:bg-primary/90 shadow-lg shadow-primary/20 disabled:opacity-70"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <PlusCircle className="h-5 w-5" />
+              )}
+              <span>Submit Request</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Staff Selection Modal */}
+      {isStaffModalOpen && (
+        <SelectStaffModal
+          isOpen={isStaffModalOpen}
+          onClose={() => setIsStaffModalOpen(false)}
+          staffOptions={departmentFaculty} // Pass only the faculty of the selected department
+          selectedStaffId={form.assignedUserId}
+          onSelectStaff={(id) => {
+            setFields({ assignedUserId: id });
+            setIsStaffModalOpen(false);
+          }}
+          title="Assign Request to Faculty"
+          description="Select a specific faculty member from this department to handle this request directly. If you skip this, it will automatically route to the Head of Department."
+        />
+      )}
+
+      {/* Watcher Selection Modal */}
+      {isWatcherModalOpen && (
+        <SelectStaffModal
+          isOpen={isWatcherModalOpen}
+          onClose={() => setIsWatcherModalOpen(false)}
+          // Filter out people who are already watchers OR who are already assigned as the primary handler
+          staffOptions={staffList.filter(
+            (s) =>
+              !selectedWatchers.includes(s.id) && s.id !== form.assignedUserId,
+          )}
+          onSelectStaff={(id) => {
+            setSelectedWatchers((prev) => [...prev, id]);
+            setIsWatcherModalOpen(false);
+          }}
+          title="Add Request Watcher"
+          description="Search and select a faculty or staff member to keep them updated on this request's progress."
+        />
+      )}
     </div>
   );
 }

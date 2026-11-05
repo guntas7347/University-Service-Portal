@@ -89,7 +89,6 @@ async function processCallback(req: NextRequest, code: string | null) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
     });
 
     console.log(

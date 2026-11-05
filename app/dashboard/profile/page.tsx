@@ -20,8 +20,16 @@ import {
   Trash2,
   Check,
   AlertCircle,
+  Settings,
+  MailPlus,
+  Building2,
 } from "lucide-react";
-import { getProfile, updateSecondaryEmail } from "@/lib/actions/users";
+import {
+  getProfile,
+  updateSecondaryEmail,
+  updateUserDepartment,
+} from "@/lib/actions/users";
+import { getDepartments } from "@/lib/actions/departments";
 
 export interface ProfileUser {
   id: string;
@@ -50,6 +58,12 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [photoError, setPhotoError] = useState(false);
 
+  // Department assignment state
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [isSavingDepartment, setIsSavingDepartment] = useState(false);
+  const [departmentFeedback, setDepartmentFeedback] = useState("");
+
   // Secondary email state
   const [isEditingEmail2, setIsEditingEmail2] = useState(false);
   const [email2Input, setEmail2Input] = useState("");
@@ -76,6 +90,14 @@ export default function ProfilePage() {
       }
     };
     loadProfile();
+  }, []);
+
+  useEffect(() => {
+    getDepartments().then((result) => {
+      if (result.success) {
+        setDepartments(result.departments || []);
+      }
+    });
   }, []);
 
   const handleSaveEmail2 = async (e?: React.FormEvent) => {
@@ -135,6 +157,30 @@ export default function ProfilePage() {
     }
   };
 
+  const handleAssignDepartment = async () => {
+    if (!selectedDepartment) return;
+    const confirmed = window.confirm(
+      `Confirm saving department? You will not be allowed to change it later.`,
+    );
+    if (!confirmed) return;
+
+    setIsSavingDepartment(true);
+    setDepartmentFeedback("");
+
+    try {
+      const result = await updateUserDepartment(selectedDepartment);
+      if (result.success) {
+        window.location.reload();
+      } else {
+        setDepartmentFeedback(result.message);
+      }
+    } catch {
+      setDepartmentFeedback("Failed to update department.");
+    } finally {
+      setIsSavingDepartment(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -163,7 +209,6 @@ export default function ProfilePage() {
     );
   }
 
-  // Display enrolled course cleanly as degree + specialization
   const enrolledCourse =
     user.enrolledCourse?.trim() ||
     [user.degree, user.specialization]
@@ -172,7 +217,6 @@ export default function ProfilePage() {
       .join(" ") ||
     "Not Enrolled";
 
-  // Initials for avatar fallback
   const initials = (user.name || "U")
     .split(" ")
     .map((w) => w[0])
@@ -182,28 +226,19 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12 font-sans">
-      {/* Title Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
-            My Profile
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Official university registration and enrollment parameters
-          </p>
-        </div>
-
-        {/* View Only Badge */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold w-fit border border-slate-200 dark:border-slate-700/60 shadow-xs">
-          <Lock className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-          <span>Official Record • View Only</span>
-        </div>
+      {/* HEADER */}
+      <div>
+        <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
+          My Profile
+        </h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Manage your personal settings and view official university records.
+        </p>
       </div>
 
-      {/* Hero Profile Card */}
+      {/* HERO CARD */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
-          {/* Avatar / Photo */}
           <div className="relative shrink-0">
             {user.photo && !photoError ? (
               <img
@@ -225,7 +260,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* User Primary Identity */}
           <div className="space-y-2 flex-1">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
               <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
@@ -269,330 +303,268 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Grid of Sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Section 1: Academic Enrollment */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <GraduationCap className="h-5 w-5 text-primary" />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
-              Academic Enrollment
-            </h3>
+      {/* ======================================================== */}
+      {/* 1. EDITABLE SETTINGS & PREFERENCES */}
+      {/* ======================================================== */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center gap-2 px-1">
+          <Settings className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 tracking-tight">
+            Account Settings
+          </h2>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-6">
+          {/* Editable Secondary Email */}
+          <div className="space-y-2 border-b border-slate-100 dark:border-slate-800 pb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-semibold">
+                <MailPlus className="h-4 w-4 text-primary" />
+                <span className="text-sm">Recovery / Personal Email</span>
+              </div>
+
+              {!isEditingEmail2 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setIsEditingEmail2(true);
+                      setEmail2Feedback(null);
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded hover:bg-primary/5 cursor-pointer"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span>{user.email2 ? "Edit" : "Add Email"}</span>
+                  </button>
+                  {user.email2 && (
+                    <button
+                      onClick={handleRemoveEmail2}
+                      disabled={isSavingEmail2}
+                      className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {!isEditingEmail2 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400 pl-6">
+                {user.email2 || "No recovery email provided."}
+              </p>
+            ) : (
+              <form onSubmit={handleSaveEmail2} className="pl-6 space-y-3 pt-1">
+                <input
+                  type="email"
+                  value={email2Input}
+                  onChange={(e) => setEmail2Input(e.target.value)}
+                  placeholder="e.g. personal.name@gmail.com"
+                  autoFocus
+                  disabled={isSavingEmail2}
+                  className="w-full max-w-sm h-10 px-3 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-primary"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingEmail2}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                  >
+                    {isSavingEmail2 ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
+                    <span>Save Email</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingEmail2(false);
+                      setEmail2Input(user.email2 || "");
+                    }}
+                    className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {email2Feedback && (
+              <div
+                className={`mt-2 ml-6 flex items-center gap-1.5 text-xs font-medium ${email2Feedback.type === "success" ? "text-emerald-600" : "text-red-600"}`}
+              >
+                {email2Feedback.type === "success" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : (
+                  <AlertCircle className="h-3.5 w-3.5" />
+                )}
+                <span>{email2Feedback.message}</span>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-3.5">
-            {/* Prominent Enrolled Course */}
-            <div className="p-3.5 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-primary mb-1">
-                Enrolled Course (Degree & Specialization)
+          {/* Department Assignment (Only visible if departmentId is missing) */}
+          {!user.departmentId && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-semibold mb-1">
+                <Building2 className="h-4 w-4 text-primary" />
+                <span className="text-sm">Link Academic Department</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 pl-6 mb-3">
+                You are currently not assigned to any department. Select your
+                department below.{" "}
+                <strong className="text-red-500 font-medium">
+                  This action cannot be undone.
+                </strong>
+              </p>
+
+              <div className="pl-6 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <select
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  disabled={isSavingDepartment}
+                  className="w-full max-w-sm h-10 px-3 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-primary"
+                >
+                  <option value="">-- Select Department --</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!selectedDepartment || isSavingDepartment}
+                  onClick={handleAssignDepartment}
+                  className="px-4 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors w-full sm:w-auto text-center"
+                >
+                  {isSavingDepartment ? "Processing..." : "Confirm & Link"}
+                </button>
+              </div>
+
+              {departmentFeedback && (
+                <div className="mt-2 ml-6 flex items-center gap-1.5 text-xs font-medium text-red-600">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <span>{departmentFeedback}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* 2. OFFICIAL VIEW-ONLY RECORDS */}
+      {/* ======================================================== */}
+      <div className="space-y-3 pt-6">
+        <div className="flex items-center gap-2 px-1">
+          <Lock className="h-5 w-5 text-slate-700 dark:text-slate-300" />
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 tracking-tight">
+            Official University Records
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Academic Info */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <GraduationCap className="h-5 w-5 text-slate-400" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
+                Academic
+              </h3>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Enrolled Course
               </span>
-              <p className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 {enrolledCourse}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-2 gap-y-4">
               <div>
-                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                   Degree
                 </span>
-                <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                   {user.degree || "—"}
                 </span>
               </div>
-
               <div>
-                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                   Specialization
                 </span>
-                <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                   {user.specialization || "—"}
                 </span>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100 dark:border-slate-800/60">
               <div>
-                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                   Department
                 </span>
                 <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  {user.departmentName || "General / Unassigned"}
+                  {user.departmentName || "—"}
                 </span>
               </div>
-
               <div>
-                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                  Roll / Username
+                <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Roll Number
                 </span>
                 <span className="text-sm font-mono font-semibold text-slate-800 dark:text-slate-200">
-                  {user.rollNumber || user.username || "—"}
+                  {user.rollNumber || "—"}
                 </span>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Section 2: Contact Information */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <Mail className="h-5 w-5 text-primary" />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
-              Contact Information
-            </h3>
-          </div>
+          {/* Contact & Access Info */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <Shield className="h-5 w-5 text-slate-400" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
+                Identity & Access
+              </h3>
+            </div>
 
-          <div className="space-y-4">
-            {/* Primary Official University Email */}
-            <div>
-              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                Official Email Address (Primary)
-              </span>
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
-                <span>{user.email}</span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-md border border-emerald-200/50 dark:border-emerald-800/40">
-                  <CheckCircle2 className="h-3 w-3" />
-                  SSO Verified
+            <div className="grid grid-cols-2 gap-y-4">
+              <div className="col-span-2">
+                <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Official Email
                 </span>
-              </div>
-            </div>
-
-            {/* Secondary (Personal) Email */}
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 rounded-xl space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Secondary (Personal) Email
-                  </span>
-                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                    Editable
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  <span>{user.email}</span>
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-200">
+                    Verified
                   </span>
                 </div>
-                {!isEditingEmail2 && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmail2Input(user.email2 || "");
-                        setIsEditingEmail2(true);
-                        setEmail2Feedback(null);
-                      }}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded hover:bg-primary/5 cursor-pointer"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      <span>{user.email2 ? "Edit" : "Add Email"}</span>
-                    </button>
-                    {user.email2 && (
-                      <button
-                        type="button"
-                        onClick={handleRemoveEmail2}
-                        disabled={isSavingEmail2}
-                        className="p-1 text-slate-400 hover:text-red-500 transition-colors rounded hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer disabled:opacity-50"
-                        title="Remove secondary email"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
-
-              {!isEditingEmail2 ? (
-                <div>
-                  {user.email2 ? (
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 break-all">
-                        {user.email2}
-                      </span>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic">
-                      No personal email linked. You can add one for personal
-                      updates and recovery.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <form onSubmit={handleSaveEmail2} className="space-y-2 pt-1">
-                  <div>
-                    <input
-                      type="email"
-                      value={email2Input}
-                      onChange={(e) => setEmail2Input(e.target.value)}
-                      placeholder="e.g. personal.name@gmail.com"
-                      autoFocus
-                      disabled={isSavingEmail2}
-                      className="w-full h-9 px-3 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      disabled={isSavingEmail2}
-                      onClick={() => {
-                        setIsEditingEmail2(false);
-                        setEmail2Input(user.email2 || "");
-                        setEmail2Feedback(null);
-                      }}
-                      className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-md transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSavingEmail2}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary hover:bg-primary/90 text-white text-xs font-semibold rounded-md transition-all shadow-xs disabled:opacity-50 cursor-pointer"
-                    >
-                      {isSavingEmail2 ? (
-                        <>
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-3 w-3" />
-                          <span>Save</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Feedback messages */}
-              {email2Feedback && (
-                <div
-                  className={`flex items-start gap-1.5 p-2 rounded-lg text-[11px] leading-tight ${
-                    email2Feedback.type === "success"
-                      ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                      : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
-                  }`}
-                >
-                  {email2Feedback.type === "success" ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-500 mt-0.5" />
-                  )}
-                  <span>{email2Feedback.message}</span>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                Registered Mobile Number
-              </span>
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
-                <Smartphone className="h-4 w-4 text-slate-400" />
-                <span>{user.mobile || "Not Provided"}</span>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60">
-              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                SSO Identity Reference
-              </span>
-              <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
-                {user.username || user.email}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 3: Personal Information */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <User className="h-5 w-5 text-primary" />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
-              Personal Information
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                Full Name
-              </span>
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                {user.name || "—"}
-              </span>
-            </div>
-
-            <div>
-              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                Father&apos;s Name
-              </span>
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                {user.fatherName || "—"}
-              </span>
-            </div>
-
-            <div>
-              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                Gender
-              </span>
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                {user.gender
-                  ? user.gender.charAt(0).toUpperCase() +
-                    user.gender.slice(1).toLowerCase()
-                  : "Not Specified"}
-              </span>
-            </div>
-
-            <div>
-              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                Date of Birth
-              </span>
-              <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-200">
-                <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                <span>{user.dob || "—"}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 4: System Roles & Permissions */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <Shield className="h-5 w-5 text-primary" />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-50">
-              System Roles & Access
-            </h3>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
               <div>
-                <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">
-                  Account Type
+                <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Mobile
                 </span>
-                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                  {user.role}
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  {user.mobile || "—"}
                 </span>
               </div>
-              {user.designation && (
-                <div className="text-right">
-                  <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">
-                    Designation
-                  </span>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    {user.designation}
-                  </span>
-                </div>
-              )}
+              <div>
+                <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  SSO Username
+                </span>
+                <span className="text-sm font-mono font-semibold text-slate-800 dark:text-slate-200">
+                  {user.username}
+                </span>
+              </div>
             </div>
 
-            <div>
-              <span className="block text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">
-                Assigned Administrative Permissions
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                Permissions
               </span>
               {!user.rights || user.rights.length === 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 text-xs">
-                  <Award className="h-3.5 w-3.5 text-slate-400" />
-                  Standard Student Grievance Access
-                </span>
+                <span className="text-xs text-slate-500">Standard Access</span>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {user.rights.map((right) => (
@@ -608,23 +580,20 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* University Record Notice Banner */}
-      <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-xs text-slate-600 dark:text-slate-400">
-        <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p className="font-semibold text-slate-800 dark:text-slate-200">
-            Official University Identity Record
-          </p>
-          <p className="leading-relaxed">
-            All user profile information—including Name, Roll Number,
-            Father&apos;s Name, Enrolled Course, Degree, and Specialization—is
-            officially synchronized from the Shaheed Bhagat Singh State
-            University Single Sign-On (SSO) system. To update your verified
-            university records, please contact the University Academic
-            Registrar.
-          </p>
+        {/* Notice Banner */}
+        <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-xs text-slate-600 dark:text-slate-400 mt-4">
+          <Info className="h-5 w-5 text-slate-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-semibold text-slate-800 dark:text-slate-200">
+              Official Records are Locked
+            </p>
+            <p className="leading-relaxed">
+              Records under this section are managed by the Shaheed Bhagat Singh
+              State University SSO. To update name, roll number, or degree
+              details, please contact the Academic Registrar.
+            </p>
+          </div>
         </div>
       </div>
     </div>

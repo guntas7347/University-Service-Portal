@@ -5,16 +5,18 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth/auth";
 
 /**
- * Retrieve current authenticated user from session token
+ * Retrieve current authenticated user from session token.
  */
 export async function getAuthenticatedUser() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
+
     if (!token) return null;
 
     const payload = await verifyToken(token);
-    if (!payload || !payload.userId) return null;
+
+    if (!payload?.userId) return null;
 
     const user = await db.query.User.findFirst({
       where: eq(User.id, payload.userId),
@@ -37,45 +39,51 @@ export async function getAuthenticatedUser() {
 }
 
 /**
- * Require authenticated user or throw an authentication error
+ * Require authenticated user or throw an authentication error.
  */
 export async function requireUser() {
   const user = await getAuthenticatedUser();
+
   if (!user) {
-    throw new Error("Insufficient rights: User not authenticated");
+    throw new Error("Authentication required");
   }
+
   return user;
 }
 
 /**
- * Centralized rights checker function.
- * Throws an Error with "Insufficient rights" if the user lacks the required permission(s).
+ * Centralized rights checker.
  *
- * @param requiredRights Array of right strings or a single right string (e.g. ["MANAGE_USERS", "MANAGE_DEPARTMENT"] or "MANAGE_CONFIGS")
- * @param options.requireAll If true, requires user to possess all listed rights. Defaults to false (requires at least one).
- * @returns The authenticated user object
+ * ADMIN automatically satisfies all permission requirements.
+ *
+ * @param requiredRights Single right or array of rights.
+ * @param options.requireAll If true, requires all rights.
+ *                     Otherwise, requires at least one.
+ * @returns Authenticated user.
  */
 export async function requireRights(
   requiredRights: string | string[],
-  options: { requireAll?: boolean } = { requireAll: false }
+  options: { requireAll?: boolean } = {},
 ) {
   const user = await requireUser();
   const rights: string[] = user.rights || [];
 
-  // ADMIN right automatically satisfies any rights requirement
+  // ADMIN automatically has all permissions.
   if (rights.includes("ADMIN")) {
     return user;
   }
 
-  const reqArray = Array.isArray(requiredRights) ? requiredRights : [requiredRights];
+  const reqArray = Array.isArray(requiredRights)
+    ? requiredRights
+    : [requiredRights];
 
   if (reqArray.length === 0) {
     return user;
   }
 
   const hasAccess = options.requireAll
-    ? reqArray.every((r) => rights.includes(r))
-    : reqArray.some((r) => rights.includes(r));
+    ? reqArray.every((right) => rights.includes(right))
+    : reqArray.some((right) => rights.includes(right));
 
   if (!hasAccess) {
     throw new Error("Insufficient rights");
@@ -85,18 +93,27 @@ export async function requireRights(
 }
 
 /**
- * Check if user possesses given rights (non-throwing helper)
+ * Check whether a user possesses the required rights.
+ * Non-throwing helper for conditional UI rendering.
  */
 export async function hasRights(
   userRights: string[],
   requiredRights: string | string[],
-  options: { requireAll?: boolean } = { requireAll: false }
+  options: { requireAll?: boolean } = {},
 ): Promise<boolean> {
-  if (userRights.includes("ADMIN")) return true;
-  const reqArray = Array.isArray(requiredRights) ? requiredRights : [requiredRights];
-  if (reqArray.length === 0) return true;
+  if (userRights.includes("ADMIN")) {
+    return true;
+  }
+
+  const reqArray = Array.isArray(requiredRights)
+    ? requiredRights
+    : [requiredRights];
+
+  if (reqArray.length === 0) {
+    return true;
+  }
 
   return options.requireAll
-    ? reqArray.every((r) => userRights.includes(r))
-    : reqArray.some((r) => userRights.includes(r));
+    ? reqArray.every((right) => userRights.includes(right))
+    : reqArray.some((right) => userRights.includes(right));
 }

@@ -5,12 +5,11 @@ import {
   User,
   Mail,
   Smartphone,
-  Briefcase,
   Save,
   Loader2,
   X,
-  Shield,
-  Landmark,
+  ShieldAlert,
+  Contact2,
 } from "lucide-react";
 
 interface UserFormProps {
@@ -19,322 +18,234 @@ interface UserFormProps {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
   isSubmitting: boolean;
-  editingId: string | null;
   handleCancelEdit: () => void;
-  departments: { id: string; code: string; name: string }[];
-  currentUser: {
-    id?: string;
-    role: string;
-    rights: string[];
-    departmentId?: string;
-    departmentName?: string;
-  } | null;
+  departments: { id: string; name: string }[];
   selectedRights: string[];
-  handleRightCheckboxChange: (value: string, checked: boolean) => void;
-  rightsOptions: { value: string; label: string }[];
+  setSelectedRights: React.Dispatch<React.SetStateAction<string[]>>;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  userRights?: string[];
 }
 
+const RIGHTS_OPTIONS = [
+  { value: "ADMIN", label: "System Administrator (Full Access)" },
+  { value: "VIEW_DEPARTMENT_TICKETS", label: "View Department Tickets" },
+  { value: "MANAGE_DEPARTMENT_USERS", label: "Manage Department Users" },
+];
+
 export default function UserForm({
-  form,
+  form = {},
   handleChange,
   isSubmitting,
-  editingId,
   handleCancelEdit,
   departments,
-  currentUser,
   selectedRights,
-  handleRightCheckboxChange,
-  rightsOptions,
+  setSelectedRights,
   handleSubmit,
+  userRights = [],
 }: UserFormProps) {
-  const isDeptManager =
-    currentUser?.rights?.includes("MANAGE_DEPARTMENT") &&
-    !currentUser?.rights?.includes("ADMIN");
-  const isAdmin =
-    currentUser?.rights?.includes("ADMIN") ||
-    currentUser?.rights?.includes("MANAGE_USERS");
+  // Custom Role handler to auto-tick rights when HOD is selected
+  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    handleChange(e);
+
+    if (e.target.value === "HOD") {
+      setSelectedRights((prev) => {
+        const newRights = new Set(prev);
+        newRights.add("VIEW_DEPARTMENT_TICKETS");
+        newRights.add("MANAGE_DEPARTMENT_USERS");
+        return Array.from(newRights);
+      });
+    }
+  };
+
+  const handleRightToggle = (value: string, checked: boolean) => {
+    if (checked) setSelectedRights((prev) => [...prev, value]);
+    else setSelectedRights((prev) => prev.filter((r) => r !== value));
+  };
+
+  const hasRole = userRights.some((role) =>
+    ["ADMIN", "MANAGE_DEPARTMENT_USERS"].includes(role),
+  );
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius p-6 shadow-sm h-fit">
-      <div className="mb-6 flex justify-between items-center">
-        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
-          Edit Staff Account
-        </h2>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Form Header */}
+      <div className="flex justify-between items-center bg-slate-900 dark:bg-slate-800 text-white px-5 py-3.5 rounded-2xl shadow-sm">
+        <h2 className="text-sm font-bold tracking-wide">Edit Staff Account</h2>
         <button
           type="button"
           onClick={handleCancelEdit}
-          className="p-1 text-slate-450 hover:text-slate-655 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
-          title="Cancel Edit"
+          className="p-1 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
+          title="Close Editor"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Full Name */}
+      {hasRole && (
         <div>
-          <label
-            htmlFor="name"
-            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-          >
+          {/* CARD 1: System & Access Settings */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 mb-2">
+              <ShieldAlert className="h-4 w-4 text-primary" />
+              <h3 className="text-xs font-bold uppercase text-slate-800 dark:text-slate-200 tracking-wider">
+                System & Access
+              </h3>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                Role / Title
+              </label>
+              <select
+                name="role"
+                required
+                disabled={isSubmitting}
+                value={form?.role || "FACULTY"}
+                onChange={handleRoleChange}
+                className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+              >
+                <option value="FACULTY">Faculty / Staff</option>
+                <option value="HOD">Head of Department (HOD)</option>
+                <option value="ADMIN">Administrator</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                Assigned Department
+              </label>
+              <select
+                name="departmentId"
+                disabled={isSubmitting}
+                value={form?.departmentId || ""}
+                onChange={handleChange}
+                className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+              >
+                <option value="">No Department Assigned</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="pt-2">
+              <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                Action Rights
+              </label>
+              <div className="space-y-2.5 bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                {RIGHTS_OPTIONS.map((item) => (
+                  <label
+                    key={item.value}
+                    className="flex items-center gap-3 cursor-pointer group"
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={isSubmitting}
+                      checked={selectedRights.includes(item.value)}
+                      onChange={(e) =>
+                        handleRightToggle(item.value, e.target.checked)
+                      }
+                      className="h-4 w-4 text-primary rounded border-slate-300 focus:ring-primary cursor-pointer"
+                    />
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors">
+                      {item.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CARD 2: Personal Information */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 mb-2">
+          <Contact2 className="h-4 w-4 text-primary" />
+          <h3 className="text-xs font-bold uppercase text-slate-800 dark:text-slate-200 tracking-wider">
+            Personal Data
+          </h3>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
             Full Name
           </label>
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <User className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-            </div>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              id="name"
               name="name"
               required
               disabled={isSubmitting}
-              value={form.name}
+              value={form?.name || ""}
               onChange={handleChange}
-              placeholder="e.g. Dr. Ramesh Kumar"
-              className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-450 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+              className="w-full h-10 pl-9 pr-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
             />
           </div>
         </div>
 
-        {/* Email Address */}
         <div>
-          <label
-            htmlFor="email"
-            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-          >
+          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
             Email Address
           </label>
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Mail className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-            </div>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="email"
-              id="email"
               name="email"
               required
               disabled={isSubmitting}
-              value={form.email}
+              value={form?.email || ""}
               onChange={handleChange}
-              placeholder="e.g. rkumar@sbs.edu"
-              className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+              className="w-full h-10 pl-9 pr-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
             />
           </div>
         </div>
 
-        {/* Designation */}
         <div>
-          <label
-            htmlFor="designation"
-            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-          >
-            Designation (Optional)
+          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            Mobile Number
           </label>
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Briefcase className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-            </div>
-            <input
-              type="text"
-              id="designation"
-              name="designation"
-              disabled={isSubmitting}
-              value={form.designation}
-              onChange={handleChange}
-              placeholder="e.g. Professor / Head of Department"
-              className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-            />
-          </div>
-        </div>
-
-        {/* Mobile Number */}
-        <div>
-          <label
-            htmlFor="mobile"
-            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-          >
-            Mobile Number (Optional)
-          </label>
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Smartphone className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-            </div>
+          <div className="relative">
+            <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="tel"
-              id="mobile"
               name="mobile"
               disabled={isSubmitting}
-              value={form.mobile}
+              value={form?.mobile || ""}
               onChange={handleChange}
-              placeholder="e.g. 9876543210"
-              className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-455 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
+              className="w-full h-10 pl-9 pr-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
             />
           </div>
         </div>
+      </div>
 
-        {/* Role title (Informational label) */}
-        <div>
-          <label
-            htmlFor="role"
-            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-          >
-            Display Role / Title (Informational)
-          </label>
-          {isAdmin ? (
-            <select
-              id="role"
-              name="role"
-              required
-              disabled={isSubmitting}
-              value={form.role}
-              onChange={handleChange}
-              className="w-full h-11 px-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-            >
-              <option value="FACULTY">Faculty / Staff</option>
-              <option value="HOD">Head of Department (HOD)</option>
-              <option value="ADMIN">Administrator</option>
-              <option value="SUPER_ADMIN">Super Administrator</option>
-              <option value="DEAN">Dean</option>
-              <option value="STAFF">Staff Member</option>
-            </select>
+      {/* Action Buttons */}
+      <div className="flex gap-3 pt-2">
+        <button
+          type="button"
+          onClick={handleCancelEdit}
+          disabled={isSubmitting}
+          className="flex-1 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="flex-1 h-11 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl text-sm transition-all shadow-md shadow-primary/20 cursor-pointer flex items-center justify-center gap-2"
+        >
+          {isSubmitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <div className="w-full h-11 px-4 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-500 dark:text-slate-400 text-sm flex items-center select-none font-medium">
-              {form.role || "Faculty / Staff"}
-            </div>
+            <Save className="h-4 w-4" />
           )}
-        </div>
-
-        {/* Department select */}
-        {(isAdmin || isDeptManager) && (
-          <div>
-            <label
-              htmlFor="departmentId"
-              className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-            >
-              Assigned Department
-            </label>
-            {isAdmin ? (
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Landmark className="h-4 w-4 text-slate-400" />
-                </div>
-                <select
-                  id="departmentId"
-                  name="departmentId"
-                  disabled={isSubmitting}
-                  value={form.departmentId}
-                  onChange={handleChange}
-                  className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-                >
-                  <option value="">No Assigned Department</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              // Department manager department is locked to their own department
-              <div className="w-full h-11 px-4 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-550 dark:text-slate-350 text-sm flex items-center select-none font-semibold">
-                {currentUser?.departmentName || "My Department"} (Locked)
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Gender select */}
-        <div>
-          <label
-            htmlFor="gender"
-            className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2"
-          >
-            Gender (Optional)
-          </label>
-          <select
-            id="gender"
-            name="gender"
-            disabled={isSubmitting}
-            value={form.gender}
-            onChange={handleChange}
-            className="w-full h-11 px-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
-          >
-            <option value="">Select Gender</option>
-            <option value="MALE">Male</option>
-            <option value="FEMALE">Female</option>
-            <option value="OTHER">Other</option>
-          </select>
-        </div>
-
-        {/* Rights checklist (Only Admin can manage administrative action rights) */}
-        {isAdmin && (
-          <div className="space-y-2 pt-2">
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-350">
-              Configure Action Rights
-            </label>
-
-            <div className="bg-slate-55 bg-slate-50/60 dark:bg-slate-955/30 border border-slate-150 dark:border-slate-850 rounded-login-radius p-3.5 space-y-2.5">
-              {rightsOptions.map((item) => {
-                const isChecked = selectedRights.includes(item.value);
-                return (
-                  <div
-                    key={item.value}
-                    className="flex items-center gap-2.5 select-none"
-                  >
-                    <input
-                      id={`right-${item.value}`}
-                      type="checkbox"
-                      disabled={isSubmitting}
-                      checked={isChecked}
-                      onChange={(e) =>
-                        handleRightCheckboxChange(item.value, e.target.checked)
-                      }
-                      className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-slate-800 rounded cursor-pointer"
-                    />
-                    <label
-                      htmlFor={`right-${item.value}`}
-                      className="text-xs text-slate-655 dark:text-slate-300 font-medium cursor-pointer"
-                    >
-                      {item.label}
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Submit Action Block */}
-        <div className="pt-2 flex gap-2">
-          <button
-            type="button"
-            onClick={handleCancelEdit}
-            disabled={isSubmitting}
-            className="w-1/2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-1/2 h-11 bg-primary hover:bg-primary/95 text-white font-semibold rounded-login-radius text-sm transition-all active:scale-[0.98] shadow-md shadow-primary/10 cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                <span>Save User</span>
-              </>
-            )}
-          </button>
-        </div>
-      </form>
-    </div>
+          <span>Save Changes</span>
+        </button>
+      </div>
+    </form>
   );
 }

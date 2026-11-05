@@ -1,9 +1,19 @@
 "use server";
 
-import { db, User, Department, eq, or, Gender } from "@/db/drizzel";
+import {
+  db,
+  User,
+  Department,
+  eq,
+  or,
+  Gender,
+  isNull,
+  and,
+} from "@/db/drizzel";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth/auth";
 import { type SSOUserPayload } from "@/lib/auth/sso";
+import { getAuthenticatedUser, requireRights, requireUser } from "./auth";
 
 /**
  * Upsert a user based on SSO profile payload and allot department based on specialization
@@ -13,7 +23,7 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
     throw new Error("Empty user payload returned from SSO");
   }
 
-  console.log(ssoUser);
+  console.log("SSO Payload received:", ssoUser);
 
   // Determine unique user identifier from SSO
   const ssoId = String(ssoUser.username || ssoUser.email || "").trim();
@@ -22,13 +32,7 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
   }
 
   const role = ssoUser.role ? String(ssoUser.role).toUpperCase() : "STUDENT";
-
-  const initialRights =
-    role === "ADMIN" || role === "SUPER_ADMIN"
-      ? [
-          "ADMIN"
-        ]
-      : [];
+  const initialRights = role === "ADMIN" || role === "SUPER_ADMIN" ? ["ADMIN"] : [];
 
   const email = (
     ssoUser.email ||
@@ -39,14 +43,14 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
     .trim()
     .toLowerCase();
 
-  const username = ssoUser.username || null;
-  const fullName = ssoUser.fullName || null;
-  const fatherName = ssoUser.fatherName || null;
-  const degree = ssoUser.degree || null;
+  const username = ssoUser.username?.trim() || null;
+  const fullName = ssoUser.fullName?.trim() || null;
+  const fatherName = ssoUser.fatherName?.trim() || null;
+  const degree = ssoUser.degree?.trim() || null;
   const specialization = ssoUser.specialization?.trim() || null;
-  const mobile = ssoUser.mobile || null;
-  const photo = ssoUser.photo || null;
-  const rollNumber = ssoUser.username || "";
+  const mobile = ssoUser.mobile?.trim() || null;
+  const photo = ssoUser.photo?.trim() || null;
+  const rollNumber = ssoUser.username?.trim() || "";
 
   // Check if specialization matches any department's specializations array
   let allottedDepartmentId: string | null = null;
@@ -63,21 +67,18 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
 
   // Look up existing user by ssoId, email, username, or rollNumber
   const lookupConditions = [eq(User.ssoId, ssoId)];
-  if (email) {
-    lookupConditions.push(eq(User.email, email));
-  }
-  if (username) {
-    lookupConditions.push(eq(User.username, username));
-  }
-  if (rollNumber) {
-    lookupConditions.push(eq(User.rollNumber, rollNumber));
-  }
+  if (email) lookupConditions.push(eq(User.email, email));
+  if (username) lookupConditions.push(eq(User.username, username));
+  if (rollNumber) lookupConditions.push(eq(User.rollNumber, rollNumber));
 
   let user = await db.query.User.findFirst({
     where: or(...lookupConditions),
   });
 
   if (!user) {
+    // ----------------------------------------------------
+    // CREATE NEW USER
+    // ----------------------------------------------------
     const [newUser] = await db
       .insert(User)
       .values({
@@ -94,9 +95,10 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
         rollNumber,
         departmentId: allottedDepartmentId,
         rights: initialRights,
-        status: "ACTIVE"
+        status: "ACTIVE",
       })
       .returning();
+      
     user = newUser;
     console.log(
       "SSO Callback: Created new user account:",
@@ -106,40 +108,66 @@ export async function upsertUser(ssoUser: SSOUserPayload) {
       allottedDepartmentId,
     );
   } else {
-    const updateData: Partial<typeof User.$inferInsert> = {
-      ssoId,
-    };
-    if (username) updateData.username = username;
-    if (fullName) updateData.fullName = fullName;
-    if (fatherName) updateData.fatherName = fatherName;
-    if (role) updateData.role = role;
-    if (email) updateData.email = email;
-    if (degree) updateData.degree = degree;
-    if (specialization) {
-      updateData.specialization = specialization;
-      updateData.departmentId = allottedDepartmentId;
-    }
-    if (mobile) {
-      updateData.mobile = mobile;
-    }
-    if (photo) {
-      updateData.photo = photo;
-    }
-    if (rollNumber) updateData.rollNumber = rollNumber;
+    // ----------------------------------------------------
+    // UPDATE EXISTING USER (Only if changed and not empty)
+    // ----------------------------------------------------
+    const updateData: Partial<typeof User.$inferInsert> = {};
 
-    const [updatedUser] = await db
-      .update(User)
-      .set(updateData)
-      .where(eq(User.id, user.id))
-      .returning();
-    user = updatedUser;
-    console.log(
-      "SSO Callback: Updated existing user account:",
-      user.id,
-      user.email,
-      "Allotted department:",
-      user.departmentId,
-    );
+    // Helper to apply changes only if the new value is valid and different
+    const setIfChanged = (key: keyof typeof updateData, newValue: any) => {
+      if (newValue !== null && newValue !== undefined && newValue !== "") {
+        // @ts-ignore - Dynamically checking keys
+        if (user[key] !== newValue) {
+          // @ts-ignore
+          updateData[key] = newValue;
+        }
+      }
+    };
+
+    setIfChanged("ssoId", ssoId);
+    setIfChanged("username", username);
+    setIfChanged("fullName", fullName);
+    setIfChanged("fatherName", fatherName);
+    // setIfChanged("role", role);
+    setIfChanged("email", email);
+    setIfChanged("degree", degree);
+    setIfChanged("mobile", mobile);
+    setIfChanged("photo", photo);
+    setIfChanged("rollNumber", rollNumber);
+
+    // Special handling for specialization & department
+    if (specialization && specialization !== user.specialization) {
+      updateData.specialization = specialization;
+      
+      // ONLY update departmentId if we successfully matched a new department.
+      // This prevents overwriting a manually assigned department with 'null'.
+      if (allottedDepartmentId && allottedDepartmentId !== user.departmentId) {
+        updateData.departmentId = allottedDepartmentId;
+      }
+    }
+
+    // Only make the DB call if there are actual fields to update
+    if (Object.keys(updateData).length > 0) {
+      const [updatedUser] = await db
+        .update(User)
+        .set(updateData)
+        .where(eq(User.id, user.id))
+        .returning();
+        
+      user = updatedUser;
+      console.log(
+        "SSO Callback: Updated existing user account:",
+        user.id,
+        "Changed fields:",
+        Object.keys(updateData)
+      );
+    } else {
+      console.log(
+        "SSO Callback: No changes detected for user, skipping DB update:",
+        user.id,
+        user.email
+      );
+    }
   }
 
   return user;
@@ -232,75 +260,7 @@ export async function getProfile() {
   }
 }
 
-/**
- * Update authenticated user's profile
- */
-export async function updateUserProfile(data: {
-  name: string;
-  email: string;
-  mobile?: string;
-  dob?: string;
-  gender?: string;
-  enrolledCourse?: string;
-  degree?: string;
-  specialization?: string;
-  designation?: string;
-}) {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("token")?.value;
-    if (!token) {
-      return { success: false, message: "Not authenticated." };
-    }
 
-    const payload = await verifyToken(token);
-    if (!payload || !payload.userId) {
-      return { success: false, message: "Invalid session." };
-    }
-
-    // 1. Map Gender string to Enum
-    let genderEnum: Gender | null = null;
-    if (data.gender) {
-      const upperGender = data.gender.toUpperCase();
-      if (upperGender === "MALE") genderEnum = Gender.MALE;
-      else if (upperGender === "FEMALE") genderEnum = Gender.FEMALE;
-      else if (upperGender === "OTHER") genderEnum = Gender.OTHER;
-      else genderEnum = Gender.PREFER_NOT_TO_SAY;
-    }
-
-    // 2. Update database record
-    const dateOfBirth = data.dob ? new Date(data.dob) : null;
-    const mobileValue = data.mobile || null;
-
-    const [updatedUser] = await db
-      .update(User)
-      .set({
-        fullName: data.name,
-        email: data.email,
-        mobile: mobileValue,
-        dateOfBirth,
-        gender: genderEnum,
-        degree: data.degree || undefined,
-        specialization: data.specialization || data.enrolledCourse || undefined,
-        designation: data.designation || null,
-      })
-      .where(eq(User.id, payload.userId))
-      .returning();
-
-    console.log(
-      "Successfully updated profile for user:",
-      updatedUser?.email,
-      updatedUser,
-    );
-    return { success: true, message: "Profile details updated successfully!" };
-  } catch (error: any) {
-    console.error("Error updating profile:", error);
-    return {
-      success: false,
-      message: "Failed to update profile details.",
-    };
-  }
-}
 
 /**
  * Update authenticated user's secondary (personal) email
@@ -375,6 +335,84 @@ export async function updateSecondaryEmail(email2: string) {
     return {
       success: false,
       message: error.message || "Failed to update secondary email.",
+    };
+  }
+}
+
+export async function updateUserDepartment(departmentId: string) {
+  try {
+    await requireUser();
+
+    const session = await getAuthenticatedUser();
+    if (!session) throw Error("No session");
+    const userId = session.id;
+
+    if (!departmentId || !departmentId.trim()) {
+      return {
+        success: false,
+        message: "Please select a department.",
+      };
+    }
+
+    const user = await db.query.User.findFirst({
+      where: eq(User.id, userId),
+    });
+
+    if (!user) {
+      return {
+        success: false,
+        message: "User not found.",
+      };
+    }
+
+    // Department can only be self-assigned once
+    if (user.departmentId) {
+      return {
+        success: false,
+        message:
+          "Your department has already been assigned. Contact an administrator to change it.",
+      };
+    }
+
+    // Validate department
+    const department = await db.query.Department.findFirst({
+      where: eq(Department.id, departmentId),
+    });
+
+    if (!department) {
+      return {
+        success: false,
+        message: "Selected department does not exist.",
+      };
+    }
+
+    // Conditional update prevents concurrent self-assignment
+    const result = await db
+      .update(User)
+      .set({
+        departmentId,
+      })
+      .where(and(eq(User.id, userId), isNull(User.departmentId)))
+      .returning({ id: User.id });
+
+    if (result.length === 0) {
+      return {
+        success: false,
+        message:
+          "Your department has already been assigned. Contact an administrator to change it.",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Department assigned successfully!",
+    };
+  } catch (error: any) {
+    console.error("Error updating user department:", error);
+
+    return {
+      success: false,
+      message: error.message || "Failed to assign department.",
     };
   }
 }

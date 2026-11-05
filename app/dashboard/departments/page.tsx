@@ -47,11 +47,12 @@ export default function DepartmentsPage() {
   const [staffUsers, setStaffUsers] = useState<StaffUserOption[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // UI State
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [isStaffSelectionModalOpen, setIsStaffSelectionModalOpen] = useState(false);
+  const [isStaffSelectionModalOpen, setIsStaffSelectionModalOpen] =
+    useState(false);
 
   // Form states
   const [name, setName] = useState("");
@@ -115,7 +116,9 @@ export default function DepartmentsPage() {
       (s) => s.toLowerCase() === trimmed.toLowerCase(),
     );
     if (existsLocally) {
-      setErrorMsg(`Specialization '${trimmed}' is already in this department's list.`);
+      setErrorMsg(
+        `Specialization '${trimmed}' is already in this department's list.`,
+      );
       return;
     }
 
@@ -185,7 +188,7 @@ export default function DepartmentsPage() {
         setEditingId(null);
         resetFormFields();
         setIsFormVisible(false); // Hide form on success
-        
+
         // Refresh department list
         const refreshed = await getDepartments();
         if (refreshed.success && refreshed.departments) {
@@ -195,7 +198,9 @@ export default function DepartmentsPage() {
         setErrorMsg(response.message);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "An unexpected error occurred. Please try again.");
+      setErrorMsg(
+        err.message || "An unexpected error occurred. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -253,10 +258,11 @@ export default function DepartmentsPage() {
             Manage Departments
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Configure university departments, assign Heads of Departments (HOD), and allot specializations.
+            Configure university departments, assign Heads of Departments (HOD),
+            and allot specializations.
           </p>
         </div>
-        
+
         {/* Only show Add button if form is not visible */}
         {!isFormVisible && (
           <button
@@ -285,18 +291,21 @@ export default function DepartmentsPage() {
       )}
 
       {/* Grid Layout */}
-      <div className={`grid grid-cols-1 ${isFormVisible ? "lg:grid-cols-3" : "lg:grid-cols-1"} gap-6 transition-all duration-300`}>
-        
-        
+      <div
+        className={`grid grid-cols-1 ${isFormVisible ? "lg:grid-cols-3" : "lg:grid-cols-1"} gap-6 transition-all duration-300`}
+      >
         {/* Left Column: List Table (Takes full width if form is closed) */}
-        <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm overflow-hidden flex flex-col min-h-[450px] transition-all duration-300 ${isFormVisible ? "lg:col-span-2" : "col-span-1"}`}>
+        <div
+          className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-login-radius shadow-sm overflow-hidden flex flex-col min-h-[450px] transition-all duration-300 ${isFormVisible ? "lg:col-span-2" : "col-span-1"}`}
+        >
           <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
                 Department Listings
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Registered university departments, assigned HODs, and specializations
+                Registered university departments, assigned HODs, and
+                specializations
               </p>
             </div>
           </div>
@@ -315,7 +324,8 @@ export default function DepartmentsPage() {
                 No Departments Registered
               </h4>
               <p className="text-xs text-slate-400 max-w-xs mt-1">
-                Click "Add Department" to start organizing faculty members and specializations.
+                Click "Add Department" to start organizing faculty members and
+                specializations.
               </p>
             </div>
           ) : (
@@ -361,7 +371,8 @@ export default function DepartmentsPage() {
 
                       {/* Allotted Specializations */}
                       <td className="py-4 px-6">
-                        {dept.specializations && dept.specializations.length > 0 ? (
+                        {dept.specializations &&
+                        dept.specializations.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5 max-w-sm">
                             {dept.specializations.map((spec, sIdx) => (
                               <span
@@ -433,12 +444,15 @@ export default function DepartmentsPage() {
                 <span>{errorMsg}</span>
               </div>
             )}
-            
+
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Department Name */}
               <div>
-                <label htmlFor="deptName" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label
+                  htmlFor="deptName"
+                  className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5"
+                >
                   Department Name <span className="text-red-500">*</span>
                 </label>
                 <div className="relative group">
@@ -472,9 +486,12 @@ export default function DepartmentsPage() {
                   >
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-slate-400 group-hover:text-primary transition-colors" />
-                      <span className={hodId ? "font-medium" : "text-slate-455"}>
-                        {hodId 
-                          ? staffUsers.find(s => s.id === hodId)?.name || "Unknown Staff"
+                      <span
+                        className={hodId ? "font-medium" : "text-slate-455"}
+                      >
+                        {hodId
+                          ? staffUsers.find((s) => s.id === hodId)?.name ||
+                            "Unknown Staff"
                           : "-- Select HOD --"}
                       </span>
                     </div>
@@ -484,7 +501,8 @@ export default function DepartmentsPage() {
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Faculty assigned as HOD will manage grievance routing for this department.
+                  Faculty assigned as HOD will manage grievance routing for this
+                  department.
                 </p>
               </div>
 
@@ -574,7 +592,6 @@ export default function DepartmentsPage() {
             </form>
           </div>
         )}
-
       </div>
 
       <SelectStaffModal
@@ -582,8 +599,8 @@ export default function DepartmentsPage() {
         onClose={() => setIsStaffSelectionModalOpen(false)}
         staffOptions={staffUsers}
         onSelectStaff={(id) => setHodId(id)}
-        title="Assign Resolution Officer"
-        description="Search faculty and administrative staff directory to assign resolution handler"
+        title="Select Staff Member for HOD"
+        description="Search faculty members and assign one as the Head of Department (HOD) for this department. This faculty member will manage grievance routing for this department."
       />
     </div>
   );

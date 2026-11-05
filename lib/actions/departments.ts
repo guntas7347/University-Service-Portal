@@ -1,6 +1,6 @@
 "use server";
 
-import { db, Department, User, asc, eq, count } from "@/db/drizzel";
+import { db, Department, User, asc, eq, count, } from "@/db/drizzel";
 import { requireRights } from "./auth";
 
 /**
@@ -74,7 +74,7 @@ export async function createDepartment(data: {
     const allDepts = await db.query.Department.findMany();
 
     const existingName = allDepts.find(
-      (d) => d.name.trim().toLowerCase() === trimmedName.toLowerCase()
+      (d) => d.name.trim().toLowerCase() === trimmedName.toLowerCase(),
     );
     if (existingName) {
       return {
@@ -86,10 +86,8 @@ export async function createDepartment(data: {
     // Clean and deduplicate input specializations
     const specializations = Array.from(
       new Set(
-        (data.specializations || [])
-          .map((s) => s.trim())
-          .filter(Boolean)
-      )
+        (data.specializations || []).map((s) => s.trim()).filter(Boolean),
+      ),
     );
 
     // Check for duplicate specializations across any other department
@@ -98,7 +96,7 @@ export async function createDepartment(data: {
       for (const dept of allDepts) {
         if (
           dept.specializations?.some(
-            (s) => s.trim().toLowerCase() === specLower
+            (s) => s.trim().toLowerCase() === specLower,
           )
         ) {
           return {
@@ -152,6 +150,7 @@ export async function createDepartment(data: {
   }
 }
 
+
 /**
  * Update an existing department
  */
@@ -180,12 +179,15 @@ export async function updateDepartment(
 
     const trimmedName = data.name.trim();
 
-    // Fetch all existing departments for uniqueness validations
     const allDepts = await db.query.Department.findMany();
 
+    // Validate department name uniqueness
     const existingName = allDepts.find(
-      (d) => d.id !== id && d.name.trim().toLowerCase() === trimmedName.toLowerCase()
+      (d) =>
+        d.id !== id &&
+        d.name.trim().toLowerCase() === trimmedName.toLowerCase(),
     );
+
     if (existingName) {
       return {
         success: false,
@@ -193,23 +195,22 @@ export async function updateDepartment(
       };
     }
 
-    // Clean and deduplicate input specializations
+    // Clean and deduplicate specializations
     const specializations = Array.from(
       new Set(
-        (data.specializations || [])
-          .map((s) => s.trim())
-          .filter(Boolean)
-      )
+        (data.specializations || []).map((s) => s.trim()).filter(Boolean),
+      ),
     );
 
-    // Check for duplicate specializations across any other department
+    // Validate specialization uniqueness across departments
     for (const spec of specializations) {
       const specLower = spec.toLowerCase();
+
       for (const dept of allDepts) {
         if (
           dept.id !== id &&
           dept.specializations?.some(
-            (s) => s.trim().toLowerCase() === specLower
+            (s) => s.trim().toLowerCase() === specLower,
           )
         ) {
           return {
@@ -220,10 +221,14 @@ export async function updateDepartment(
       }
     }
 
-    // Check if selected HOD is already HOD of another department
     const hodId = data.hodId && data.hodId.trim() ? data.hodId.trim() : null;
+
+    // Validate HOD uniqueness
     if (hodId) {
-      const existingHod = allDepts.find((d) => d.id !== id && d.hodId === hodId);
+      const existingHod = allDepts.find(
+        (d) => d.id !== id && d.hodId === hodId,
+      );
+
       if (existingHod) {
         return {
           success: false,
@@ -232,26 +237,103 @@ export async function updateDepartment(
       }
     }
 
-    await db
-      .update(Department)
-      .set({
-        name: trimmedName,
-        hodId,
-        specializations,
-      })
-      .where(eq(Department.id, id));
+    // Find current department and previous HOD
+    const currentDept = allDepts.find((d) => d.id === id);
 
-    // If HOD was assigned, set user's department
-    if (hodId) {
-      await db
-        .update(User)
-        .set({ departmentId: id })
-        .where(eq(User.id, hodId));
+    if (!currentDept) {
+      return {
+        success: false,
+        message: "Department not found.",
+      };
     }
 
-    return { success: true, message: "Department updated successfully!" };
+    const previousHodId = currentDept.hodId;
+    let previousHodName = "";
+    let previousHodRights: string[] = [];
+
+    // Fetch previous HOD details so we know whose rights to revoke and what name to show
+    if (previousHodId && previousHodId !== hodId) {
+      const prevHodUser = await db.query.User.findFirst({
+        where: eq(User.id, previousHodId),
+      });
+      if (prevHodUser) {
+        previousHodName = prevHodUser.fullName || "Existing HOD";
+        previousHodRights = prevHodUser.rights || [];
+      }
+    }
+
+    // Fetch new HOD details so we can safely append rights to their existing ones
+    let newHodRights: string[] = [];
+    if (hodId && previousHodId !== hodId) {
+      const newHodUser = await db.query.User.findFirst({
+        where: eq(User.id, hodId),
+      });
+      if (newHodUser) {
+        newHodRights = newHodUser.rights || [];
+      }
+    }
+
+    await db.transaction(async (tx) => {
+      // Demote previous HOD if assignment is changing or removed
+      if (previousHodId && previousHodId !== hodId) {
+        // Strip out the HOD-specific rights securely
+        const demotedRights = previousHodRights.filter(
+          (r) => r !== "VIEW_DEPARTMENT_TICKETS" && r !== "MANAGE_DEPARTMENT_USERS"
+        );
+
+        await tx
+          .update(User)
+          .set({
+            role: "FACULTY",
+            rights: demotedRights, // Apply revoked rights
+          })
+          .where(eq(User.id, previousHodId));
+      }
+
+      // Update department
+      await tx
+        .update(Department)
+        .set({
+          name: trimmedName,
+          hodId,
+          specializations,
+        })
+        .where(eq(Department.id, id));
+
+      // Assign new HOD
+      if (hodId && previousHodId !== hodId) {
+        // Use a Set to safely append rights without creating duplicates
+        const promotedRights = Array.from(
+          new Set([...newHodRights, "VIEW_DEPARTMENT_TICKETS", "MANAGE_DEPARTMENT_USERS"])
+        );
+
+        await tx
+          .update(User)
+          .set({
+            departmentId: id,
+            role: "HOD",
+            rights: promotedRights, // Apply new granted rights
+          })
+          .where(eq(User.id, hodId));
+      }
+    });
+
+    // Construct the dynamic success message
+    let successMessage = "Department updated successfully!";
+    if (previousHodId && previousHodId !== hodId && previousHodName) {
+      successMessage += ` ${previousHodName} was demoted and their HOD rights were revoked.`;
+    }
+    if (hodId && previousHodId !== hodId) {
+      successMessage += ` New HOD assigned with department management rights.`;
+    }
+
+    return {
+      success: true,
+      message: successMessage,
+    };
   } catch (error: any) {
     console.error("Error updating department:", error);
+
     return {
       success: false,
       message: error.message || "Failed to update department.",

@@ -4,7 +4,9 @@ import { db, User, Department, eq, ne, and, desc, Gender } from "@/db/drizzel";
 import { requireRights, getAuthenticatedUser } from "./auth";
 
 /**
- * Fetch all staff (non-student) user records
+ * Fetch staff (non-student) user records based on rights
+ * - ADMIN: Fetches everyone
+ * - MANAGE_DEPARTMENT_USERS: Fetches only users in their own department
  */
 export async function getStaffUsers() {
   try {
@@ -13,11 +15,33 @@ export async function getStaffUsers() {
       return { success: false, message: "Not authenticated." };
     }
 
+    const callerRights = activeUser.rights || [];
+    const isAdmin = callerRights.includes("ADMIN");
+    const isDeptManager = callerRights.includes("MANAGE_DEPARTMENT_USERS");
+
+    if (!isAdmin && !isDeptManager) {
+      return { success: false, message: "Access Denied: Insufficient permissions." };
+    }
+
+    // Build the query filter based on the user's role
+    let whereClause;
+    if (isAdmin) {
+      whereClause = ne(User.role, "STUDENT");
+    } else {
+      // Dept Manager sees only their department
+      if (!activeUser.departmentId) {
+        // If the manager has no department assigned, they shouldn't see anyone
+        return { success: true, staff: [], userRights: callerRights, userDeptId: "" };
+      }
+      whereClause = and(
+        ne(User.role, "STUDENT"),
+        eq(User.departmentId, activeUser.departmentId)
+      );
+    }
+
     const staff = await db.query.User.findMany({
-      where: ne(User.role, "STUDENT"),
-      with: {
-        department: true,
-      },
+      where: whereClause,
+      with: { department: true },
       orderBy: [desc(User.createdAt)],
     });
 
@@ -36,7 +60,7 @@ export async function getStaffUsers() {
         departmentId: u.departmentId || "",
         departmentName: u.department?.name || "",
       })),
-      userRights: activeUser.rights || [],
+      userRights: callerRights,
       userDeptId: activeUser.departmentId || "",
     };
   } catch (error: any) {
@@ -50,6 +74,8 @@ export async function getStaffUsers() {
 
 /**
  * Update an existing staff account
+ * - ADMIN: Can update everything, with strict HOD validation rules.
+ * - MANAGE_DEPARTMENT_USERS: Can only update name, email, and mobile of users in their own dept.
  */
 export async function updateStaffUser(
   id: string,
@@ -62,55 +88,83 @@ export async function updateStaffUser(
     mobile?: string;
     gender?: string;
     rights: string[];
-  },
+  }
 ) {
   try {
-    if (!id) {
-      return { success: false, message: "User ID is required." };
-    }
+    if (!id) return { success: false, message: "User ID is required." };
     if (!data.name.trim() || !data.email.trim()) {
       return { success: false, message: "Name and Email are required." };
     }
 
-    const activeUser = await requireRights([
-      "MANAGE_USERS",
-      "MANAGE_DEPARTMENT",
-    ]);
-
+    const activeUser = await requireRights(["ADMIN", "MANAGE_DEPARTMENT_USERS"]);
     const callerRights = activeUser.rights || [];
-    const isAdmin =
-      callerRights.includes("ADMIN") || callerRights.includes("MANAGE_USERS");
-    const isDeptManager = callerRights.includes("MANAGE_DEPARTMENT");
+    const isAdmin = callerRights.includes("ADMIN");
+    const isDeptManager = callerRights.includes("MANAGE_DEPARTMENT_USERS");
 
-    // Check email uniqueness constraint (excluding active edit user)
-    const existingUser = await db.query.User.findFirst({
+    // Fetch the target user to check old state
+    const oldUser = await db.query.User.findFirst({
+      where: eq(User.id, id),
+    });
+    if (!oldUser) {
+      return { success: false, message: "User not found." };
+    }
+
+    // Check email uniqueness constraint (excluding this user)
+    const emailCheck = await db.query.User.findFirst({
       where: eq(User.email, data.email.trim()),
     });
-    if (existingUser && existingUser.id !== id) {
-      return {
-        success: false,
-        message: "A user with this email address already exists.",
+    if (emailCheck && emailCheck.id !== id) {
+      return { success: false, message: "A user with this email address already exists." };
+    }
+
+    // ==========================================
+    // DEPT MANAGER LOGIC (Limited Updates)
+    // ==========================================
+    if (!isAdmin && isDeptManager) {
+      if (oldUser.departmentId !== activeUser.departmentId) {
+        return { success: false, message: "Access Denied: User is not in your department." };
+      }
+
+      await db.update(User)
+        .set({
+          fullName: data.name.trim(),
+          email: data.email.trim(),
+          mobile: data.mobile?.trim() || null,
+        })
+        .where(eq(User.id, id));
+
+      return { success: true, message: "Staff contact details updated successfully!" };
+    }
+
+    // ==========================================
+    // ADMIN LOGIC (Full Updates & HOD Constraints)
+    // ==========================================
+    const roleStr = data.role ? data.role.trim().toUpperCase() : oldUser.role;
+    const targetDeptId = data.departmentId || null;
+
+    // Constraint 1: HOD department cannot be changed directly
+    if (oldUser.role === "HOD" && targetDeptId && targetDeptId !== oldUser.departmentId) {
+      return { 
+        success: false, 
+        message: "HOD department can not be changed directly, first remove as hod, then change department." 
       };
     }
 
-    // Department manager safety check
-    if (isDeptManager && !isAdmin) {
-      if (
-        existingUser &&
-        existingUser.departmentId !== activeUser.departmentId
-      ) {
-        return {
-          success: false,
-          message:
-            "Access Denied. You can only manage staff within your department.",
+    // Constraint 2: Only one HOD per department
+    if (roleStr === "HOD" && targetDeptId) {
+      const targetDept = await db.query.Department.findFirst({
+        where: eq(Department.id, targetDeptId),
+      });
+      if (targetDept && targetDept.hodId && targetDept.hodId !== id) {
+        return { 
+          success: false, 
+          message: "Conflict: This department already has an HOD. Only one HOD is allowed per department. Remove HOD first." 
         };
       }
     }
 
-    const roleStr = data.role ? data.role.trim().toUpperCase() : "FACULTY";
-
     // Gender mapping
-    let genderEnum: Gender | null = null;
+    let genderEnum: Gender | null = oldUser.gender as Gender | null;
     if (data.gender) {
       const g = data.gender.toUpperCase();
       if (g === "MALE") genderEnum = Gender.MALE;
@@ -118,115 +172,68 @@ export async function updateStaffUser(
       else if (g === "OTHER") genderEnum = Gender.OTHER;
     }
 
-    // Rights assignment: non-admins cannot assign rights they don't hold or cannot assign ADMIN
-    let assignedRights = data.rights || [];
-    if (!isAdmin) {
-      assignedRights = assignedRights.filter(
-        (r) => r !== "ADMIN" && r !== "MANAGE_USERS",
-      );
-    }
-
-    const updatedUser = await db.transaction(async (tx) => {
-      // Get previous user state
-      const oldUser = await tx.query.User.findFirst({
-        where: eq(User.id, id),
-        columns: {
-          role: true,
-          departmentId: true,
-          rights: true,
-        },
-      });
-
-      // Update user
-      const [user] = await tx
-        .update(User)
+    // Apply Admin transaction
+    await db.transaction(async (tx) => {
+      // Update User
+      await tx.update(User)
         .set({
           fullName: data.name.trim(),
           email: data.email.trim(),
           role: roleStr,
           designation: data.designation?.trim() || null,
-          departmentId: data.departmentId || null,
+          departmentId: targetDeptId,
           mobile: data.mobile?.trim() || null,
           gender: genderEnum,
-          rights: isAdmin ? assignedRights : oldUser?.rights || [],
+          rights: data.rights || [],
         })
-        .where(eq(User.id, id))
-        .returning();
+        .where(eq(User.id, id));
 
-      // Sync department HOD link if HOD role or MANAGE_DEPARTMENT right is set
-      const isHodDesignation =
-        roleStr === "HOD" || assignedRights.includes("MANAGE_DEPARTMENT");
-      if (isHodDesignation && data.departmentId) {
-        // Set this user as HOD of the target department
-        await tx
-          .update(Department)
+      const isNowHod = roleStr === "HOD";
+      const wasHod = oldUser.role === "HOD";
+
+      // Sync HOD link in Department table
+      if (isNowHod && targetDeptId) {
+        await tx.update(Department)
           .set({ hodId: id })
-          .where(eq(Department.id, data.departmentId));
-      } else if (
-        oldUser?.departmentId &&
-        (!data.departmentId || !isHodDesignation)
-      ) {
-        // Clear HOD link from previous department if no longer HOD
-        await tx
-          .update(Department)
+          .where(eq(Department.id, targetDeptId));
+      } else if (wasHod && !isNowHod && oldUser.departmentId) {
+        await tx.update(Department)
           .set({ hodId: null })
-          .where(
-            and(
-              eq(Department.id, oldUser.departmentId),
-              eq(Department.hodId, id),
-            ),
-          );
+          .where(eq(Department.id, oldUser.departmentId));
       }
-
-      return user;
     });
 
-    console.log("Successfully updated staff account:", updatedUser);
-    return {
-      success: true,
-      message: "Staff user account updated successfully!",
-    };
+    return { success: true, message: "Staff user account updated successfully!" };
+
   } catch (error: any) {
     console.error("Error updating staff user:", error);
-    return {
-      success: false,
-      message: error.message || "Failed to update staff user account.",
-    };
+    return { success: false, message: error.message || "Failed to update staff user account." };
   }
 }
 
 /**
  * Delete a staff account
+ * - ONLY allowed by ADMIN
  */
 export async function deleteStaffUser(id: string) {
   try {
-    if (!id) {
-      return { success: false, message: "User ID is required." };
-    }
+    if (!id) return { success: false, message: "User ID is required." };
 
-    const activeUser = await requireRights(["MANAGE_USERS"]);
+    const activeUser = await requireRights(["ADMIN"]);
 
     // Safety check: Prevent deletion of self
     if (activeUser.id === id) {
       return {
         success: false,
-        message:
-          "Security boundary: You cannot delete your own active account.",
+        message: "Security boundary: You cannot delete your own active account.",
       };
     }
 
     await db.delete(User).where(eq(User.id, id));
 
-    console.log(`Successfully deleted staff account with ID: ${id}`);
-    return {
-      success: true,
-      message: "Staff user account deleted successfully!",
-    };
+    return { success: true, message: "Staff user account deleted successfully!" };
   } catch (error: any) {
     console.error("Error deleting staff account:", error);
-    return {
-      success: false,
-      message: error.message || "Failed to delete user account.",
-    };
+    return { success: false, message: error.message || "Failed to delete user account." };
   }
 }
