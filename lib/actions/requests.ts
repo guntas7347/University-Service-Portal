@@ -486,7 +486,7 @@ export async function getAllRequests() {
       });
 
     } else {
-      // 3. EVERYONE ELSE (Students, Standard Faculty, Standard Staff):
+      // 3. EVERYONE ELSE (Students, Standard Employee, Standard Staff):
       // - Strictly limited to tickets they are personally involved in
       
       const assignedCondition = exists(
@@ -659,7 +659,7 @@ export async function getRequestDetails(requestId: string) {
     // Pure watcher: involved, but not an admin, dept manager, assigned handler, or creator
     const isPureWatcher = isWatcher && !isAdmin && !isTargetDept && !isCreatorInMyDept && !isAssigned && !isCreator;
 
-    // Internal comments visibility: Staff/Faculty can view internal notes if they are involved or manage the dept. Students cannot.
+    // Internal comments visibility: Staff/Employee can view internal notes if they are involved or manage the dept. Students cannot.
     const canViewInternalComments = 
       isAdmin || 
       isTargetDept || 

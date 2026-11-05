@@ -501,8 +501,8 @@ export default function DepartmentsPage() {
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Faculty assigned as HOD will manage grievance routing for this
-                  department.
+                  Employee assigned as HOD will manage grievance routing for
+                  this department.
                 </p>
               </div>
 

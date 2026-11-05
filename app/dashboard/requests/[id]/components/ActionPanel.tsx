@@ -105,8 +105,12 @@ export function ActionPanel({
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
 
-  const selectedAssignOfficer = staffOptions.find((s) => s.id === assignedStaffId);
-  const selectedForwardOfficer = staffOptions.find((s) => s.id === forwardStaffId);
+  const selectedAssignOfficer = staffOptions.find(
+    (s) => s.id === assignedStaffId,
+  );
+  const selectedForwardOfficer = staffOptions.find(
+    (s) => s.id === forwardStaffId,
+  );
 
   // Feedback alerts
   const renderAlerts = () => (
@@ -285,7 +289,8 @@ export function ActionPanel({
                 Read-Only Timeline Access
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                You are an observer on this grievance. Adding comments, uploading attachments, and changing ticket status are disabled.
+                You are an observer on this grievance. Adding comments,
+                uploading attachments, and changing ticket status are disabled.
               </p>
             </div>
           </div>
@@ -328,7 +333,8 @@ export function ActionPanel({
                 Write a Response Note
               </label>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Provide clarifications, ask questions, or respond to university staff.
+                Provide clarifications, ask questions, or respond to university
+                staff.
               </p>
             </div>
 
@@ -377,7 +383,19 @@ export function ActionPanel({
           Officer Resolution & Action Hub
         </h3>
         <span className="text-[11px] text-slate-400 font-medium">
-          Quick keys: <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono">Alt+U</kbd> Review • <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono">Alt+P</kbd> Progress • <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono">Alt+R</kbd> Resolve
+          Quick keys:{" "}
+          <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono">
+            Alt+U
+          </kbd>{" "}
+          Review •{" "}
+          <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono">
+            Alt+P
+          </kbd>{" "}
+          Progress •{" "}
+          <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 font-mono">
+            Alt+R
+          </kbd>{" "}
+          Resolve
         </span>
       </div>
 
@@ -398,7 +416,9 @@ export function ActionPanel({
           >
             <Clock className="h-3.5 w-3.5 text-blue-500" />
             <span>Mark Under Review</span>
-            <kbd className="text-[9px] px-1 py-0.2 bg-white/70 dark:bg-slate-900/80 rounded border font-mono ml-1">Alt+U</kbd>
+            <kbd className="text-[9px] px-1 py-0.2 bg-white/70 dark:bg-slate-900/80 rounded border font-mono ml-1">
+              Alt+U
+            </kbd>
           </button>
 
           <button
@@ -410,7 +430,9 @@ export function ActionPanel({
           >
             <Zap className="h-3.5 w-3.5 text-indigo-500" />
             <span>Mark In Progress</span>
-            <kbd className="text-[9px] px-1 py-0.2 bg-white/70 dark:bg-slate-900/80 rounded border font-mono ml-1">Alt+P</kbd>
+            <kbd className="text-[9px] px-1 py-0.2 bg-white/70 dark:bg-slate-900/80 rounded border font-mono ml-1">
+              Alt+P
+            </kbd>
           </button>
 
           <button
@@ -422,7 +444,9 @@ export function ActionPanel({
           >
             <Clock className="h-3.5 w-3.5 text-amber-500" />
             <span>Wait for Student</span>
-            <kbd className="text-[9px] px-1 py-0.2 bg-white/70 dark:bg-slate-900/80 rounded border font-mono ml-1">Alt+W</kbd>
+            <kbd className="text-[9px] px-1 py-0.2 bg-white/70 dark:bg-slate-900/80 rounded border font-mono ml-1">
+              Alt+W
+            </kbd>
           </button>
 
           <button
@@ -434,7 +458,9 @@ export function ActionPanel({
           >
             <Check className="h-3.5 w-3.5 text-emerald-600" />
             <span>Mark Resolved</span>
-            <kbd className="text-[9px] px-1 py-0.2 bg-white/70 dark:bg-slate-900/80 rounded border font-mono ml-1">Alt+R</kbd>
+            <kbd className="text-[9px] px-1 py-0.2 bg-white/70 dark:bg-slate-900/80 rounded border font-mono ml-1">
+              Alt+R
+            </kbd>
           </button>
         </div>
       </div>
@@ -442,7 +468,10 @@ export function ActionPanel({
       {/* Primary Staff Controls: Status Transition & Assignment/Forwarding */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
         {/* 1. Status Dropdown Form */}
-        <form onSubmit={onStatusSubmit} className="space-y-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
+        <form
+          onSubmit={onStatusSubmit}
+          className="space-y-2 bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800 rounded-xl p-3"
+        >
           <label
             htmlFor="updateStatusSelect"
             className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
@@ -503,7 +532,9 @@ export function ActionPanel({
               <div className="p-2.5 bg-white dark:bg-slate-900 border border-primary/30 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0">
-                    {(selectedAssignOfficer.name || "U").slice(0, 2).toUpperCase()}
+                    {(selectedAssignOfficer.name || "U")
+                      .slice(0, 2)
+                      .toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -515,7 +546,8 @@ export function ActionPanel({
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      {selectedAssignOfficer.departmentName || selectedAssignOfficer.email}
+                      {selectedAssignOfficer.departmentName ||
+                        selectedAssignOfficer.email}
                     </p>
                   </div>
                 </div>
@@ -539,7 +571,7 @@ export function ActionPanel({
                   <div className="p-1 rounded-md bg-slate-100 dark:bg-slate-800 group-hover:bg-primary/10 group-hover:text-primary transition-colors text-slate-500">
                     <Search className="h-3.5 w-3.5" />
                   </div>
-                  <span>Browse Faculty & Staff Directory...</span>
+                  <span>Browse Employee & Staff Directory...</span>
                 </div>
                 <span className="text-[10px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 group-hover:bg-primary group-hover:text-white transition-all">
                   {staffOptions.length} Officers
@@ -588,7 +620,9 @@ export function ActionPanel({
                 <div className="p-2.5 bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center shrink-0">
-                      {(selectedForwardOfficer.name || "U").slice(0, 2).toUpperCase()}
+                      {(selectedForwardOfficer.name || "U")
+                        .slice(0, 2)
+                        .toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -600,7 +634,8 @@ export function ActionPanel({
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        {selectedForwardOfficer.departmentName || selectedForwardOfficer.email}
+                        {selectedForwardOfficer.departmentName ||
+                          selectedForwardOfficer.email}
                       </p>
                     </div>
                   </div>

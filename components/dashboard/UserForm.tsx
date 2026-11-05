@@ -100,11 +100,11 @@ export default function UserForm({
                 name="role"
                 required
                 disabled={isSubmitting}
-                value={form?.role || "FACULTY"}
+                value={form?.role || "EMPLOYEE"}
                 onChange={handleRoleChange}
                 className="w-full h-10 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
               >
-                <option value="FACULTY">Faculty / Staff</option>
+                <option value="EMPLOYEE">Employee / Staff</option>
                 <option value="HOD">Head of Department (HOD)</option>
                 <option value="ADMIN">Administrator</option>
               </select>

@@ -1,7 +1,16 @@
 "use client";
 
 import React from "react";
-import { Search, Filter, Edit2, Trash2, Loader2, Building2 } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Edit2,
+  Trash2,
+  Loader2,
+  Building2,
+  Hammer,
+  ShieldCheck,
+} from "lucide-react";
 
 interface UserTableProps {
   filteredStaff: any[];
@@ -28,7 +37,6 @@ export default function UserTable({
 }: UserTableProps) {
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col h-full">
-      
       {/* Top Bar: Search & Filter */}
       <div className="p-4 md:p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-3 items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
         <div className="relative w-full sm:max-w-xs">
@@ -51,7 +59,7 @@ export default function UserTable({
             <option value="ALL">All Roles</option>
             <option value="ADMIN">Admin</option>
             <option value="HOD">HOD</option>
-            <option value="FACULTY">Faculty</option>
+            <option value="EMPLOYEE">Employee</option>
           </select>
         </div>
       </div>
@@ -64,6 +72,7 @@ export default function UserTable({
               <th className="px-6 py-4">User Details</th>
               <th className="px-6 py-4">Role</th>
               <th className="px-6 py-4">Department</th>
+              <th className="px-6 py-4">Rights</th>
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
@@ -77,24 +86,74 @@ export default function UserTable({
               </tr>
             ) : filteredStaff.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                <td
+                  colSpan={4}
+                  className="px-6 py-12 text-center text-slate-500"
+                >
                   No staff members found matching your search.
                 </td>
               </tr>
             ) : (
               filteredStaff.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                <tr
+                  key={u.id}
+                  className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                >
                   <td className="px-6 py-4">
-                    <div className="font-semibold text-slate-900 dark:text-slate-100">{u.name}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{u.email}</div>
+                    <div className="font-semibold text-slate-900 dark:text-slate-100">
+                      {u.name}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {u.email}
+                    </div>
                   </td>
-                  <td className="px-6 py-4">
-                    {getRoleBadge(u.role)}
-                  </td>
+                  <td className="px-6 py-4">{getRoleBadge(u.role)}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-xs">
                       <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                      {u.departmentName || <span className="text-slate-400 italic">Unassigned</span>}
+                      {u.departmentName || (
+                        <span className="text-slate-400 italic">
+                          Unassigned
+                        </span>
+                      )}
+                    </div>
+                  </td>{" "}
+                  <td className="px-6 py-4">
+                    <div
+                      className="flex items-center gap-1.5 max-w-[220px]"
+                      title={
+                        Array.isArray(u.rights) && u.rights.length > 0
+                          ? u.rights.join(", ")
+                          : "Unassigned"
+                      }
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+                      {u.rights?.length > 0 ? (
+                        <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+                          {u.rights.slice(0, 2).map((right: string) => (
+                            <span
+                              key={right}
+                              className="px-2 py-0.5 rounded-md text-[10px] font-semibold
+              bg-indigo-50 text-indigo-700 border border-indigo-100
+              dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/20
+              truncate"
+                            >
+                              {right}
+                            </span>
+                          ))}
+
+                          {u.rights.length > 2 && (
+                            <span className="shrink-0 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                              +{u.rights.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-xs">
+                          NONE
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">

@@ -127,25 +127,29 @@ export default function ConfigurationPage() {
               >
                 Escalation Threshold (Days)
               </label>
-              
+
               <div className="flex gap-3 items-start">
                 <div className="relative group flex-1 max-w-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Clock className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                   </div>
+
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     id="escalationDays"
-                    min="0"
                     required
                     disabled={isSubmitting}
                     value={escalationDays}
-                    onChange={(e) => setEscalationDays(e.target.value)}
+                    onChange={(e) =>
+                      setEscalationDays(e.target.value.replace(/\D/g, ""))
+                    }
                     placeholder="e.g. 2"
                     className="w-full h-11 pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-slate-955/50 border border-slate-200 dark:border-slate-800 rounded-login-radius text-slate-850 dark:text-slate-200 placeholder-slate-400 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50"
                   />
                 </div>
-                
+
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -164,9 +168,10 @@ export default function ConfigurationPage() {
                   )}
                 </button>
               </div>
-              
+
               <p className="text-xs text-slate-500 dark:text-slate-450 mt-2 max-w-sm leading-relaxed">
-                The number of days a request must remain unresolved before a student is granted the option to escalate it.
+                The number of days a request must remain unresolved before a
+                student is granted the option to escalate it.
               </p>
             </form>
           )}

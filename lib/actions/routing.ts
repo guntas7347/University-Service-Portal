@@ -46,10 +46,7 @@ export async function getRoutingRules() {
     };
   } catch (error: any) {
     console.error("Error fetching routing rules:", error);
-    return {
-      success: false,
-      message: error.message || "Failed to load routing rules.",
-    };
+    return { success: false, message: error.message || "Failed to load routing rules." };
   }
 }
 
@@ -63,7 +60,8 @@ export async function createRoutingRule(data: {
   isCentral?: boolean;
 }) {
   try {
-    await requireRights(["MANAGE_ROUTING"]);
+    // Only administrators can configure the routing engine
+    await requireRights(["ADMIN"]);
 
     const isCentral = !!data.isCentral;
     const level = data.level && Number(data.level) > 0 ? Number(data.level) : 1;
@@ -83,6 +81,7 @@ export async function createRoutingRule(data: {
       eq(RoutingRule.level, level),
       eq(RoutingRule.userId, data.userId),
     ];
+    
     if (categoryId) {
       conditions.push(eq(RoutingRule.categoryId, categoryId));
     } else {
@@ -116,10 +115,7 @@ export async function createRoutingRule(data: {
     };
   } catch (error: any) {
     console.error("Error creating routing rule:", error);
-    return {
-      success: false,
-      message: error.message || "Failed to create routing rule.",
-    };
+    return { success: false, message: error.message || "Failed to create routing rule." };
   }
 }
 
@@ -128,11 +124,10 @@ export async function createRoutingRule(data: {
  */
 export async function toggleRoutingRule(id: string, isActive: boolean) {
   try {
-    if (!id) {
-      return { success: false, message: "Rule ID is required." };
-    }
+    if (!id) return { success: false, message: "Rule ID is required." };
 
-    await requireRights(["MANAGE_ROUTING"]);
+    // Only administrators can alter the routing engine
+    await requireRights(["ADMIN"]);
 
     await db.update(RoutingRule).set({ isActive }).where(eq(RoutingRule.id, id));
 
@@ -142,10 +137,7 @@ export async function toggleRoutingRule(id: string, isActive: boolean) {
     };
   } catch (error: any) {
     console.error("Error toggling routing rule:", error);
-    return {
-      success: false,
-      message: error.message || "Failed to update routing rule.",
-    };
+    return { success: false, message: error.message || "Failed to update routing rule." };
   }
 }
 
@@ -154,20 +146,16 @@ export async function toggleRoutingRule(id: string, isActive: boolean) {
  */
 export async function deleteRoutingRule(id: string) {
   try {
-    if (!id) {
-      return { success: false, message: "Rule ID is required." };
-    }
+    if (!id) return { success: false, message: "Rule ID is required." };
 
-    await requireRights(["MANAGE_ROUTING"]);
+    // Only administrators can alter the routing engine
+    await requireRights(["ADMIN"]);
 
     await db.delete(RoutingRule).where(eq(RoutingRule.id, id));
 
     return { success: true, message: "Routing rule deleted successfully!" };
   } catch (error: any) {
     console.error("Error deleting routing rule:", error);
-    return {
-      success: false,
-      message: error.message || "Failed to delete routing rule.",
-    };
+    return { success: false, message: error.message || "Failed to delete routing rule." };
   }
 }

@@ -284,7 +284,7 @@ export async function updateDepartment(
         await tx
           .update(User)
           .set({
-            role: "FACULTY",
+            role: "EMPLOYEE",
             rights: demotedRights, // Apply revoked rights
           })
           .where(eq(User.id, previousHodId));

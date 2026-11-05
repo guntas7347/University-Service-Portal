@@ -430,7 +430,7 @@ export default function CreateRequestPage() {
                               {selectedFaculty.name}
                             </span>
                             <span className="text-xs text-slate-500">
-                              ({selectedFaculty.designation || "Faculty"})
+                              ({selectedFaculty.designation || "Employee"})
                             </span>
                           </div>
                         ) : (
@@ -583,7 +583,7 @@ export default function CreateRequestPage() {
             setFields({ assignedUserId: id });
             setIsStaffModalOpen(false);
           }}
-          title="Assign Request to Faculty"
+          title="Assign Request to Employee"
           description="Select a specific faculty member from this department to handle this request directly. If you skip this, it will automatically route to the Head of Department."
         />
       )}

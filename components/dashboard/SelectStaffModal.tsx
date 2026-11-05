@@ -22,7 +22,7 @@ export interface StaffOption {
   departmentId?: string;
   departmentName?: string;
   mobile?: string;
-  photo?:string
+  photo?: string;
 }
 
 interface SelectStaffModalProps {
@@ -50,7 +50,7 @@ export function SelectStaffModal({
 }: SelectStaffModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("ALL");
-  const [tempSelectedId, setTempSelectedId] = useState( selectedStaffId ?? "");
+  const [tempSelectedId, setTempSelectedId] = useState(selectedStaffId ?? "");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Sync internal state when modal opens
@@ -280,7 +280,7 @@ export function SelectStaffModal({
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-150 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/20 text-slate-500 uppercase text-[10px] tracking-wider font-bold">
-                    <th className="py-2.5 px-3">Faculty / Officer</th>
+                    <th className="py-2.5 px-3">Employee / Officer</th>
                     <th className="py-2.5 px-3">Department</th>
                     <th className="py-2.5 px-3">Designation / Role</th>
                     <th className="py-2.5 px-3 text-right">Action</th>
